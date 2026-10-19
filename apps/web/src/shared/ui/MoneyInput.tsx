@@ -19,6 +19,12 @@ export interface MoneyInputProps {
   autoFocus?: boolean;
   className?: string;
   ref?: Ref<HTMLInputElement>;
+  /**
+   * Cómo se lee el texto al salir del campo (por defecto `parsearImporte`, que como el atajo
+   * convierte '-24' en 24). Si devuelve null, el texto se deja tal cual para que la validación lo
+   * marque. Para saldos usa un lector estricto que rechace el signo (un descubierto no es un saldo a favor).
+   */
+  normalizar?: (texto: string) => string | null;
 }
 
 /** Separador decimal del idioma (',' en es/ca, '.' en en). */
@@ -41,11 +47,11 @@ export function importeParaEditar(importe: string, locale: string): string {
  *   <Controller name="importe" control={control} render={({ field, fieldState }) => (
  *     <MoneyInput label={t('importe')} {...field} error={fieldState.error?.message} />)} />
  */
-export function MoneyInput({ value, onChange, onBlur, ref, ...resto }: MoneyInputProps) {
+export function MoneyInput({ value, onChange, onBlur, ref, normalizar = parsearImporte, ...resto }: MoneyInputProps) {
   const { locale } = useIdioma();
 
   const alSalir = (_evento: FocusEvent<HTMLInputElement>) => {
-    const normalizado = parsearImporte(value);
+    const normalizado = normalizar(value);
     if (normalizado !== null) {
       const texto = importeParaEditar(normalizado, locale);
       if (texto !== value) onChange(texto);

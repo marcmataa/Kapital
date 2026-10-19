@@ -101,7 +101,7 @@ describe('router y guards', () => {
   it('rutas de las features: detalle de análisis y de movimiento', async () => {
     perfil.actual = perfilCon(true);
     montar('/analisis/2026-09', sesionFalsa());
-    expect(await screen.findByRole('heading', { name: 'Análisis de 2026-09' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Análisis de septiembre de 2026' })).toBeInTheDocument();
   });
 
   it('ruta desconocida → 404', async () => {

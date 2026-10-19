@@ -56,6 +56,19 @@ describe('MoneyInput', () => {
     expect(input).toHaveValue('24,00');
   });
 
+  it('con un lector estricto (saldos), "-24" no se convierte en 24: se deja para que la validación lo rechace', async () => {
+    function Saldo() {
+      const [valor, setValor] = useState('');
+      const estricto = (texto: string) => (texto.includes('-') ? null : importePositivo(texto));
+      return <MoneyInput label="Saldo" value={valor} onChange={setValor} normalizar={estricto} />;
+    }
+    renderConApp(<Saldo />);
+    const input = screen.getByLabelText('Saldo');
+    await userEvent.type(input, '-24');
+    await userEvent.tab();
+    expect(input).toHaveValue('-24');
+  });
+
   it('no toca un texto inválido (lo marca la validación)', async () => {
     const onCambio = vi.fn();
     renderConApp(<Controlado onCambio={onCambio} />);
