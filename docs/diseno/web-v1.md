@@ -86,6 +86,10 @@ Análisis mensual:
 - Features: `auth`, `onboarding`, `inicio`, `movimientos`, `estadisticas`, `analisis`, `configuracion`.
 - Datos: RTK Query con `fakeBaseQuery` + supabase-js; cada feature inyecta sus endpoints (`api.injectEndpoints`).
 - i18n propio (es/en/ca, respaldo es); cada feature tiene sus textos en `features/<feature>/i18n/{es,en,ca}.ts`.
+- Datos compartidos (cuentas con su valor de hoy, categorías, objetivos): `src/shared/api/catalogos.ts`. Los importes se piden con `::text` (PostgREST devuelve `numeric` como número JSON).
+- Inicio: bajo el donut, 2 destacados del último análisis listo + enlace al análisis completo. Objetivos se añaden desde la propia tarjeta.
+- Gráfico de capital: eje X cada 5 días, eje Y con escalones iguales ajustados a los datos (no desde 0), recorrido día a día con ratón/dedo/teclado, «19 oct (hoy)» en vez de «hoy».
+- Logo: `public/brand/kapital-marca*.png` (transparente, sirve en los dos temas).
 - Dinero: strings de la base; formato con `Intl.NumberFormat` sobre el string; entrada del usuario con parser propio; nunca `parseFloat`/`Number()` sobre importes.
 - Guards: público, autenticado y onboarding (si `onboarding_completado = false` → `/bienvenida`).
 - Navegación: sidebar en escritorio (Inicio, Movimientos, Estadísticas, Análisis, Configuración); bottom nav en móvil (Inicio, Movimientos, +, Estadísticas, Más).

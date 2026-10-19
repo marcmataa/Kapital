@@ -48,6 +48,7 @@ App de un solo usuario, pero todo lleva `user_id`. Además, las claves foráneas
 - **Tipo en la base: `numeric(12,2)`.** Es exacto: 0,10 + 0,20 = 0,30. Nunca `float`, `real` ni `double`.
 - **En TypeScript los importes llegan como string y nunca se opera con `parseFloat`.**
   - Las sumas y los cálculos se hacen en SQL.
+  - PostgREST devuelve `numeric` como número JSON: en supabase-js los importes se piden con cast (`select('importe::text')`) y se escriben con `aNumeric` (`apps/web/src/shared/api/catalogos.ts`).
   - Si hay que operar en el cliente, se convierten a céntimos enteros con un parser propio.
 - **Los importes son siempre positivos y el tipo de movimiento decide el signo.** La base rechaza importes negativos o cero.
 - Moneda: solo EUR.
