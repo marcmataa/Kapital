@@ -123,6 +123,25 @@ export function formatearPorcentaje(
   }).format(v as Intl.StringNumericLiteral);
 }
 
+/**
+ * Variación (%) = (Actual − Anterior) / |Anterior| × 100 (reglas, sección 8), con 4 decimales
+ * exactos (mitades alejándose de cero) para pasarla a `formatearPorcentaje`.
+ * null = «Sin datos del mes anterior»: falta un periodo o el anterior vale 0.
+ */
+export function variacionPorcentual(actual: string | null, anterior: string | null): string | null {
+  if (actual === null || anterior === null) return null;
+  const base = aCentimos(anterior);
+  if (base === 0n) return null;
+  const divisor = base < 0n ? -base : base;
+  const numerador = (aCentimos(actual) - base) * 1_000_000n;
+  let cociente = numerador / divisor;
+  const resto = numerador % divisor;
+  if (2n * (resto < 0n ? -resto : resto) >= divisor) cociente += numerador < 0n ? -1n : 1n;
+  const negativo = cociente < 0n;
+  const abs = negativo ? -cociente : cociente;
+  return `${negativo ? '-' : ''}${(abs / 10_000n).toString()}.${(abs % 10_000n).toString().padStart(4, '0')}`;
+}
+
 /** Compara dos importes string sin float: -1, 0, 1. */
 export function compararImportes(a: string, b: string): -1 | 0 | 1 {
   const ca = aCentimos(a);

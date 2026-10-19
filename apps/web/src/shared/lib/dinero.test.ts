@@ -7,6 +7,7 @@ import {
   formatearPorcentaje,
   importePositivo,
   parsearImporte,
+  variacionPorcentual,
 } from './dinero';
 
 // Intl usa espacios duros (U+00A0 / U+202F); se normalizan para comparar.
@@ -130,5 +131,28 @@ describe('formatearPorcentaje', () => {
     expect(n(formatearPorcentaje('-7.34', 'es-ES'))).toBe('-7,3 %');
     expect(n(formatearPorcentaje('12.4', 'es-ES', { signo: 'siempre' }))).toBe('+12,4 %');
     expect(n(formatearPorcentaje('100', 'es-ES'))).toBe('100,0 %');
+  });
+});
+
+describe('variacionPorcentual (sección 8)', () => {
+  it('(Actual − Anterior) / |Anterior| × 100 con 4 decimales exactos', () => {
+    expect(variacionPorcentual('110.00', '100.00')).toBe('10.0000');
+    expect(variacionPorcentual('90.00', '100.00')).toBe('-10.0000');
+    expect(variacionPorcentual('2.00', '3.00')).toBe('-33.3333');
+    expect(variacionPorcentual('1.00', '3.00')).toBe('-66.6667');
+  });
+
+  it('usa el valor absoluto del anterior: de −100 a −50 es una mejora del 50 %', () => {
+    expect(variacionPorcentual('-50.00', '-100.00')).toBe('50.0000');
+  });
+
+  it('base cero o sin periodo anterior → null («Sin datos del mes anterior», caso de la sección 11)', () => {
+    expect(variacionPorcentual('1508.00', '0.00')).toBeNull();
+    expect(variacionPorcentual('1508.00', null)).toBeNull();
+    expect(variacionPorcentual(null, '100.00')).toBeNull();
+  });
+
+  it('se muestra con 1 decimal', () => {
+    expect(n(formatearPorcentaje(variacionPorcentual('1.00', '3.00'), 'es-ES'))).toBe('-66,7 %');
   });
 });
