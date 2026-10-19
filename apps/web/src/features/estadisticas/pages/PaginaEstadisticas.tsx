@@ -150,7 +150,7 @@ export default function PaginaEstadisticas() {
                 error={categorias.error ?? resumen.error}
                 reintentar={reintentar(categorias, resumen)}
               >
-                {(cats) => <GastoPorCategoria categorias={cats} gastosNetos={resumen.data?.gastos_netos ?? '0'} />}
+                {(cats) => <GastoPorCategoria categorias={cats} />}
               </EstadoConsulta>
             </div>
             <EstadoConsulta

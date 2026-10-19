@@ -7,18 +7,17 @@ import { BarrasCategorias } from './BarrasCategorias';
 
 interface Props {
   categorias: readonly GastoCategoria[];
-  gastosNetos: string;
 }
 
 /**
- * Gasto neto por categoría (sección 8). % sobre los gastos netos del mes. Las categorías en
- * negativo se listan aparte, con su número en negativo, y no entran en el gráfico.
+ * Gasto neto por categoría (sección 8). % sobre la suma de las categorías positivas (suman 100 %).
+ * Las categorías en negativo se listan aparte, con su número en negativo, y no entran en el gráfico.
  */
-export function GastoPorCategoria({ categorias, gastosNetos }: Props) {
+export function GastoPorCategoria({ categorias }: Props) {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
-  const { positivas, negativas } = repartirCategorias(categorias, gastosNetos);
+  const { positivas, negativas } = repartirCategorias(categorias);
 
   return (
     <Card titulo={t('categorias.titulo')}>

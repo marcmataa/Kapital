@@ -165,8 +165,8 @@ Gasto por categoría:
 Gasto de la categoría c = Σ Gastos de c − Σ Devoluciones de c
 ```
 
-- El porcentaje de cada categoría se calcula sobre los gastos netos del mes; todos juntos suman 100 %.
-- Si una categoría queda en negativo (te devuelven más de lo que gastaste ese mes en ella), se muestra el número en negativo pero no entra en el gráfico circular, que solo admite valores positivos.
+- El porcentaje de cada categoría se calcula sobre la suma de las categorías con gasto positivo del mes, así que las del gráfico suman siempre 100 %. Si no hay ninguna categoría en negativo, esa suma coincide con los gastos netos. *(Cambio del 19/10/2026: antes decía «sobre los gastos netos», que con una categoría en negativo daba más de 100 %.)*
+- Si una categoría queda en negativo (te devuelven más de lo que gastaste ese mes en ella), se muestra el número en negativo pero no entra en el gráfico circular, que solo admite valores positivos, y no lleva porcentaje.
 - Los ingresos tienen sus propias categorías (Nómina, Otros ingresos, Rendimientos) y nunca se mezclan con las de gasto.
 
 Métodos de pago: suma de gastos por método (tarjeta, Apple Pay, efectivo, Bizum, transferencia, domiciliación). Las devoluciones no restan aquí, porque esta vista responde a «cómo pago», no a «cuánto gasto».
@@ -231,6 +231,6 @@ Datos de partida para las pruebas de inversión: Trade Republic vale 1.472,56 �
 - [ ] Día sin movimientos: el patrimonio del día es igual al del día anterior y la línea no baja a cero.
 - [ ] Hoy: el punto de hoy aparece como provisional y no se dibujan días futuros.
 - [ ] Fecha real: un gasto apuntado el martes 20/10 con fecha sábado 17/10 aparece el 17/10 en el gráfico, la lista y el balance.
-- [ ] Categoría en negativo: si en un mes Otros gastos tiene 20 € de gasto y 50 € de devoluciones, muestra −30,00 € y no entra en el gráfico circular.
+- [ ] Categoría en negativo: si en un mes Otros gastos tiene 20 € de gasto y 50 € de devoluciones, muestra −30,00 € sin porcentaje y no entra en el gráfico circular; el resto de categorías suman 100 %.
 - [ ] Porcentaje con base cero: si el mes anterior tuvo 0 € de ingresos, la tarjeta dice «Sin datos del mes anterior».
 - [ ] Importes positivos: la base rechaza un importe negativo o cero, y una devolución que llega como «-24» se guarda como 24,00 € con tipo Devolución.

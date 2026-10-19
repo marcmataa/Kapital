@@ -8,7 +8,7 @@ const COLOR_POR_DEFECTO = '#8f9bbd';
 
 /**
  * Gasto neto por categoría del snapshot, con el mismo donut que Inicio. El donut aplica la
- * sección 8: % sobre los gastos netos y las categorías en negativo se listan en rojo pero no
+ * sección 8: % sobre la suma de las categorías positivas (suman 100 %) y las categorías en negativo se listan en rojo pero no
  * entran en el gráfico.
  */
 export function CategoriasMes({ datos }: { datos: DatosAnalisis }) {

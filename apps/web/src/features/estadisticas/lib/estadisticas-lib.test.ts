@@ -154,14 +154,14 @@ describe('repartirCategorias (sección 8 y caso de la sección 11)', () => {
         { categoria_id: 'rest', nombre: 'Restaurantes', color: '#ff8a3d', gasto: '90.00' },
         { categoria_id: 'cero', nombre: 'Cero', color: '#000000', gasto: '0.00' },
       ],
-      '100.00',
     );
+    // % sobre la suma de las positivas (130 €): suman 100 % aunque haya una negativa.
     expect(r.positivas.map((c) => [c.nombre, c.porcentaje])).toEqual([
-      ['Restaurantes', '90.0000'],
-      ['Ocio', '40.0000'],
+      ['Restaurantes', '69.2308'],
+      ['Ocio', '30.7692'],
     ]);
     expect(r.negativas).toEqual([
-      { categoria_id: 'otros', nombre: 'Otros gastos', color: '#8f9bbd', gasto: '-30.00', porcentaje: '-30.0000' },
+      { categoria_id: 'otros', nombre: 'Otros gastos', color: '#8f9bbd', gasto: '-30.00', porcentaje: null },
     ]);
   });
 

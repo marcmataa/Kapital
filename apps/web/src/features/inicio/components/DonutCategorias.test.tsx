@@ -24,12 +24,17 @@ describe('DonutCategorias', () => {
     expect(importe).toHaveTextContent('-30,00 €');
     expect(importe).toHaveClass('text-negativo');
 
+    // El % es sobre la suma de las positivas (100 €), no sobre los gastos netos (70 €).
+    expect(within(fila('Restaurantes')).getByText('60,0 %')).toBeInTheDocument();
+    expect(within(fila('Ocio')).getByText('40,0 %')).toBeInTheDocument();
+    expect(within(otros).queryByText(/%/)).not.toBeInTheDocument();
+
     const arcos = screen.getAllByTestId('arco-donut');
     expect(arcos).toHaveLength(2);
     expect(arcos.map((a) => a.getAttribute('stroke'))).not.toContain('#8f9bbd');
   });
 
-  it('el % de cada categoría es sobre los gastos netos y el total va en el centro', () => {
+  it('sin negativas, el % coincide con el de los gastos netos y el total va en el centro', () => {
     const categorias: CategoriaDonut[] = [
       { id: 'a', nombre: 'Restaurantes', color: '#ff8a3d', gasto: '279.85' },
       { id: 'b', nombre: 'Ocio', color: '#9b6bff', gasto: '681.83' },

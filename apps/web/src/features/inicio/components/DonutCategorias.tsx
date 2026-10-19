@@ -1,5 +1,5 @@
 import { useT, useIdioma } from '@/shared/i18n';
-import { aCentimos, formatearEuros, formatearPorcentaje } from '@/shared/lib/dinero';
+import { aCentimos, desdeCentimos, formatearEuros, formatearPorcentaje } from '@/shared/lib/dinero';
 import { fraccion, porcentajeSobre } from '../lib/calculos';
 
 export interface CategoriaDonut {
@@ -12,7 +12,7 @@ export interface CategoriaDonut {
 
 interface Props {
   categorias: readonly CategoriaDonut[];
-  /** Gastos netos del periodo (string de la base): el total del centro y la base de los porcentajes. */
+  /** Gastos netos del periodo (string de la base): el total del centro. */
   totalGastoNeto: string;
   /** Texto bajo el total. Por defecto «gasto neto». */
   etiquetaTotal?: string;
@@ -42,7 +42,7 @@ function calcularArcos(positivas: readonly Fila[], total: bigint) {
 
 /**
  * Donut del gasto por categoría (reglas, sección 8):
- * - El % de cada categoría es sobre los gastos netos del periodo.
+ * - El % de cada categoría es sobre la suma de las categorías positivas: las del donut suman 100 %.
  * - Una categoría en negativo se lista en rojo con su importe, pero no entra en el donut
  *   (solo admite valores positivos). Las de 0 € no se muestran.
  * Los importes se muestran desde sus strings; los arcos se calculan en céntimos (bigint).
@@ -60,6 +60,7 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal }: P
   const totalPositivo = positivas.reduce((s, f) => s + f.centimos, 0n);
 
   const arcos = calcularArcos(positivas, totalPositivo);
+  const basePorcentajes = desdeCentimos(totalPositivo);
 
   const total = formatearEuros(totalGastoNeto, locale);
   const etiqueta = etiquetaTotal ?? t('categorias.gastoNeto');
@@ -124,7 +125,7 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal }: P
                 <span className="flex shrink-0 gap-2">
                   <span className="cifras text-apagado">{formatearEuros(f.gasto, locale)}</span>
                   <span className="cifras w-14 text-right text-texto">
-                    {formatearPorcentaje(porcentajeSobre(f.gasto, totalGastoNeto), locale)}
+                    {formatearPorcentaje(porcentajeSobre(f.gasto, basePorcentajes), locale)}
                   </span>
                 </span>
               )}

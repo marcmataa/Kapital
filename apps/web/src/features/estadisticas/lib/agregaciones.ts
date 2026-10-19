@@ -128,16 +128,16 @@ export interface RepartoCategorias {
 }
 
 /**
- * Reparte el gasto por categoría (sección 8): % sobre los gastos netos del mes (todas juntas
- * suman 100 %); las negativas se muestran en negativo pero no entran en el gráfico circular.
- * Las de gasto 0 no se muestran.
+ * Reparte el gasto por categoría (sección 8): el % de cada categoría es sobre la suma de las
+ * categorías con gasto positivo, así que las del gráfico suman siempre 100 %. Las negativas se
+ * muestran aparte, con su número en negativo y sin porcentaje. Las de gasto 0 no se muestran.
  */
-export function repartirCategorias(categorias: readonly CategoriaGasto[], gastosNetos: string): RepartoCategorias {
-  const total = aCentimos(gastosNetos);
-  const conPct = categorias
-    .map((c) => ({ ...c, c: aCentimos(c.gasto) }))
+export function repartirCategorias(categorias: readonly CategoriaGasto[]): RepartoCategorias {
+  const conCentimos = categorias.map((c) => ({ ...c, c: aCentimos(c.gasto) }));
+  const total = conCentimos.reduce((s, x) => (x.c > 0n ? s + x.c : s), 0n);
+  const conPct = conCentimos
     .sort((a, b) => (a.c === b.c ? a.nombre.localeCompare(b.nombre) : a.c > b.c ? -1 : 1))
-    .map(({ c, ...resto }) => ({ ...resto, c, porcentaje: porcentajeDe(c, total) }));
+    .map((x) => ({ ...x, porcentaje: x.c > 0n ? porcentajeDe(x.c, total) : null }));
   const limpiar = ({ c: _c, ...resto }: (typeof conPct)[number]) => resto;
   return {
     positivas: conPct.filter((x) => x.c > 0n).map(limpiar),
