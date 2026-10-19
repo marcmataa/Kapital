@@ -8,16 +8,27 @@ const leer = (ruta: string) => readFileSync(new URL(ruta, raiz), 'utf8');
 const STUB = leer('tests/db/supabase-stub.sql');
 export const MIGRACION = leer('supabase/migrations/20261015000000_esquema_inicial.sql');
 export const ROLLBACK = leer('supabase/rollback/20261015000000_esquema_inicial.down.sql');
+export const MIGRACION_ONBOARDING = leer('supabase/migrations/20261019000000_onboarding_y_analisis.sql');
+export const ROLLBACK_ONBOARDING = leer('supabase/rollback/20261019000000_onboarding_y_analisis.down.sql');
+/** Todas las migraciones, en orden de aplicación. */
+export const MIGRACIONES = [MIGRACION, MIGRACION_ONBOARDING];
+/** Todos los rollbacks, en orden inverso. */
+export const ROLLBACKS = [ROLLBACK_ONBOARDING, ROLLBACK];
 
 export type TipoMovimiento = 'gasto' | 'ingreso' | 'devolucion' | 'traspaso' | 'ajuste';
 export type TipoCuenta = 'banco' | 'efectivo' | 'inversion' | 'pasivo' | 'por_cobrar';
 type Fila = Record<string, unknown>;
 
-/** Base nueva: simulación mínima de Supabase + la migración real. */
-export async function crearDb(): Promise<PGlite> {
+/**
+ * Base nueva: simulación mínima de Supabase + todas las migraciones reales.
+ * El registro se abre para que los tests puedan crear usuarios; los tests del
+ * registro restringido usan `{ registroAbierto: false }`.
+ */
+export async function crearDb(o: { registroAbierto?: boolean } = {}): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(STUB);
-  await db.exec(MIGRACION);
+  for (const m of MIGRACIONES) await db.exec(m);
+  if (o.registroAbierto ?? true) await db.exec('update registro_config set abierto = true');
   return db;
 }
 
@@ -35,14 +46,16 @@ export async function todas<T extends Fila = Fila>(db: PGlite, sql: string, para
 
 /** Simula la sesión de Supabase: auth.uid() devuelve este usuario. */
 export async function actuarComo(db: PGlite, userId: string | null): Promise<void> {
-  await db.query(`select set_config('request.jwt.claim.sub', $1, false)`, [userId ?? '']);
+  await db.query(
+    `select set_config('request.jwt.claim.sub', $1, false), set_config('request.jwt.claims', '', false)`,
+    [userId ?? ''],
+  );
 }
 
-/** Usuario nuevo con perfil (Europe/Madrid). Cada test usa el suyo, así no comparten datos. */
+/** Usuario nuevo; el trigger de auth.users le crea el perfil (Europe/Madrid). Cada test usa el suyo. */
 export async function crearUsuario(db: PGlite): Promise<string> {
   const id = randomUUID();
   await db.query(`insert into auth.users (id, email) values ($1, $2)`, [id, `${id}@test.local`]);
-  await db.query(`insert into perfiles (user_id) values ($1)`, [id]);
   await actuarComo(db, id);
   return id;
 }
@@ -128,8 +141,11 @@ export async function resumen(db: PGlite, desde: string, hasta: string): Promise
 }
 
 /** Ejecuta `fn` con un rol de Supabase (anon / authenticated), como lo haría PostgREST. */
-export async function conRol<T>(db: PGlite, rol: 'anon' | 'authenticated', fn: () => Promise<T>): Promise<T> {
-  await db.exec(`set role ${rol === 'anon' ? 'anon' : 'authenticated'}`);
+export async function conRol<T>(
+  db: PGlite, rol: 'anon' | 'authenticated' | 'service_role', fn: () => Promise<T>,
+): Promise<T> {
+  const roles = { anon: 'anon', authenticated: 'authenticated', service_role: 'service_role' } as const;
+  await db.exec(`set role ${roles[rol]}`);
   try {
     return await fn();
   } finally {

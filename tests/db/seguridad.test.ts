@@ -5,7 +5,7 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
-  MIGRACION, ROLLBACK, actuarComo, conRol, crearCategoria, crearCuenta, crearDb, crearUsuario, mov, todas, una,
+  MIGRACIONES, MIGRACION_ONBOARDING, ROLLBACKS, ROLLBACK_ONBOARDING, actuarComo, conRol, crearCategoria, crearCuenta, crearDb, crearUsuario, mov, todas, una,
 } from './helpers.js';
 
 let db: PGlite;
@@ -116,16 +116,19 @@ describe('permisos', () => {
       `select proname as fn, proconfig as config from pg_proc
        where pronamespace = 'public'::regnamespace and prosecdef`,
     );
-    expect(filas.map((f) => f.fn).sort()).toEqual(['preparar_usuario', 'registrar_movimiento']);
+    expect(filas.map((f) => f.fn).sort()).toEqual([
+      'crear_perfil_usuario', 'datos_analisis_usuario', 'preparar_usuario', 'registrar_movimiento',
+      'solicitar_regeneracion', 'validar_registro',
+    ]);
     for (const f of filas) expect(f.config, f.fn).toContain('search_path=public');
   });
 });
 
 describe('rollback', () => {
-  it('el script down deja el schema public vacío y la migración se puede volver a aplicar', async () => {
+  it('los scripts down, en orden inverso, dejan el schema public vacío y todo se puede volver a aplicar', async () => {
     const limpia = await crearDb();
     try {
-      await limpia.exec(ROLLBACK);
+      for (const r of ROLLBACKS) await limpia.exec(r);
       const restos = await todas(
         limpia,
         `select 'clase' as k, relname as n from pg_class where relnamespace = 'public'::regnamespace
@@ -133,8 +136,51 @@ describe('rollback', () => {
          union all select 'tipo', typname from pg_type where typnamespace = 'public'::regnamespace and typtype = 'e'`,
       );
       expect(restos).toEqual([]);
-      await limpia.exec(MIGRACION);
+      expect(await todas(limpia, `select tgname from pg_trigger where tgrelid = 'auth.users'::regclass and not tgisinternal`)).toEqual([]);
+      for (const m of MIGRACIONES) await limpia.exec(m);
       expect((await una(limpia, `select count(*)::int as n from pg_class where relname = 'movimientos'`)).n).toBe(1);
+      expect((await una(limpia, `select count(*)::int as n from pg_class where relname = 'analisis_mensuales'`)).n).toBe(1);
+    } finally {
+      await limpia.close();
+    }
+  });
+
+  it('el down de onboarding_y_analisis solo deshace esa migración y conserva los datos del esquema inicial', async () => {
+    const limpia = await crearDb();
+    try {
+      const u = await crearUsuario(limpia);
+      const cuenta = await crearCuenta(limpia, u, { nombre: 'BBVA', saldoInicial: '100.00' });
+      await limpia.exec(ROLLBACK_ONBOARDING);
+
+      const columnas = await todas(
+        limpia,
+        `select table_name, column_name from information_schema.columns
+         where table_schema = 'public' and table_name in ('perfiles', 'cuentas')
+           and column_name in ('onboarding_completado', 'entidad', 'color')`,
+      );
+      expect(columnas).toEqual([]);
+      const nuevas = await todas(
+        limpia,
+        `select relname as n from pg_class where relnamespace = 'public'::regnamespace
+           and relname in ('analisis_mensuales', 'registro_config', 'registro_permitidos')
+         union all
+         select proname from pg_proc where pronamespace = 'public'::regnamespace
+           and proname in ('completar_onboarding', 'crear_banco', 'datos_analisis', 'datos_analisis_usuario',
+                           'solicitar_regeneracion', 'leer_saldo', 'nombre_entidad', 'tocar_updated_at',
+                           'validar_limite_bancos', 'validar_registro', 'crear_perfil_usuario')`,
+      );
+      expect(nuevas).toEqual([]);
+      expect(await todas(limpia, `select tgname from pg_trigger where tgrelid = 'auth.users'::regclass and not tgisinternal`)).toEqual([]);
+
+      // El esquema inicial sigue entero, con sus datos y sus permisos.
+      await actuarComo(limpia, u);
+      await conRol(limpia, 'authenticated', async () => {
+        expect((await una(limpia, `select valor_cuenta($1, '2026-10-01')::text as v`, [cuenta])).v).toBe('100.00');
+        expect((await una(limpia, `select patrimonio('2026-10-01')::text as p`)).p).toBe('100.00');
+      });
+
+      await limpia.exec(MIGRACION_ONBOARDING);
+      expect((await una(limpia, `select onboarding_completado as o from perfiles where user_id = $1`, [u])).o).toBe(false);
     } finally {
       await limpia.close();
     }

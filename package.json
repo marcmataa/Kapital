@@ -3,15 +3,36 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=24" },
+  "workspaces": ["apps/*"],
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:db": "vitest run tests/db"
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.functions.json && npm run typecheck -w @kapital/web",
+    "test": "npm run test:db && npm run test:functions && npm run test:web",
+    "test:db": "vitest run tests/db",
+    "test:functions": "vitest run tests/functions",
+    "test:web": "npm run test -w @kapital/web",
+    "build": "npm run build -w @kapital/web",
+    "dev": "npm run dev -w @kapital/web"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
+    "@eslint/js": "10.0.1",
     "@types/node": "24.19.0",
-    "typescript": "7.0.2",
-    "vitest": "5.0.3"
+    "eslint": "10.11.0",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0",
+    "vitest": "5.0.3",
+    "zod": "4.6.5"
+  },
+  "overrides": {
+    "eslint-plugin-jsx-a11y": {
+      "eslint": "$eslint"
+    }
   }
 }
