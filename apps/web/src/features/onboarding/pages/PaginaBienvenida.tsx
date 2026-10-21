@@ -79,12 +79,12 @@ export default function PaginaBienvenida() {
 
   const errorSaldo = (texto: string): string | undefined => {
     if (!intentoFallido) return undefined;
-    const r = leerSaldo(texto);
+    const r = leerSaldo(texto, locale);
     return r.ok ? undefined : t(CLAVE_ERROR_SALDO[r.error]);
   };
 
   const formatear = (texto: string) => {
-    const r = leerSaldo(texto);
+    const r = leerSaldo(texto, locale);
     return r.ok ? formatearEuros(r.valor, locale) : '';
   };
 

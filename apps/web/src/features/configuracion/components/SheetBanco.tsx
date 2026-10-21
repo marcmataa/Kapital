@@ -8,14 +8,12 @@ import { formatearFecha } from '@/shared/lib/fechas';
 import { Badge, BankLogo, Button, Sheet, clasesBoton } from '@/shared/ui';
 import { useConfigCerrarBancoMutation, useConfigHacerPrincipalMutation } from '../api/configuracionApi';
 import { claveError } from '../api/errores';
-import { useZonaUsuario } from '../hooks/useZonaUsuario';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { AlertaError } from './AlertaError';
 import { rutaAjuste } from './rutas';
 
 interface Props {
   cuenta: Cuenta;
-  /** Cuenta principal actual (de cualquier tipo), si hay. */
-  principalId: string | null;
   /** Número de bancos abiertos (incluido este). */
   abiertos: number;
   onCerrar: () => void;
@@ -27,10 +25,10 @@ export function valeCero(valor: string | null): boolean {
 }
 
 /** Detalle de un banco abierto: hacerlo principal o cerrarlo (solo con saldo 0). */
-export function SheetBanco({ cuenta, principalId, abiertos, onCerrar }: Props) {
+export function SheetBanco({ cuenta, abiertos, onCerrar }: Props) {
   const t = useT('configuracion');
   const { locale } = useIdioma();
-  const { hoy } = useZonaUsuario();
+  const { hoy } = useHoyUsuario();
   const [confirmando, setConfirmando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hacerPrincipal, estadoPrincipal] = useConfigHacerPrincipalMutation();
@@ -45,7 +43,7 @@ export function SheetBanco({ cuenta, principalId, abiertos, onCerrar }: Props) {
   const marcarPrincipal = async () => {
     setError(null);
     try {
-      await hacerPrincipal({ nuevaId: cuenta.id, actualId: principalId }).unwrap();
+      await hacerPrincipal(cuenta.id).unwrap();
       toast.success(t('bancos.principalHecho', { nombre: cuenta.nombre }));
       onCerrar();
     } catch (e) {

@@ -25,8 +25,19 @@ const resumen = z.object({
   ajustes: importe,
 });
 
+/** Mismos límites que la base (categorias_nombre_longitud y datos_analisis). */
+export const MAX_NOMBRE_CATEGORIA = 40;
+export const MAX_CATEGORIAS = 200;
+
+/** Longitud en caracteres (puntos de código, como char_length en PostgreSQL), no en unidades UTF-16. */
+const nombreCategoria = z
+  .string()
+  .min(1)
+  .max(MAX_NOMBRE_CATEGORIA * 2) // cota barata: un punto de código ocupa como mucho 2 unidades UTF-16
+  .refine((s) => [...s].length <= MAX_NOMBRE_CATEGORIA);
+
 const categoria = z.object({
-  nombre: z.string().min(1).max(100),
+  nombre: nombreCategoria,
   color: z.string().max(20).nullable(),
   gasto: importe,
 });
@@ -48,7 +59,7 @@ const variacion = z.object({
 
 const objetivo = z.object({
   tipo: z.string().min(1).max(40),
-  categoria: z.string().max(100).nullable(),
+  categoria: nombreCategoria.nullable(),
   importe: importe,
   actual: importe.nullable(),
 });
@@ -58,9 +69,10 @@ export const datosAnalisisSchema = z.object({
   mes_incompleto: z.boolean(),
   idioma,
   resumen,
+  // null si no hay un mes anterior completo (sección 8); entonces categorias_mes_anterior = [].
   resumen_mes_anterior: resumen.nullable(),
-  categorias: z.array(categoria).max(100),
-  categorias_mes_anterior: z.array(categoria).max(100),
+  categorias: z.array(categoria).max(MAX_CATEGORIAS),
+  categorias_mes_anterior: z.array(categoria).max(MAX_CATEGORIAS),
   metodos: z.array(metodo).max(20),
   variacion,
   objetivos: z.array(objetivo).max(50),

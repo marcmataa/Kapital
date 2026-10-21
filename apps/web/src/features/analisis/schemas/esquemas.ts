@@ -30,7 +30,8 @@ export const esquemaDatos = z.object({
   mes: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-01$/),
   mes_incompleto: z.boolean(),
   resumen,
-  resumen_mes_anterior: resumen.nullable(),
+  // null (o ausente) si no hay un mes anterior completo con el que comparar (sección 8).
+  resumen_mes_anterior: resumen.nullish().transform((v) => v ?? null),
   categorias: z.array(categoria).max(100),
   variacion: z.object({
     patrimonio_inicial: importe,
@@ -63,6 +64,10 @@ export const esquemaFila = z.object({
   estado: z.enum(ESTADOS).catch('error'),
   mes_incompleto: z.boolean(),
   regeneraciones: z.number().int(),
+  /** Intentos fallidos de generación (la Edge Function reintenta mientras sean < 3). */
+  intentos: z.number().int().nonnegative(),
   generado_at: z.string().nullable(),
+  /** Última vez que cambió la fila: sirve para detectar un «pendiente»/«generando» atascado. */
+  updated_at: z.string(),
 });
 export type FilaAnalisis = z.infer<typeof esquemaFila>;

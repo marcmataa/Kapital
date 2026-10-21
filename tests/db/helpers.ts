@@ -10,10 +10,12 @@ export const MIGRACION = leer('supabase/migrations/20261015000000_esquema_inicia
 export const ROLLBACK = leer('supabase/rollback/20261015000000_esquema_inicial.down.sql');
 export const MIGRACION_ONBOARDING = leer('supabase/migrations/20261019000000_onboarding_y_analisis.sql');
 export const ROLLBACK_ONBOARDING = leer('supabase/rollback/20261019000000_onboarding_y_analisis.down.sql');
+export const MIGRACION_CORRECCIONES = leer('supabase/migrations/20261020000000_correcciones.sql');
+export const ROLLBACK_CORRECCIONES = leer('supabase/rollback/20261020000000_correcciones.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
-export const MIGRACIONES = [MIGRACION, MIGRACION_ONBOARDING];
+export const MIGRACIONES = [MIGRACION, MIGRACION_ONBOARDING, MIGRACION_CORRECCIONES];
 /** Todos los rollbacks, en orden inverso. */
-export const ROLLBACKS = [ROLLBACK_ONBOARDING, ROLLBACK];
+export const ROLLBACKS = [ROLLBACK_CORRECCIONES, ROLLBACK_ONBOARDING, ROLLBACK];
 
 export type TipoMovimiento = 'gasto' | 'ingreso' | 'devolucion' | 'traspaso' | 'ajuste';
 export type TipoCuenta = 'banco' | 'efectivo' | 'inversion' | 'pasivo' | 'por_cobrar';
@@ -22,12 +24,13 @@ type Fila = Record<string, unknown>;
 /**
  * Base nueva: simulación mínima de Supabase + todas las migraciones reales.
  * El registro se abre para que los tests puedan crear usuarios; los tests del
- * registro restringido usan `{ registroAbierto: false }`.
+ * registro restringido usan `{ registroAbierto: false }`. `hasta` aplica solo
+ * las n primeras migraciones (para probar datos anteriores a una migración).
  */
-export async function crearDb(o: { registroAbierto?: boolean } = {}): Promise<PGlite> {
+export async function crearDb(o: { registroAbierto?: boolean; hasta?: number } = {}): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(STUB);
-  for (const m of MIGRACIONES) await db.exec(m);
+  for (const m of MIGRACIONES.slice(0, o.hasta ?? MIGRACIONES.length)) await db.exec(m);
   if (o.registroAbierto ?? true) await db.exec('update registro_config set abierto = true');
   return db;
 }

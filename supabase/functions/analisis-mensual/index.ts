@@ -11,6 +11,7 @@ import {
   type RepositorioServicio,
 } from '../_shared/analisis/handler.ts';
 import { parsearOrigenes } from '../_shared/analisis/http.ts';
+import { esMesValido } from '../_shared/analisis/mes.ts';
 
 const env = (nombre: string): string | undefined => Deno.env.get(nombre) || undefined;
 
@@ -65,6 +66,25 @@ function repositorioServicio(db: SupabaseClient): RepositorioServicio {
       return z.object({ onboarding_completado: z.boolean() }).nullable().parse(fila)
         ?.onboarding_completado === true;
     },
+    async mesInicial(userId) {
+      const fila = comprobar(
+        await db
+          .from('cuentas')
+          .select('fecha_inicial')
+          .eq('user_id', userId)
+          .order('fecha_inicial', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        'cuentas',
+      );
+      const fecha = z
+        .object({ fecha_inicial: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) })
+        .nullable()
+        .parse(fila)?.fecha_inicial;
+      if (!fecha) return null;
+      const mes = `${fecha.slice(0, 8)}01`;
+      return esMesValido(mes) ? mes : null;
+    },
     async crearPendientes(userIds, mes) {
       comprobar(
         await tabla().upsert(
@@ -99,8 +119,9 @@ function repositorioServicio(db: SupabaseClient): RepositorioServicio {
       return filaSchema.nullable().parse(fila);
     },
     async reclamar(fila: FilaAnalisis) {
-      if (fila.estado === 'listo') return false;
+      if (fila.estado === 'listo' || fila.intentos >= MAX_INTENTOS) return false;
       // Actualización condicionada al estado observado: si otra ejecución la tomó, no casa.
+      // intentos < MAX_INTENTOS también en la base: una fila atascada no se reclama sin límite.
       const filas = comprobar(
         await tabla()
           .update({
@@ -112,6 +133,7 @@ function repositorioServicio(db: SupabaseClient): RepositorioServicio {
           .eq('id', fila.id)
           .eq('estado', fila.estado)
           .eq('intentos', fila.intentos)
+          .lt('intentos', MAX_INTENTOS)
           .eq('updated_at', fila.updated_at)
           .select('id'),
         'reclamar',
@@ -165,6 +187,13 @@ function clienteUsuario(jwt: string): ClienteUsuario {
       if (!error) return 'ok';
       if (error.message === 'limite_regeneracion') return 'limite_regeneracion';
       throw new Error('solicitar_regeneracion');
+    },
+    async reintentarAnalisis(mes) {
+      const { error } = await db.rpc('reintentar_analisis', { p_mes: mes });
+      if (!error) return 'ok';
+      if (error.message === 'limite_reintentos') return 'limite_reintentos';
+      if (error.message === 'en_curso') return 'en_curso';
+      throw new Error('reintentar_analisis');
     },
   };
 }

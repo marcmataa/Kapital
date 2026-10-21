@@ -44,6 +44,8 @@ export default {
   'restablecer.enlaceInvalidoTitulo': 'Invalid link',
   'restablecer.enlaceInvalidoTexto': 'The link has expired or was already used. Request a new one.',
   'restablecer.pedirOtro': 'Request a new link',
+  'restablecer.sinRecuperacionTitulo': 'Open the link in the email',
+  'restablecer.sinRecuperacionTexto': 'To choose a new password, open the recovery link we sent you by email.',
   'error.credenciales': 'Incorrect email or password.',
   'error.registroCerrado': 'Sign-ups are closed for now.',
   'error.demasiadosIntentos': 'Too many attempts. Wait a few minutes and try again.',

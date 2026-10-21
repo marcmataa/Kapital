@@ -6,7 +6,7 @@ import { formatearFechaHora } from '@/shared/lib/fechas';
 import { Badge, Button, Card, Sheet, Spinner } from '@/shared/ui';
 import { useConfigListarTokensQuery, useConfigRevocarTokenMutation, type TokenApi } from '../api/configuracionApi';
 import { claveError } from '../api/errores';
-import { useZonaUsuario } from '../hooks/useZonaUsuario';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { AlertaError } from './AlertaError';
 import { DialogoCrearToken } from './DialogoCrearToken';
 
@@ -76,7 +76,7 @@ export function SeccionAtajo() {
   const t = useT('configuracion');
   const tc = useT('common');
   const { locale } = useIdioma();
-  const { zona } = useZonaUsuario();
+  const { zona } = useHoyUsuario();
   const { data: tokens, isLoading, isError, refetch } = useConfigListarTokensQuery();
   const [creando, setCreando] = useState(false);
   const [revocando, setRevocando] = useState<TokenApi | null>(null);

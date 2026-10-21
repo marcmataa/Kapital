@@ -5,7 +5,7 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
-  MIGRACIONES, MIGRACION_ONBOARDING, ROLLBACKS, ROLLBACK_ONBOARDING, actuarComo, conRol, crearCategoria, crearCuenta, crearDb, crearUsuario, mov, todas, una,
+  MIGRACIONES, MIGRACION_ONBOARDING, ROLLBACKS, ROLLBACK_CORRECCIONES, ROLLBACK_ONBOARDING, actuarComo, conRol, crearCategoria, crearCuenta, crearDb, crearUsuario, mov, todas, una,
 } from './helpers.js';
 
 let db: PGlite;
@@ -118,7 +118,7 @@ describe('permisos', () => {
     );
     expect(filas.map((f) => f.fn).sort()).toEqual([
       'crear_perfil_usuario', 'datos_analisis_usuario', 'preparar_usuario', 'registrar_movimiento',
-      'solicitar_regeneracion', 'validar_registro',
+      'reintentar_analisis', 'solicitar_regeneracion', 'validar_registro',
     ]);
     for (const f of filas) expect(f.config, f.fn).toContain('search_path=public');
   });
@@ -150,6 +150,7 @@ describe('rollback', () => {
     try {
       const u = await crearUsuario(limpia);
       const cuenta = await crearCuenta(limpia, u, { nombre: 'BBVA', saldoInicial: '100.00' });
+      await limpia.exec(ROLLBACK_CORRECCIONES);
       await limpia.exec(ROLLBACK_ONBOARDING);
 
       const columnas = await todas(

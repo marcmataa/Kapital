@@ -65,7 +65,36 @@ Análisis mensual:
   ```
   `mes_incompleto = true` si la cuenta más antigua del usuario empieza después del día 1 de ese mes.
 - `datos_analisis_usuario(p_user uuid, p_mes date) returns jsonb` (security definer, **solo `service_role`**): fija el usuario de la sesión y devuelve `datos_analisis(p_mes)`.
-- `solicitar_regeneracion(p_mes date) returns void` (security definer, `authenticated`): pasa el análisis del usuario a `pendiente` y suma 1 a `regeneraciones`, solo si está `listo` o `error` y `regeneraciones < 1`. Si no, error con código `P0001` y mensaje `limite_regeneracion`.
+- `solicitar_regeneracion(p_mes date) returns void` (security definer, `authenticated`): pasa el análisis del usuario a `pendiente`, suma 1 a `regeneraciones` y reinicia `intentos`, solo si está `listo` y `regeneraciones < 1`. Si no, error con código `P0001` y mensaje `limite_regeneracion`. *(Cambiado en `20261020000000_correcciones.sql`: antes también desde `error`.)*
+
+## Base de datos — migración `20261020000000_correcciones.sql`
+
+Contratos nuevos (todos para `authenticated`, filtrados por `auth.uid()`):
+- `hacer_principal(p_cuenta uuid) returns void` (security invoker): cambia la cuenta principal de forma atómica. Error `22023` si la cuenta no existe, es de otro usuario, está cerrada o no es de tipo `banco`.
+- `gasto_por_dia(p_desde date, p_hasta date) returns table (fecha date, gasto_neto numeric)`: Σ gastos − Σ devoluciones por día (sección 8). Solo días con gastos o devoluciones; sin traspasos ni ajustes.
+- `ingresos_por_categoria(p_desde date, p_hasta date) returns table (categoria_id uuid, nombre text, color text, icono text, ingreso numeric)`: Σ ingresos por categoría de ingreso.
+- `reintentar_analisis(p_mes date) returns void` (security definer): vuelve a poner en `pendiente` un análisis sin gastar la regeneración. Casos:
+  - `error` con `intentos < 3`;
+  - `pendiente` o `generando` sin cambios desde hace más de 15 min (y `intentos < 3`).
+  - Si está `pendiente` o `generando` desde hace menos de 15 min: `P0001 en_curso`.
+  - En cualquier otro caso: `P0001 limite_reintentos`.
+- `datos_analisis`:
+  - `resumen_mes_anterior = null` y `categorias_mes_anterior = []` si la cuenta más antigua empieza después del día 1 del mes anterior, o si no hay cuentas (sección 8: «misma longitud»);
+  - nombres de categoría recortados a 40 caracteres, como mucho 200 categorías y 50 objetivos.
+
+Cambios de comportamiento:
+- `completar_onboarding` falla con `P0001 El onboarding ya está completado` si el usuario ya tiene cuentas.
+- `preparar_usuario` deja el onboarding completado. Una migración de datos marca como completado a quien ya tenía cuentas.
+- `perfiles.onboarding_completado` solo lo cambia `completar_onboarding` (trigger). El usuario no puede borrar su perfil.
+- Un token revocado no se puede reactivar.
+- La categoría de ingreso «Rendimientos» no se puede renombrar, archivar ni cambiar de tipo (`23514`).
+- `categorias.nombre` tiene como máximo 40 caracteres.
+- `anon` y `authenticated` no tienen `TRUNCATE`, `REFERENCES` ni `TRIGGER` en ninguna tabla.
+
+Edge Function, modo usuario:
+- `listo` → `solicitar_regeneracion` (429 `limite_regeneracion`).
+- `error` o `generando` atascada → `reintentar_analisis` (429 `limite_reintentos`, 409 `en_curso`).
+- Un mes anterior al de la primera cuenta → 400 `mes_no_disponible`.
 
 ## Edge Function `analisis-mensual`
 

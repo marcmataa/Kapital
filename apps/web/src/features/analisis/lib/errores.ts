@@ -5,6 +5,7 @@
 
 export const CODIGOS_FUNCION = [
   'limite_regeneracion',
+  'limite_reintentos',
   'en_curso',
   'generacion_fallida',
   'mes_no_disponible',
@@ -67,6 +68,7 @@ export async function codigoErrorFuncion(error: unknown): Promise<CodigoFuncion>
 
 export type ClaveErrorAnalisis =
   | 'error.limite'
+  | 'error.limiteReintentos'
   | 'error.enCurso'
   | 'error.generacion'
   | 'error.mesNoDisponible'
@@ -79,6 +81,8 @@ export function claveErrorAnalisis(codigo: string): ClaveErrorAnalisis {
   switch (codigo) {
     case 'limite_regeneracion':
       return 'error.limite';
+    case 'limite_reintentos':
+      return 'error.limiteReintentos';
     case 'en_curso':
       return 'error.enCurso';
     case 'generacion_fallida':

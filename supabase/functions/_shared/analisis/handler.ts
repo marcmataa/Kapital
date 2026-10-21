@@ -35,12 +35,17 @@ export interface CamposListo {
 export interface RepositorioServicio {
   usuariosConOnboarding(): Promise<string[]>;
   onboardingCompletado(userId: string): Promise<boolean>;
+  /** Mes (día 1) de la fecha_inicial más antigua de las cuentas del usuario; null si no tiene cuentas. */
+  mesInicial(userId: string): Promise<Mes | null>;
   /** Inserta filas 'pendiente' ignorando las que ya existen (unique user_id, mes). */
   crearPendientes(userIds: string[], mes: Mes): Promise<void>;
   /** pendiente, error con intentos < max, o generando atascada (updated_at < generandoAntesDe). */
   filasProcesables(limite: number, generandoAntesDe: string): Promise<FilaAnalisis[]>;
   obtenerFila(userId: string, mes: Mes): Promise<FilaAnalisis | null>;
-  /** Paso atómico a 'generando' (intentos + 1) condicionado al estado observado en `fila`. */
+  /**
+   * Paso atómico a 'generando' (intentos + 1) condicionado al estado observado en `fila`
+   * y a intentos < MAX_INTENTOS (una fila atascada no se puede reclamar sin límite).
+   */
   reclamar(fila: FilaAnalisis): Promise<boolean>;
   datosAnalisis(userId: string, mes: string): Promise<unknown>;
   guardarListo(id: string, campos: CamposListo): Promise<void>;
@@ -50,7 +55,10 @@ export interface RepositorioServicio {
 /** Acceso como el usuario (clave anon + su JWT). */
 export interface ClienteUsuario {
   usuarioId(): Promise<string | null>;
+  /** Rehacer un análisis 'listo' (gasta la única regeneración). */
   solicitarRegeneracion(mes: Mes): Promise<'ok' | 'limite_regeneracion'>;
+  /** Volver a encolar un análisis en error o atascado (no gasta la regeneración). */
+  reintentarAnalisis(mes: Mes): Promise<'ok' | 'limite_reintentos' | 'en_curso'>;
 }
 
 export interface DependenciasHandler {
@@ -77,7 +85,7 @@ const cuerpoUsuarioSchema = z.strictObject({
   mes: z.string().refine(esMesValido),
 });
 
-type ResultadoProceso = 'listo' | 'ocupado' | 'error';
+type ResultadoProceso = 'listo' | 'ocupado' | 'agotado' | 'error';
 
 export function crearHandler(deps: DependenciasHandler): (req: Request) => Promise<Response> {
   const { servicio, log } = deps;
@@ -89,6 +97,7 @@ export function crearHandler(deps: DependenciasHandler): (req: Request) => Promi
   }
 
   async function procesar(fila: FilaAnalisis): Promise<ResultadoProceso> {
+    if (fila.intentos >= MAX_INTENTOS) return 'agotado';
     if (!(await servicio.reclamar(fila))) return 'ocupado';
     let codigo = 'error_interno';
     try {
@@ -211,17 +220,30 @@ export function crearHandler(deps: DependenciasHandler): (req: Request) => Promi
       return responder(403, { error: 'onboarding_pendiente' });
     }
 
+    // Ni meses anteriores al primero con cuentas (no hay datos que analizar).
+    const inicio = await servicio.mesInicial(userId);
+    if (!inicio || compararMeses(mes, inicio) < 0) {
+      return responder(400, { error: 'mes_no_disponible' });
+    }
+
     let fila = await servicio.obtenerFila(userId, mes);
     if (!fila) {
       // Primera generación de ese mes: no consume la regeneración.
       await servicio.crearPendientes([userId], mes);
       fila = await servicio.obtenerFila(userId, mes);
-    } else if (fila.estado === 'listo' || fila.estado === 'error') {
+    } else if (fila.estado === 'listo') {
+      // Rehacer un análisis bueno: gasta la única regeneración.
       if ((await usuario.solicitarRegeneracion(mes)) === 'limite_regeneracion') {
         return responder(429, { error: 'limite_regeneracion' });
       }
       fila = await servicio.obtenerFila(userId, mes);
-    } else if (fila.estado === 'generando' && !estaAtascada(fila)) {
+    } else if (fila.estado === 'error' || estaAtascada(fila)) {
+      // Un fallo o un atasco no es culpa del usuario: no gasta la regeneración.
+      const r = await usuario.reintentarAnalisis(mes);
+      if (r === 'limite_reintentos') return responder(429, { error: 'limite_reintentos' });
+      if (r === 'en_curso') return responder(409, { error: 'en_curso' });
+      fila = await servicio.obtenerFila(userId, mes);
+    } else if (fila.estado === 'generando') {
       return responder(409, { error: 'en_curso' });
     }
     if (!fila) {
@@ -230,6 +252,7 @@ export function crearHandler(deps: DependenciasHandler): (req: Request) => Promi
     }
 
     const resultado = await procesar(fila);
+    if (resultado === 'agotado') return responder(429, { error: 'limite_reintentos' });
     if (resultado === 'ocupado') return responder(409, { error: 'en_curso' });
     if (resultado === 'error') return responder(502, { error: 'generacion_fallida' });
     return responder(200, { ok: true });

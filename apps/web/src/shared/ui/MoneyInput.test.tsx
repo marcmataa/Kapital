@@ -37,7 +37,7 @@ describe('MoneyInput', () => {
     await userEvent.type(input, '1.258,5');
     await userEvent.tab();
     expect(input).toHaveValue('1258,50');
-    expect(importePositivo('1258,50')).toBe('1258.50');
+    expect(importePositivo('1258,50', 'es-ES')).toBe('1258.50');
   });
 
   it('en inglés usa punto decimal', async () => {
@@ -46,6 +46,26 @@ describe('MoneyInput', () => {
     await userEvent.type(input, '38.5');
     await userEvent.tab();
     expect(input).toHaveValue('38.50');
+  });
+
+  it('en inglés la coma es separador de miles: "1,000" → "1000.00" y "1,234.56" → "1234.56"', async () => {
+    montar('en');
+    const input = screen.getByLabelText('Importe');
+    await userEvent.type(input, '1,000');
+    await userEvent.tab();
+    expect(input).toHaveValue('1000.00');
+    await userEvent.clear(input);
+    await userEvent.type(input, '1,234.56');
+    await userEvent.tab();
+    expect(input).toHaveValue('1234.56');
+  });
+
+  it('en inglés una coma ambigua ("1,5") no se adivina: se deja para que la validación la marque', async () => {
+    montar('en');
+    const input = screen.getByLabelText('Importe');
+    await userEvent.type(input, '1,5');
+    await userEvent.tab();
+    expect(input).toHaveValue('1,5');
   });
 
   it('el signo negativo se ignora como en leer_importe: "-24" → "24,00"', async () => {
@@ -59,7 +79,7 @@ describe('MoneyInput', () => {
   it('con un lector estricto (saldos), "-24" no se convierte en 24: se deja para que la validación lo rechace', async () => {
     function Saldo() {
       const [valor, setValor] = useState('');
-      const estricto = (texto: string) => (texto.includes('-') ? null : importePositivo(texto));
+      const estricto = (texto: string) => (texto.includes('-') ? null : importePositivo(texto, 'es-ES'));
       return <MoneyInput label="Saldo" value={valor} onChange={setValor} normalizar={estricto} />;
     }
     renderConApp(<Saldo />);

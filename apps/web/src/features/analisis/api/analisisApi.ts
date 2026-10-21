@@ -12,7 +12,7 @@ import {
 } from '../schemas/esquemas';
 
 /** Columnas de la lista: nunca `datos` ni `contenido` (pesan y no hacen falta). */
-export const COLUMNAS_LISTA = 'id, mes, estado, mes_incompleto, regeneraciones, generado_at';
+export const COLUMNAS_LISTA = 'id, mes, estado, mes_incompleto, regeneraciones, intentos, generado_at, updated_at';
 
 export interface AnalisisDetalle extends FilaAnalisis {
   /** Datos y contenido validados; null si faltan o no cumplen el contrato. */
@@ -73,8 +73,10 @@ export const analisisApi = api.injectEndpoints({
     }),
 
     /**
-     * Genera (primera vez) o regenera (máx. 1) el análisis de un mes cerrado con la Edge Function.
-     * Errores con código genérico: limite_regeneracion (429), en_curso (409), generacion_fallida (502)…
+     * Genera (primera vez), reintenta (estado error o atascado; no consume) o regenera (estado
+     * listo; máx. 1) el análisis de un mes cerrado con la Edge Function. La función decide qué
+     * hacer según el estado de la fila. Errores con código genérico: limite_regeneracion (429),
+     * limite_reintentos (429), en_curso (409), generacion_fallida (502)…
      */
     analisisGenerar: b.mutation<null, string>({
       queryFn: async (mes) => {

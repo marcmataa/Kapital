@@ -12,10 +12,10 @@ Genera el análisis mensual con IA (OpenAI `gpt-4o-mini`) a partir de los agrega
 
 | Modo | Cómo se llama | Qué hace |
 |---|---|---|
-| Cron | `POST` con cabecera `x-cron-secret: <CRON_SECRET>` | Crea la fila `pendiente` del mes anterior para cada usuario con onboarding completado y procesa las `pendiente` y las `error` con menos de 3 intentos. |
-| Usuario | `POST { "mes": "YYYY-MM-01" }` con `Authorization: Bearer <JWT del usuario>` | Primera generación de un mes cerrado (hasta 12 meses atrás) o regeneración vía `solicitar_regeneracion` (máx. 1). |
+| Cron | `POST` con cabecera `x-cron-secret: <CRON_SECRET>` | Crea la fila `pendiente` del mes anterior para cada usuario con onboarding completado y procesa las `pendiente`, las `error` y las `generando` atascadas (> 15 min), siempre con menos de 3 intentos. |
+| Usuario | `POST { "mes": "YYYY-MM-01" }` con `Authorization: Bearer <JWT del usuario>` | Mes cerrado, como mucho 12 meses atrás y no anterior al mes de la primera cuenta. Sin fila: primera generación. `listo`: regeneración con `solicitar_regeneracion` (máx. 1). `error` o `generando` atascada: `reintentar_analisis` (no gasta la regeneración; máx. 3 intentos). |
 
-Respuestas: `{ "ok": true }` o `{ "error": "<código>" }`. Códigos: `no_autenticado` (401), `no_autorizado` (401, cron), `origen_no_permitido` (403), `onboarding_pendiente` (403), `metodo_no_permitido` (405), `cuerpo_invalido` (400), `mes_no_disponible` (400), `en_curso` (409), `cuerpo_demasiado_grande` (413), `limite_regeneracion` (429), `generacion_fallida` (502), `error_interno` (500).
+Respuestas: `{ "ok": true }` o `{ "error": "<código>" }`. Códigos: `no_autenticado` (401), `no_autorizado` (401, cron), `origen_no_permitido` (403), `onboarding_pendiente` (403), `metodo_no_permitido` (405), `cuerpo_invalido` (400), `mes_no_disponible` (400), `en_curso` (409), `cuerpo_demasiado_grande` (413), `limite_regeneracion` (429), `limite_reintentos` (429), `generacion_fallida` (502), `error_interno` (500).
 
 ### Desplegar
 
@@ -28,6 +28,8 @@ npx supabase functions deploy analisis-mensual
 Se deja activada la verificación de JWT de Supabase (opción por defecto). Por eso la llamada del cron incluye, además de `x-cron-secret`, la cabecera `Authorization: Bearer <clave anon>` (la clave anon es pública; `supabase/setup/cron-analisis-mensual.sql` la lee de Vault como `kapital_anon_key`).
 
 ### Secretos (los pones tú, nunca en el repo ni en el chat)
+
+Lista completa de producción (Auth, Google, registro, Vault, cabeceras del hosting): `docs/despliegue.md`.
 
 En el panel de Supabase → **Edge Functions → Secrets** (o con `npx supabase secrets set NOMBRE=...` escrito por ti en tu terminal):
 

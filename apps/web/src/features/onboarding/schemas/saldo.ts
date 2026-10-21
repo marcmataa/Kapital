@@ -1,4 +1,4 @@
-import { aCentimos, desdeCentimos, parsearImporte } from '@/shared/lib/dinero';
+import { aCentimos, desdeCentimos, parsearImporteLocal } from '@/shared/lib/dinero';
 
 /** Máximo de numeric(12,2) en céntimos. */
 const CENTIMOS_MAXIMOS = 999_999_999_999n;
@@ -10,13 +10,14 @@ export type ResultadoSaldo = { ok: true; valor: string } | { ok: false; error: E
 
 /**
  * Réplica de `leer_saldo` (SQL): acepta «1.258,50», «0», «38,5 €»; rechaza signos, letras y vacíos.
- * Devuelve el saldo normalizado ('1258.50'), que es lo que se envía a la base.
+ * Se lee con el idioma activo (en inglés, «1,000.50»). Devuelve el saldo normalizado ('1258.50'),
+ * que es lo que se envía a la base.
  */
-export function leerSaldo(texto: string): ResultadoSaldo {
+export function leerSaldo(texto: string, locale: string): ResultadoSaldo {
   const s = texto.replaceAll('€', '').trim();
   if (s === '') return { ok: false, error: 'vacio' };
   if (!FORMATO_SALDO.test(s)) return { ok: false, error: 'invalido' };
-  const valor = parsearImporte(s);
+  const valor = parsearImporteLocal(s, locale);
   if (valor === null) return { ok: false, error: 'invalido' };
   if (aCentimos(valor) > CENTIMOS_MAXIMOS) return { ok: false, error: 'maximo' };
   return { ok: true, valor };

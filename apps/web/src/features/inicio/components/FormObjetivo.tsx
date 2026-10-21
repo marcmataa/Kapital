@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { ErrorApi } from '@/app/api';
 import { useCrearObjetivoMutation, useListarCategoriasQuery, useListarObjetivosQuery } from '@/shared/api/catalogos';
-import { useT } from '@/shared/i18n';
+import { useIdioma, useT } from '@/shared/i18n';
 import { esquemaImporte } from '@/shared/lib/esquemas';
 import { Button, MoneyInput, SegmentedControl, Select } from '@/shared/ui';
 
@@ -29,6 +29,7 @@ function esErrorApi(e: unknown): e is ErrorApi {
 export function FormObjetivo({ onHecho, onCancelar }: Props) {
   const t = useT('inicio');
   const tc = useT('common');
+  const { locale } = useIdioma();
   const categorias = useListarCategoriasQuery();
   const objetivos = useListarObjetivosQuery();
   const [crear, { isLoading }] = useCrearObjetivoMutation();
@@ -48,14 +49,14 @@ export function FormObjetivo({ onHecho, onCancelar }: Props) {
         .object({
           tipo: z.enum(['ahorro_mensual', 'limite_categoria']),
           categoria_id: z.string(),
-          importe: esquemaImporte(tc('campo.importeInvalido')),
+          importe: esquemaImporte(tc('campo.importeInvalido'), locale),
         })
         .superRefine((v, ctx) => {
           if (v.tipo === 'limite_categoria' && v.categoria_id === '') {
             ctx.addIssue({ code: 'custom', path: ['categoria_id'], message: t('form.categoriaObligatoria') });
           }
         }),
-    [t, tc],
+    [t, tc, locale],
   );
 
   const { control, register, handleSubmit, formState } = useForm<

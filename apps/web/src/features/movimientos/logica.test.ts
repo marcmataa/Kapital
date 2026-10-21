@@ -162,7 +162,7 @@ describe('aPayload (mapeo por tipo)', () => {
       devolucion_de: ID.mov1,
       metodo: 'bizum',
       notas: 'Nota',
-    });
+    }, 'es-ES');
     expect(p).toEqual({
       tipo: 'ajuste',
       importe: '38.50',
@@ -179,9 +179,14 @@ describe('aPayload (mapeo por tipo)', () => {
   });
 
   it('el importe es siempre un string normalizado, nunca un número', () => {
-    const p = aPayload({ ...base, importe: '1.234,5' });
+    const p = aPayload({ ...base, importe: '1.234,5' }, 'es-ES');
     expect(p.importe).toBe('1234.50');
     expect(typeof p.importe).toBe('string');
+  });
+
+  it('en inglés la coma es de miles: «1,000» son mil euros, no uno', () => {
+    expect(aPayload({ ...base, importe: '1,000' }, 'en-GB').importe).toBe('1000.00');
+    expect(aPayload({ ...base, importe: '1,234.56' }, 'en-GB').importe).toBe('1234.56');
   });
 });
 

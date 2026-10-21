@@ -40,17 +40,48 @@ npm run generate-pwa-assets -w @kapital/web   # regenera los iconos desde public
 La sesión de Supabase vive en el almacenamiento del navegador, así que la defensa principal es impedir XSS.
 
 - En el **build**, un plugin de Vite (`kapital-csp` en `vite.config.ts`) inyecta esta CSP como `<meta>`:
-  `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'`.
+  `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://<ref>.supabase.co wss://<ref>.supabase.co; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'`.
+- `connect-src` usa el **origen exacto** de `VITE_SUPABASE_URL` en el momento del build (`https://<ref>.supabase.co` y `wss://<ref>.supabase.co`, o el stack local `http://127.0.0.1:54321` + `ws://…`). Solo si la variable falta o no es una URL válida se usa el comodín `*.supabase.co`, y el build lo avisa (sin imprimir ningún valor). La clave `anon` no interviene.
 - En **desarrollo** no se inyecta: el HMR de Vite necesita scripts en línea y websockets.
 - `style-src 'unsafe-inline'`: Recharts usa atributos `style` y react-hot-toast inyecta una etiqueta `<style>`. Los **scripts** siguen limitados a `'self'`.
-- Si `VITE_SUPABASE_URL` no es `*.supabase.co` (p. ej. el stack local `http://127.0.0.1:54321`), su origen se añade a `connect-src` en el build.
-- `frame-ancestors` **no funciona en `<meta>`**: hay que enviarlo como cabecera HTTP en el hosting, junto con el resto:
-  ```
+
+### Cabeceras HTTP del hosting
+
+`frame-ancestors` y `X-Frame-Options` **no funcionan en `<meta>`**: van como cabeceras HTTP. Están en
+`public/_headers` (formato **Netlify / Cloudflare Pages**; Vite lo copia tal cual a `dist/`):
+
+```
+/*
+  X-Frame-Options: DENY
   Content-Security-Policy: frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains
-  ```
+```
+
+En otro hosting hay que replicarlas. En **Vercel**, un `vercel.json` en la raíz del proyecto desplegado:
+
+```json
+{
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains" }
+      ]
+    }
+  ]
+}
+```
+
+En nginx, Caddy, etc., las mismas seis cabeceras con `add_header` / `header`. Esta cabecera CSP solo lleva
+`frame-ancestors`: el navegador aplica a la vez la del `<meta>` y la de la cabecera (se suman las restricciones).
 - ESLint prohíbe `dangerouslySetInnerHTML`, `parseFloat` y `Number.parseFloat`. Sin scripts, fuentes ni imágenes de terceros.
 
 ## PWA
@@ -78,7 +109,8 @@ Recomendado en Supabase → Authentication: confirmación de email activada y «
 src/
   app/            router, store (RTK Query), AuthProvider y guards, perfil
   shared/
-    lib/          supabase, dinero, fechas, bancos, esquemas zod
+    lib/          supabase, dinero, fechas, periodos, bancos, esquemas zod
+    hooks/        useHoyUsuario (hoy en perfiles.zona_horaria, Europe/Madrid por defecto)
     i18n/         i18n propio (es/en/ca), registro de namespaces
     ui/           componentes base (Button, Card, StatCard, Input, MoneyInput, Sheet…)
     layout/       AppLayout, Sidebar, BottomNav, MobileHeader, tema
@@ -126,6 +158,9 @@ export const { useListarCuentasQuery } = cuentasApi;
 ## Dinero en el cliente
 
 - Los importes llegan de la base como **string** y se formatean con `formatearEuros(importe, locale)` (Intl sobre el string, exacto).
-- Entrada del usuario: `<MoneyInput>` + `esquemaImporte(mensaje)` (zod), que usa `parsearImporte`, réplica de `leer_importe` en SQL.
+- Entrada del usuario: `<MoneyInput>` + `esquemaImporte(mensaje, locale)` (zod), que usa `parsearImporteLocal(texto, locale)`:
+  en es/ca es `parsearImporte` (réplica de `leer_importe` en SQL, coma decimal); en en la coma separa miles y el punto es
+  decimal (`'1,000'` → `'1000.00'`), y una coma ambigua (`'1,5'`) se rechaza. A la base siempre va `'dddd.dd'`.
+  Todo formulario vuelve a leer el texto con el idioma al validar y al enviar (Enter no pasa por `onBlur`).
 - Si hay que operar en el cliente: `aCentimos` → `bigint`. Nunca `parseFloat` ni `Number()` sobre importes.
 - Porcentajes: `formatearPorcentaje(valor, locale)` → 1 decimal, o «—» si es `null`.

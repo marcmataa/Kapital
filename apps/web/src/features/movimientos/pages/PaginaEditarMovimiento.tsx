@@ -1,8 +1,7 @@
-import { useMemo } from 'react';
 import { Link, useParams } from 'react-router';
 import { useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
-import { hoy as hoyEn } from '@/shared/lib/fechas';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { Button, Card, EmptyState, PantallaCarga, importeParaEditar, clasesBoton } from '@/shared/ui';
 import { useMovimientosDevueltoQuery, useMovimientosObtenerQuery } from '../api/movimientosApi';
 import { FormularioMovimiento } from '../components/FormularioMovimiento';
@@ -20,7 +19,7 @@ export default function PaginaEditarMovimiento() {
   const esGasto = mov.data?.tipo === 'gasto';
   const devuelto = useMovimientosDevueltoQuery(id, { skip: !esGasto });
   const volver = useVolver(`/movimientos/${id}`);
-  const hoy = useMemo(() => hoyEn(), []);
+  const { hoy } = useHoyUsuario();
 
   let contenido;
   if (catalogos.cargando || mov.isLoading || (esGasto && devuelto.isLoading)) {

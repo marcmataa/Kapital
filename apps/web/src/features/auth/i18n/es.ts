@@ -44,6 +44,8 @@ export default {
   'restablecer.enlaceInvalidoTitulo': 'Enlace no válido',
   'restablecer.enlaceInvalidoTexto': 'El enlace ha caducado o ya se ha usado. Pide uno nuevo.',
   'restablecer.pedirOtro': 'Pedir un enlace nuevo',
+  'restablecer.sinRecuperacionTitulo': 'Abre el enlace del email',
+  'restablecer.sinRecuperacionTexto': 'Para elegir una contraseña nueva, abre el enlace de recuperación que te enviamos por email.',
   'error.credenciales': 'Email o contraseña incorrectos.',
   'error.registroCerrado': 'El registro está cerrado de momento.',
   'error.demasiadosIntentos': 'Demasiados intentos. Espera unos minutos y vuelve a probar.',

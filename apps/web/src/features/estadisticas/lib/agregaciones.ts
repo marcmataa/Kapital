@@ -2,19 +2,15 @@ import { aCentimos, desdeCentimos } from '@/shared/lib/dinero';
 import { componerFecha, diasDelMes, inicioDeMes, partesDe } from '@/shared/lib/fechas';
 
 /*
- * Agregaciones en el cliente. Siempre en céntimos `bigint` (nunca parseFloat/Number sobre importes).
- * Las sumas «oficiales» (balance, gastos netos, categorías) las hace SQL; aquí solo se reparte
- * por día o por categoría de ingreso lo que la base no da agrupado.
+ * Presentación de agregados en el cliente. Las sumas las hace SQL (gasto_por_dia,
+ * ingresos_por_categoria, gasto_por_categoria…); aquí solo se completa la serie de días y se
+ * reparten porcentajes, siempre en céntimos `bigint` (nunca parseFloat/Number sobre importes).
  */
 
-export type TipoMovimiento = 'gasto' | 'ingreso' | 'devolucion' | 'traspaso' | 'ajuste';
-
-export interface MovimientoLigero {
+/** Fila de `gasto_por_dia` (solo días con gastos o devoluciones; importe como texto). */
+export interface FilaGastoDia {
   fecha: string;
-  tipo: TipoMovimiento;
-  /** Importe positivo como texto ('38.50'). */
-  importe: string;
-  categoria_id: string | null;
+  gasto_neto: string;
 }
 
 export interface GastoDia {
@@ -27,34 +23,30 @@ export interface GastoDia {
 }
 
 /**
- * Gasto neto por día del mes de `mes` (sección 3: gastos − devoluciones; traspasos, ajustes
- * e ingresos no cuentan). Los días posteriores a `hoy` quedan vacíos (null).
+ * Serie de todos los días del mes de `mes` a partir de `gasto_por_dia` (sección 3: gastos −
+ * devoluciones). Los días sin filas valen 0,00 €; los posteriores a `hoy` quedan vacíos (null).
  */
-export function gastoNetoPorDia(movimientos: readonly MovimientoLigero[], mes: string, hoy: string): GastoDia[] {
+export function serieGastoDiario(filas: readonly FilaGastoDia[], mes: string, hoy: string): GastoDia[] {
   const { anio, mes: m } = partesDe(inicioDeMes(mes));
-  const porFecha = new Map<string, bigint>();
-  for (const mov of movimientos) {
-    if (mov.tipo !== 'gasto' && mov.tipo !== 'devolucion') continue;
-    const c = aCentimos(mov.importe);
-    porFecha.set(mov.fecha, (porFecha.get(mov.fecha) ?? 0n) + (mov.tipo === 'gasto' ? c : -c));
-  }
+  const porFecha = new Map(filas.map((f) => [f.fecha, f.gasto_neto]));
   return Array.from({ length: diasDelMes(anio, m) }, (_, i) => {
     const fecha = componerFecha({ anio, mes: m, dia: i + 1 });
+    const valor = porFecha.get(fecha);
     return {
       dia: i + 1,
       fecha,
-      gasto: fecha > hoy ? null : desdeCentimos(porFecha.get(fecha) ?? 0n),
+      gasto: fecha > hoy ? null : valor === undefined ? '0.00' : desdeCentimos(aCentimos(valor)),
       hoy: fecha === hoy,
     };
   });
 }
 
-export interface CategoriaIngresoRef {
-  id: string;
+/** Fila de `ingresos_por_categoria` (importe como texto). */
+export interface FilaIngresoCategoria {
+  categoria_id: string;
   nombre: string;
   color: string;
-  tipo: 'gasto' | 'ingreso';
-  orden: number;
+  ingreso: string;
 }
 
 export interface IngresoCategoria {
@@ -67,34 +59,20 @@ export interface IngresoCategoria {
 }
 
 /**
- * Ingresos por categoría de ingreso (sección 8: nunca se mezclan con las de gasto).
- * Solo cuentan movimientos de tipo ingreso; las devoluciones restan del gasto, no aparecen aquí.
+ * Ingresos por categoría de ingreso (sección 8: nunca se mezclan con las de gasto) con su % sobre
+ * el total de ingresos del tramo. Las sumas y el orden (de mayor a menor) vienen de SQL.
  */
-export function ingresosPorCategoria(
-  movimientos: readonly MovimientoLigero[],
-  categorias: readonly CategoriaIngresoRef[],
-): IngresoCategoria[] {
-  const deIngreso = new Map(categorias.filter((c) => c.tipo === 'ingreso').map((c) => [c.id, c]));
-  const sumas = new Map<string, bigint>();
-  for (const mov of movimientos) {
-    if (mov.tipo !== 'ingreso' || mov.categoria_id === null || !deIngreso.has(mov.categoria_id)) continue;
-    sumas.set(mov.categoria_id, (sumas.get(mov.categoria_id) ?? 0n) + aCentimos(mov.importe));
-  }
-  let total = 0n;
-  for (const v of sumas.values()) total += v;
-  return [...sumas.entries()]
-    .map(([id, c]) => {
-      const cat = deIngreso.get(id);
-      return { cat, c, id };
-    })
-    .filter((x): x is { cat: CategoriaIngresoRef; c: bigint; id: string } => x.cat !== undefined)
-    .sort((a, b) => (a.c === b.c ? a.cat.orden - b.cat.orden : a.c > b.c ? -1 : 1))
-    .map(({ cat, c, id }) => ({
-      id,
-      nombre: cat.nombre,
-      color: cat.color,
-      importe: desdeCentimos(c),
-      porcentaje: porcentajeDe(c, total),
+export function repartirIngresos(filas: readonly FilaIngresoCategoria[]): IngresoCategoria[] {
+  const conCentimos = filas.map((f) => ({ ...f, c: aCentimos(f.ingreso) }));
+  const total = conCentimos.reduce((s, x) => s + x.c, 0n);
+  return conCentimos
+    .filter((x) => x.c !== 0n)
+    .map((x) => ({
+      id: x.categoria_id,
+      nombre: x.nombre,
+      color: x.color,
+      importe: desdeCentimos(x.c),
+      porcentaje: porcentajeDe(x.c, total),
     }));
 }
 

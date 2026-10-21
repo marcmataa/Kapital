@@ -2,10 +2,10 @@ import { useId, useState, type FormEvent } from 'react';
 import toast from 'react-hot-toast';
 import { SelectorBanco, type BancoElegido } from '@/features/onboarding/components/SelectorBanco';
 import type { Cuenta } from '@/shared/api/catalogos';
-import { useT } from '@/shared/i18n';
+import { useIdioma, useT } from '@/shared/i18n';
 import { esEntidad, type Entidad } from '@/shared/lib/bancos';
-import { IMPORTE_MAXIMO, compararImportes, parsearImporte } from '@/shared/lib/dinero';
-import { Button, MoneyInput, Sheet } from '@/shared/ui';
+import { IMPORTE_MAXIMO, compararImportes, parsearImporteLocal } from '@/shared/lib/dinero';
+import { Button, MoneyInput, Sheet, importeParaEditar } from '@/shared/ui';
 import { useConfigCrearBancoMutation } from '../api/configuracionApi';
 import { claveError } from '../api/errores';
 import { AlertaError } from './AlertaError';
@@ -17,12 +17,12 @@ interface Props {
 }
 
 /**
- * Saldo escrito por el usuario → '1258.50'. Como `leer_saldo` en la base: admite 0, pero no
- * signos ni textos vacíos, y debe caber en numeric(12,2).
+ * Saldo escrito por el usuario, leído con el idioma activo → '1258.50'. Como `leer_saldo` en la
+ * base: admite 0, pero no signos ni textos vacíos, y debe caber en numeric(12,2).
  */
-export function leerSaldo(texto: string): string | null {
+export function leerSaldo(texto: string, locale: string): string | null {
   if (texto.includes('-')) return null;
-  const saldo = parsearImporte(texto);
+  const saldo = parsearImporteLocal(texto, locale);
   if (saldo === null || compararImportes(saldo, IMPORTE_MAXIMO) > 0) return null;
   return saldo;
 }
@@ -30,6 +30,7 @@ export function leerSaldo(texto: string): string | null {
 /** Alta de un banco con su saldo de hoy (`crear_banco`). Se monta solo mientras está abierto. */
 export function SheetAnadirBanco({ onCerrar, cuentas }: Props) {
   const t = useT('configuracion');
+  const { locale } = useIdioma();
   const idForm = useId();
   const [banco, setBanco] = useState<BancoElegido | null>(null);
   const [saldo, setSaldo] = useState('');
@@ -44,7 +45,7 @@ export function SheetAnadirBanco({ onCerrar, cuentas }: Props) {
   const enviar = async (e: FormEvent) => {
     e.preventDefault();
     setErrorEnvio(null);
-    const normalizado = leerSaldo(saldo);
+    const normalizado = leerSaldo(saldo, locale);
     setErrorBanco(banco === null ? t('anadir.elegirBanco') : undefined);
     setErrorSaldo(normalizado === null ? t('anadir.saldoInvalido') : undefined);
     if (banco === null || normalizado === null) return;
@@ -105,7 +106,7 @@ export function SheetAnadirBanco({ onCerrar, cuentas }: Props) {
           onChange={setSaldo}
           normalizar={leerSaldo}
           error={errorSaldo}
-          placeholder="0,00"
+          placeholder={importeParaEditar('0.00', locale)}
         />
         <AlertaError mensaje={errorEnvio} />
       </form>

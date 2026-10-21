@@ -283,10 +283,10 @@ describe('solicitar_regeneracion', () => {
     await expect(pedir(mes)).rejects.toMatchObject(limite);
   });
 
-  it('también desde error', async () => {
+  it('no desde error: un fallo se reintenta con reintentar_analisis y no gasta la regeneración', async () => {
     await insertar(u, mes, 'error');
-    await pedir(mes);
-    expect(await estado(u, mes)).toMatchObject({ estado: 'pendiente', regeneraciones: 1 });
+    await expect(pedir(mes)).rejects.toMatchObject(limite);
+    expect(await estado(u, mes)).toMatchObject({ estado: 'error', regeneraciones: 0 });
   });
 
   it('no mientras está pendiente o generándose, ni si no existe', async () => {

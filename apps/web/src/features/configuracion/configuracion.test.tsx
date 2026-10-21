@@ -306,29 +306,23 @@ describe('Mis bancos', () => {
     expect(within(hoja).getByText(/haz principal otro banco antes de cerrarlo/)).toBeInTheDocument();
   });
 
-  it('hacer principal: primero desmarca el actual y luego marca el nuevo', async () => {
+  it('hacer principal: una sola llamada atómica a hacer_principal, sin updates sueltos', async () => {
+    db.rpc.mockResolvedValue({ data: null, error: null });
     renderPagina();
     await userEvent.click(await screen.findByRole('button', { name: 'Gestionar Banco Prueba' }));
     await userEvent.click(screen.getByRole('button', { name: 'Hacer principal' }));
-    await waitFor(() => expect(escrituras('cuentas')).toHaveLength(2));
-    const [primera, segunda] = escrituras('cuentas');
-    expect(primera).toMatchObject({ valores: { es_principal: false }, filtros: [['id', 'caixa']] });
-    expect(segunda).toMatchObject({ valores: { es_principal: true }, filtros: [['id', 'otro']] });
+    await waitFor(() => expect(db.rpc).toHaveBeenCalledWith('hacer_principal', { p_cuenta: 'otro' }));
+    expect(db.rpc).toHaveBeenCalledTimes(1);
+    expect(escrituras('cuentas')).toHaveLength(0);
+    expect(await screen.findByText(/Banco Prueba/)).toBeInTheDocument();
   });
 
-  it('si falla marcar el nuevo principal, vuelve a marcar el anterior', async () => {
-    db.escribir.mockImplementation((l: Llamada) =>
-      (l.valores as { es_principal?: boolean }).es_principal === true && l.filtros[0]?.[1] === 'nuevo'
-        ? { data: null, error: { code: '23505', message: 'x' } }
-        : undefined,
-    );
-    const r = await cambiarPrincipal('nuevo', 'actual');
-    expect(r).toEqual({ error: { codigo: '23505' } });
-    expect(db.llamadas.map((l) => [l.valores, l.filtros[0]?.[1]])).toEqual([
-      [{ es_principal: false }, 'actual'],
-      [{ es_principal: true }, 'nuevo'],
-      [{ es_principal: true }, 'actual'],
-    ]);
+  it('si la base rechaza el cambio (22023), muestra el error y no hace nada más', async () => {
+    db.rpc.mockResolvedValue({ data: null, error: { code: '22023', message: 'x' } });
+    const r = await cambiarPrincipal('nuevo');
+    expect(r).toEqual({ error: { codigo: '22023' } });
+    expect(db.rpc).toHaveBeenCalledWith('hacer_principal', { p_cuenta: 'nuevo' });
+    expect(db.llamadas).toHaveLength(0);
   });
 
   it('efectivo enlaza al ajuste de su cuenta', async () => {
@@ -341,11 +335,11 @@ describe('Mis bancos', () => {
   });
 
   it('leerSaldo admite 0 pero no signos ni textos vacíos', () => {
-    expect(leerSaldo('0')).toBe('0.00');
-    expect(leerSaldo('1.258,5')).toBe('1258.50');
-    expect(leerSaldo('-5')).toBeNull();
-    expect(leerSaldo('')).toBeNull();
-    expect(leerSaldo('99999999999')).toBeNull();
+    expect(leerSaldo('0', 'es-ES')).toBe('0.00');
+    expect(leerSaldo('1.258,5', 'es-ES')).toBe('1258.50');
+    expect(leerSaldo('-5', 'es-ES')).toBeNull();
+    expect(leerSaldo('', 'es-ES')).toBeNull();
+    expect(leerSaldo('99999999999', 'es-ES')).toBeNull();
   });
 });
 

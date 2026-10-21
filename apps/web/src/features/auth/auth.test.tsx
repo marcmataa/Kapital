@@ -146,9 +146,23 @@ describe('Restablecer', () => {
     expect(screen.getByRole('link', { name: 'Pedir un enlace nuevo' })).toHaveAttribute('href', '/recuperar');
   });
 
-  it('con sesión cambia la contraseña', async () => {
-    auth.updateUser.mockResolvedValue({ data: { user: {} }, error: null });
+  it('con sesión normal (sin PASSWORD_RECOVERY) no muestra el formulario: remite a /recuperar', () => {
     renderConApp(<PaginaRestablecer />, { sesion: sesionFalsa(), ruta: '/restablecer' });
+    expect(screen.queryByLabelText('Nueva contraseña')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Para elegir una contraseña nueva, abre el enlace de recuperación que te enviamos por email.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pedir un enlace nuevo' })).toHaveAttribute('href', '/recuperar');
+    expect(auth.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('tras PASSWORD_RECOVERY cambia la contraseña', async () => {
+    auth.updateUser.mockResolvedValue({ data: { user: {} }, error: null });
+    renderConApp(<PaginaRestablecer />, {
+      sesion: sesionFalsa(),
+      ruta: '/restablecer',
+      auth: { recuperandoPassword: true },
+    });
     await userEvent.type(screen.getByLabelText('Nueva contraseña'), PASSWORD);
     await userEvent.type(screen.getByLabelText('Repite la contraseña'), PASSWORD);
     await userEvent.click(screen.getByRole('button', { name: 'Guardar contraseña' }));
@@ -160,7 +174,7 @@ describe('Restablecer', () => {
       data: { user: null },
       error: { name: 'AuthApiError', status: 422, code: 'same_password', message: 'x' },
     });
-    renderConApp(<PaginaRestablecer />, { sesion: sesionFalsa() });
+    renderConApp(<PaginaRestablecer />, { sesion: sesionFalsa(), auth: { recuperandoPassword: true } });
     await userEvent.type(screen.getByLabelText('Nueva contraseña'), PASSWORD);
     await userEvent.type(screen.getByLabelText('Repite la contraseña'), PASSWORD);
     await userEvent.click(screen.getByRole('button', { name: 'Guardar contraseña' }));

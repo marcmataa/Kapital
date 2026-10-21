@@ -7,8 +7,11 @@ import { claveErrorAnalisis } from '../lib/errores';
 
 interface Props {
   mes: string;
-  /** primera: aún no hay análisis (no consume la regeneración). regenerar: rehacer uno existente. */
-  modo: 'primera' | 'regenerar';
+  /**
+   * primera: aún no hay análisis. reintentar: falló o se quedó atascado. Ninguna de las dos
+   * consume la regeneración. regenerar: rehacer uno listo (máx. 1).
+   */
+  modo: 'primera' | 'reintentar' | 'regenerar';
   /** Regeneraciones ya usadas (máx. 1). */
   regeneraciones?: number;
   /** Desactivado mientras el análisis se está generando. */
@@ -21,9 +24,16 @@ function codigoDe(error: unknown): string {
     : 'desconocido';
 }
 
+const ETIQUETA = {
+  primera: 'generar.boton',
+  reintentar: 'reintentar.boton',
+  regenerar: 'regenerar.boton',
+} as const;
+
 /**
- * «Generar análisis» o «Regenerar (1 disponible)». Llama a la Edge Function y traduce sus
- * códigos de error a mensajes amables (nunca el texto del proveedor ni de la base).
+ * «Generar análisis», «Reintentar» o «Regenerar (1 disponible)». Llama a la Edge Function (que
+ * decide según el estado de la fila) y traduce sus códigos de error a mensajes amables (nunca el
+ * texto del proveedor ni de la base).
  */
 export function BotonGenerar({ mes, modo, regeneraciones = 0, ocupado = false }: Props) {
   const t = useT('analisis');
@@ -53,14 +63,21 @@ export function BotonGenerar({ mes, modo, regeneraciones = 0, ocupado = false }:
         variante={modo === 'primera' ? 'primario' : 'secundario'}
         cargando={isLoading}
         disabled={ocupado}
-        icono={modo === 'primera' ? <Sparkles aria-hidden="true" className="size-4" /> : <RefreshCw aria-hidden="true" className="size-4" />}
+        icono={
+          modo === 'primera' ? (
+            <Sparkles aria-hidden="true" className="size-4" />
+          ) : (
+            <RefreshCw aria-hidden="true" className="size-4" />
+          )
+        }
         onClick={() => {
           reset();
           void generar(mes);
         }}
       >
-        {modo === 'primera' ? t('generar.boton') : t('regenerar.boton')}
+        {t(ETIQUETA[modo])}
       </Button>
+      {modo === 'reintentar' && !isLoading && <p className="text-xs text-apagado">{t('reintentar.noConsume')}</p>}
       {isLoading && <p className="text-xs text-apagado" role="status">{t('generar.enCurso')}</p>}
       {error !== undefined && !isLoading && (
         <p role="alert" className="text-sm font-medium text-negativo">

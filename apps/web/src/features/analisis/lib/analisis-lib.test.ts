@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FilaAnalisis } from '../schemas/esquemas';
+import { accionAnalisis, estaAtascado } from './acciones';
 import { claveErrorAnalisis, codigoErrorFuncion } from './errores';
 import { entradasMeses, esGenerable, mesDeRuta, rutaDeMes } from './meses';
 
@@ -9,7 +10,9 @@ const fila = (mes: string, estado: FilaAnalisis['estado'] = 'listo'): FilaAnalis
   estado,
   mes_incompleto: false,
   regeneraciones: 0,
+  intentos: 0,
   generado_at: null,
+  updated_at: '2026-10-01T05:00:00Z',
 });
 
 describe('entradasMeses', () => {
@@ -80,9 +83,33 @@ describe('codigoErrorFuncion', () => {
 
   it('claveErrorAnalisis', () => {
     expect(claveErrorAnalisis('limite_regeneracion')).toBe('error.limite');
+    expect(claveErrorAnalisis('limite_reintentos')).toBe('error.limiteReintentos');
     expect(claveErrorAnalisis('en_curso')).toBe('error.enCurso');
     expect(claveErrorAnalisis('generacion_fallida')).toBe('error.generacion');
     expect(claveErrorAnalisis('red')).toBe('error.red');
     expect(claveErrorAnalisis('error_interno')).toBe('error.generico');
+  });
+});
+
+describe('accionAnalisis (reintentar no consume; regenerar solo si está listo)', () => {
+  const ahora = Date.parse('2026-10-19T10:00:00Z');
+  const con = (cambios: Partial<FilaAnalisis>): FilaAnalisis => ({ ...fila('2026-09-01'), ...cambios });
+
+  it('listo: regenerar una vez; después agotado', () => {
+    expect(accionAnalisis(con({ estado: 'listo' }), ahora)).toBe('regenerar');
+    expect(accionAnalisis(con({ estado: 'listo', regeneraciones: 1 }), ahora)).toBe('agotado');
+  });
+
+  it('error: reintentar mientras intentos < 3, aunque ya se haya regenerado', () => {
+    expect(accionAnalisis(con({ estado: 'error', intentos: 0 }), ahora)).toBe('reintentar');
+    expect(accionAnalisis(con({ estado: 'error', intentos: 2, regeneraciones: 1 }), ahora)).toBe('reintentar');
+    expect(accionAnalisis(con({ estado: 'error', intentos: 3 }), ahora)).toBe('sin_reintentos');
+  });
+
+  it('pendiente/generando: esperar hasta 15 min; después, atascado → reintentar', () => {
+    expect(accionAnalisis(con({ estado: 'generando', updated_at: '2026-10-19T09:45:00Z' }), ahora)).toBe('esperar');
+    expect(accionAnalisis(con({ estado: 'pendiente', updated_at: '2026-10-19T09:44:59Z' }), ahora)).toBe('reintentar');
+    expect(estaAtascado(con({ estado: 'listo', updated_at: '2020-01-01T00:00:00Z' }), ahora)).toBe(false);
+    expect(estaAtascado(con({ estado: 'generando', updated_at: 'no es fecha' }), ahora)).toBe(false);
   });
 });

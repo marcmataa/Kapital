@@ -45,6 +45,8 @@ export default {
   'restablecer.enlaceInvalidoTitulo': 'Enllaç no vàlid',
   'restablecer.enlaceInvalidoTexto': "L'enllaç ha caducat o ja s'ha fet servir. Demana'n un de nou.",
   'restablecer.pedirOtro': 'Demana un enllaç nou',
+  'restablecer.sinRecuperacionTitulo': "Obre l'enllaç del correu",
+  'restablecer.sinRecuperacionTexto': "Per triar una contrasenya nova, obre l'enllaç de recuperació que t'hem enviat per correu.",
   'error.credenciales': 'Correu o contrasenya incorrectes.',
   'error.registroCerrado': 'El registre està tancat de moment.',
   'error.demasiadosIntentos': 'Massa intents. Espera uns minuts i torna-ho a provar.',

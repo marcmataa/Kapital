@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderConApp, sesionFalsa } from '@/test/render';
 import PaginaEstadisticas from './pages/PaginaEstadisticas';
-import { columnas, estado, PERFIL, reiniciar, type Llamada, type Respuesta } from './test/supabaseFalso';
+import { columnas, estado, PERFIL, reiniciar, type Llamada, type Respuesta } from '@/test/supabaseFalso';
 
-vi.mock('@/shared/lib/supabase', async () => (await import('./test/supabaseFalso')).moduloFalso);
+vi.mock('@/shared/lib/supabase', async () => (await import('@/test/supabaseFalso')).moduloFalso);
 
 const CEROS = {
   ingresos: '0.00',
@@ -31,7 +31,7 @@ const AGOSTO = { ...CEROS, ingresos: '1420.00', gastos: '1190.40', gastos_netos:
 
 type Rpc = Record<string, (args: Record<string, unknown>) => unknown>;
 
-function servir(rpc: Rpc, tablas: Record<string, unknown> = {}) {
+function servir(rpc: Rpc, tablas: Record<string, unknown> = {}, inicioDatos = '2026-08-01') {
   estado.responder = (ll: Llamada): Respuesta => {
     if (ll.origen === 'rpc') {
       const f = rpc[ll.nombre];
@@ -39,7 +39,7 @@ function servir(rpc: Rpc, tablas: Record<string, unknown> = {}) {
     }
     if (ll.nombre === 'perfiles') return { data: PERFIL, error: null };
     if (ll.nombre === 'cuentas') {
-      return { data: [{ id: 'c1', nombre: 'BBVA', fecha_inicial: '2026-08-01', saldo_inicial: '1000.00' }], error: null };
+      return { data: [{ id: 'c1', nombre: 'BBVA', fecha_inicial: inicioDatos, saldo_inicial: '1000.00' }], error: null };
     }
     if (ll.nombre === 'v_saldos') return { data: [], error: null };
     return { data: tablas[ll.nombre] ?? [], error: null };
@@ -89,11 +89,14 @@ describe('Estadísticas: comparativa', () => {
     servir({ resumen_periodo: () => SEPTIEMBRE });
     montar();
     await screen.findByText('Ahorro 22,5 % · provisional, hasta hoy');
-    const rpc = estado.llamadas.filter((l) => l.origen === 'rpc' || l.nombre === 'movimientos');
+    await waitFor(() => expect(estado.llamadas.some((l) => l.nombre === 'gasto_por_dia')).toBe(true));
+    const rpc = estado.llamadas.filter((l) => l.origen === 'rpc');
     expect(rpc.length).toBeGreaterThan(0);
-    for (const l of rpc) expect(columnas(l)).not.toMatch(/(^|, )(ingresos|gasto|importe|balance)(,|$)/);
+    for (const l of rpc) expect(columnas(l)).not.toMatch(/(^|, )(ingresos|gasto|gasto_neto|importe|balance)(,|$)/);
     expect(columnas(rpc.find((l) => l.nombre === 'resumen_periodo') as Llamada)).toContain('balance::text');
-    expect(columnas(rpc.find((l) => l.nombre === 'movimientos') as Llamada)).toBe('fecha, tipo, importe::text, categoria_id');
+    expect(columnas(rpc.find((l) => l.nombre === 'gasto_por_dia') as Llamada)).toBe('fecha, gasto_neto::text');
+    // Ya no se descargan movimientos sueltos para agregarlos en el cliente.
+    expect(estado.llamadas.some((l) => l.nombre === 'movimientos')).toBe(false);
   });
 
   it('mes en curso: 1–19 oct contra 1–19 sept', async () => {
@@ -124,6 +127,17 @@ describe('Estadísticas: comparativa', () => {
     // Septiembre (anterior) a 0 € en todo → las tres tarjetas sin porcentaje.
     expect(within(comparativa).getAllByText('Sin datos del mes anterior')).toHaveLength(3);
     expect(within(comparativa).queryByText(/%.*vs/)).not.toBeInTheDocument();
+  });
+
+  it('datos desde el 25/09: el 27/10 no hay % (1–27 sept está incompleto y ni se pide)', async () => {
+    vi.setSystemTime(new Date('2026-10-27T10:00:00Z'));
+    servir({ resumen_periodo: resumenPor({ '2026-10-01': SEPTIEMBRE, '2026-09-01': AGOSTO }) }, {}, '2026-09-25');
+    montar();
+    const comparativa = await screen.findByRole('region', { name: /Comparativa/ });
+    await within(comparativa).findByText('+339,72 €');
+    expect(within(comparativa).getAllByText('Sin datos del mes anterior')).toHaveLength(3);
+    expect(within(comparativa).queryByText(/%.*vs/)).not.toBeInTheDocument();
+    expect(estado.llamadas.some((l) => l.nombre === 'resumen_periodo' && l.args?.p_desde === '2026-09-01')).toBe(false);
   });
 
   it('color por significado: suben los gastos → rojo; suben los ingresos → verde', async () => {
@@ -161,47 +175,39 @@ describe('Estadísticas: gastos', () => {
     expect(screen.getByText('Tarjeta')).toBeInTheDocument();
   });
 
-  it('gasto por día con tabla accesible; el traspaso no cuenta', async () => {
-    servir(
-      { resumen_periodo: () => SEPTIEMBRE },
-      {
-        movimientos: [
-          { fecha: '2026-10-03', tipo: 'gasto', importe: '100.00', categoria_id: 'ocio' },
-          { fecha: '2026-10-03', tipo: 'devolucion', importe: '60.00', categoria_id: 'ocio' },
-          { fecha: '2026-10-03', tipo: 'traspaso', importe: '100.00', categoria_id: null },
-        ],
-      },
-    );
+  it('gasto por día (RPC gasto_por_dia) con tabla accesible', async () => {
+    servir({
+      resumen_periodo: () => SEPTIEMBRE,
+      gasto_por_dia: () => [{ fecha: '2026-10-03', gasto_neto: '40.00' }],
+    });
     montar();
     const tabla = await screen.findByRole('table', { name: 'Gasto neto por día' });
     const fila = within(tabla).getByRole('row', { name: /^3 oct 2026/ });
     expect(fila).toHaveTextContent('40,00 €');
     // Solo hasta hoy (19 días): los días futuros no están.
     expect(within(tabla).getAllByRole('row')).toHaveLength(20);
+    expect(estado.llamadas).toContainEqual(
+      expect.objectContaining({ nombre: 'gasto_por_dia', args: { p_desde: '2026-10-01', p_hasta: '2026-10-19' } }),
+    );
   });
 });
 
 describe('Estadísticas: ingresos y balance', () => {
-  it('ingresos por categoría de ingreso, sin devoluciones', async () => {
-    servir(
-      { resumen_periodo: () => SEPTIEMBRE },
-      {
-        movimientos: [
-          { fecha: '2026-10-01', tipo: 'ingreso', importe: '1258.00', categoria_id: 'nomina' },
-          { fecha: '2026-10-02', tipo: 'devolucion', importe: '24.00', categoria_id: 'ocio' },
-        ],
-        categorias: [
-          { id: 'nomina', nombre: 'Nómina', color: '#5fd3a0', tipo: 'ingreso', orden: 1 },
-          { id: 'ocio', nombre: 'Ocio', color: '#9b6bff', tipo: 'gasto', orden: 2 },
-        ],
-      },
-    );
+  it('ingresos por categoría de ingreso (RPC ingresos_por_categoria)', async () => {
+    servir({
+      resumen_periodo: () => SEPTIEMBRE,
+      ingresos_por_categoria: () => [
+        { categoria_id: 'nomina', nombre: 'Nómina', color: '#5fd3a0', icono: null, ingreso: '1258.00' },
+      ],
+    });
     montar();
     await userEvent.click(await screen.findByRole('radio', { name: 'Ingresos' }));
     const lista = await screen.findByRole('list', { name: 'Ingresos por categoría' });
     expect(within(lista).getByText('Nómina')).toBeInTheDocument();
     expect(within(lista).getByText('1.258,00 € · 100,0 %')).toBeInTheDocument();
-    expect(within(lista).queryByText('Ocio')).not.toBeInTheDocument();
+    const llamada = estado.llamadas.find((l) => l.nombre === 'ingresos_por_categoria') as Llamada;
+    expect(columnas(llamada)).toBe('categoria_id, nombre, color, ingreso::text');
+    expect(estado.llamadas.some((l) => l.nombre === 'movimientos')).toBe(false);
   });
 
   it('balance por mes, media de meses completos, variación patrimonial aparte y sin interanual', async () => {

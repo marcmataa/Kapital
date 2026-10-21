@@ -23,7 +23,6 @@ export function SeccionBancos({ cuentas }: Props) {
   const bancos = cuentas.filter((c) => c.tipo === 'banco');
   const abiertos = bancos.filter((c) => c.fecha_cierre === null);
   const cerrados = bancos.filter((c) => c.fecha_cierre !== null);
-  const principalId = cuentas.find((c) => c.es_principal)?.id ?? null;
   const enLimite = abiertos.length >= MAX_BANCOS;
   const seleccionado = abiertos.find((c) => c.id === gestionando) ?? null;
 
@@ -107,7 +106,6 @@ export function SeccionBancos({ cuentas }: Props) {
       {seleccionado !== null && (
         <SheetBanco
           cuenta={seleccionado}
-          principalId={principalId}
           abiertos={abiertos.length}
           onCerrar={() => setGestionando(null)}
         />

@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 /**
  * Supabase falso para los tests de la feature: cada consulta (`from` o `rpc`) se registra con su
  * cadena de métodos y se resuelve con `estado.responder`. Uso:
- *   vi.mock('@/shared/lib/supabase', async () => (await import('./test/supabaseFalso')).moduloFalso);
+ *   vi.mock('@/shared/lib/supabase', async () => (await import('@/test/supabaseFalso')).moduloFalso);
  */
 export interface Llamada {
   origen: 'from' | 'rpc';

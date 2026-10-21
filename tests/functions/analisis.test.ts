@@ -16,7 +16,7 @@ import {
   parsearOrigenes,
   secretosIguales,
 } from '../../supabase/functions/_shared/analisis/http.ts';
-import { esMesValido, mesAnterior } from '../../supabase/functions/_shared/analisis/mes.ts';
+import { esMesValido, mesAnterior, type Mes } from '../../supabase/functions/_shared/analisis/mes.ts';
 import {
   construirMensajes,
   formatearEuros,
@@ -322,10 +322,18 @@ describe('crearHandler', () => {
     };
   }
 
-  function montar(opts: { fila?: FilaAnalisis | null; regeneracion?: 'ok' | 'limite_regeneracion' } = {}) {
+  function montar(
+    opts: {
+      fila?: FilaAnalisis | null;
+      regeneracion?: 'ok' | 'limite_regeneracion';
+      reintento?: 'ok' | 'limite_reintentos' | 'en_curso';
+      mesInicial?: Mes | null;
+    } = {},
+  ) {
     const servicio = {
       usuariosConOnboarding: vi.fn(async () => ['u1']),
       onboardingCompletado: vi.fn(async () => true),
+      mesInicial: vi.fn(async (): Promise<Mes | null> => (opts.mesInicial === undefined ? '2020-01-01' : opts.mesInicial)),
       crearPendientes: vi.fn(async () => undefined),
       filasProcesables: vi.fn(async () => [fila()]),
       obtenerFila: vi.fn(async () => (opts.fila === undefined ? fila() : opts.fila)),
@@ -337,6 +345,7 @@ describe('crearHandler', () => {
     const usuario: ClienteUsuario = {
       usuarioId: async () => 'u1',
       solicitarRegeneracion: vi.fn(async () => opts.regeneracion ?? 'ok'),
+      reintentarAnalisis: vi.fn(async () => opts.reintento ?? 'ok'),
     };
     const logs: Record<string, string | number>[] = [];
     const deps: DependenciasHandler = {
@@ -430,5 +439,115 @@ describe('crearHandler', () => {
     expect(r.status).toBe(200);
     expect(servicio.crearPendientes).toHaveBeenCalledWith(['u1'], '2026-09-01');
     expect(usuario.solicitarRegeneracion).not.toHaveBeenCalled();
+  });
+
+  it('error → reintentar_analisis, sin gastar la regeneración', async () => {
+    const { handler, usuario, servicio } = montar({ fila: fila({ estado: 'error', intentos: 1 }) });
+    const r = await handler(peticionUsuario('{"mes":"2026-09-01"}'));
+    expect(r.status).toBe(200);
+    expect(usuario.reintentarAnalisis).toHaveBeenCalledWith('2026-09-01');
+    expect(usuario.solicitarRegeneracion).not.toHaveBeenCalled();
+    expect(servicio.reclamar).toHaveBeenCalledOnce();
+  });
+
+  it('reintentos agotados → 429 limite_reintentos', async () => {
+    const { handler, servicio } = montar({
+      fila: fila({ estado: 'error', intentos: 3 }),
+      reintento: 'limite_reintentos',
+    });
+    const r = await handler(peticionUsuario('{"mes":"2026-09-01"}'));
+    expect(r.status).toBe(429);
+    expect(await r.json()).toEqual({ error: 'limite_reintentos' });
+    expect(servicio.reclamar).not.toHaveBeenCalled();
+  });
+
+  it('reintentar dice en_curso → 409', async () => {
+    const { handler } = montar({ fila: fila({ estado: 'error' }), reintento: 'en_curso' });
+    const r = await handler(peticionUsuario('{"mes":"2026-09-01"}'));
+    expect(r.status).toBe(409);
+    expect(await r.json()).toEqual({ error: 'en_curso' });
+  });
+
+  it('generando atascada (> 15 min) → reintentar_analisis; reciente → 409 sin tocar nada', async () => {
+    const atascada = montar({
+      fila: fila({ estado: 'generando', intentos: 1, updated_at: '2026-10-19T09:00:00Z' }),
+    });
+    expect((await atascada.handler(peticionUsuario('{"mes":"2026-09-01"}'))).status).toBe(200);
+    expect(atascada.usuario.reintentarAnalisis).toHaveBeenCalledOnce();
+    expect(atascada.usuario.solicitarRegeneracion).not.toHaveBeenCalled();
+
+    const reciente = montar({
+      fila: fila({ estado: 'generando', intentos: 1, updated_at: '2026-10-19T09:55:00Z' }),
+    });
+    const r = await reciente.handler(peticionUsuario('{"mes":"2026-09-01"}'));
+    expect(r.status).toBe(409);
+    expect(reciente.usuario.reintentarAnalisis).not.toHaveBeenCalled();
+    expect(reciente.servicio.reclamar).not.toHaveBeenCalled();
+  });
+
+  it('una fila con los intentos agotados nunca se reclama (ni en el cron)', async () => {
+    const { handler, servicio } = montar();
+    servicio.filasProcesables.mockResolvedValueOnce([
+      fila({ estado: 'generando', intentos: 3, updated_at: '2026-10-19T08:00:00Z' }),
+    ]);
+    const r = await handler(
+      new Request('http://x', { method: 'POST', headers: { 'x-cron-secret': SECRETO } }),
+    );
+    expect(r.status).toBe(200);
+    expect(servicio.reclamar).not.toHaveBeenCalled();
+    expect(servicio.datosAnalisis).not.toHaveBeenCalled();
+  });
+
+  it('meses anteriores al de la primera cuenta, o sin cuentas → 400 mes_no_disponible', async () => {
+    const tarde = montar({ mesInicial: '2026-09-01' });
+    expect((await tarde.handler(peticionUsuario('{"mes":"2026-08-01"}'))).status).toBe(400);
+    expect((await tarde.handler(peticionUsuario('{"mes":"2026-09-01"}'))).status).toBe(200);
+    const sinCuentas = montar({ mesInicial: null });
+    const r = await sinCuentas.handler(peticionUsuario('{"mes":"2026-09-01"}'));
+    expect(await r.json()).toEqual({ error: 'mes_no_disponible' });
+    expect(sinCuentas.servicio.obtenerFila).not.toHaveBeenCalled();
+  });
+});
+
+describe('sin mes anterior completo (sección 8)', () => {
+  function sinAnterior(): Record<string, unknown> {
+    return { ...datosBase(), resumen_mes_anterior: null, categorias_mes_anterior: [] };
+  }
+
+  it('el esquema acepta resumen_mes_anterior null', () => {
+    expect(datosAnalisisSchema.safeParse(sinAnterior()).success).toBe(true);
+  });
+
+  it('el prompt recibe null y [] y lleva la regla de no comparar, en los tres idiomas', () => {
+    const reglas = {
+      es: 'Si resumen_mes_anterior es null o no hay categorías del mes anterior, no compares con el mes anterior.',
+      en: 'If resumen_mes_anterior is null or there are no previous-month categories, do not compare with the previous month.',
+      ca: 'Si resumen_mes_anterior és null o no hi ha categories del mes anterior, no comparis amb el mes anterior.',
+    } as const;
+    for (const idioma of ['es', 'en', 'ca'] as const) {
+      const [system, user] = construirMensajes({ ...sinAnterior(), idioma });
+      expect(system?.content).toContain(reglas[idioma]);
+      const contenido = user?.content ?? '';
+      const datos = JSON.parse(contenido.slice(contenido.indexOf('\n') + 1)) as Record<string, unknown>;
+      expect(datos['resumen_mes_anterior']).toBeNull();
+      expect(datos['categorias_mes_anterior']).toEqual([]);
+    }
+  });
+});
+
+describe('límites de categorías (iguales que la base)', () => {
+  const conCategorias = (categorias: unknown[]) => ({ ...datosBase(), categorias });
+  const cat = (nombre: string) => ({ nombre, color: null, gasto: '1.00' });
+
+  it('nombres de hasta 40 caracteres (contando emojis como uno)', () => {
+    expect(datosAnalisisSchema.safeParse(conCategorias([cat('x'.repeat(40))])).success).toBe(true);
+    expect(datosAnalisisSchema.safeParse(conCategorias([cat('🍽'.repeat(40))])).success).toBe(true);
+    expect(datosAnalisisSchema.safeParse(conCategorias([cat('x'.repeat(41))])).success).toBe(false);
+  });
+
+  it('hasta 200 categorías', () => {
+    const muchas = (n: number) => Array.from({ length: n }, (_, i) => cat(`Categoría ${i}`));
+    expect(datosAnalisisSchema.safeParse(conCategorias(muchas(200))).success).toBe(true);
+    expect(datosAnalisisSchema.safeParse(conCategorias(muchas(201))).success).toBe(false);
   });
 });

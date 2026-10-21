@@ -66,11 +66,23 @@ interface Escenario {
   objetivos?: unknown[];
   movimientos?: unknown[];
   insertError?: unknown;
+  /** fecha_inicial de la cuenta más antigua (primer día con datos). */
+  inicioDatos?: string;
 }
 
-function escenario({ analisis = null, objetivos = [], movimientos = [], insertError = null }: Escenario = {}) {
+function escenario({
+  analisis = null,
+  objetivos = [],
+  movimientos = [],
+  insertError = null,
+  inicioDatos = '2026-01-01',
+}: Escenario = {}) {
   sb.responder = (l) => {
     switch (l.origen) {
+      case 'cuentas':
+        return ok([{ id: 'c1', nombre: 'BBVA', tipo: 'banco', fecha_inicial: inicioDatos, saldo_inicial: '1000.00' }]);
+      case 'v_saldos':
+        return ok([]);
       case 'perfiles':
         return ok(PERFIL);
       case 'categorias':
@@ -163,6 +175,33 @@ describe('PaginaInicio · datos', () => {
     const ingresos = screen.getByRole('heading', { name: 'Ingresos · 1–19 oct' }).closest('article');
     if (!ingresos) throw new Error('sin tarjeta');
     expect(within(ingresos).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+  });
+});
+
+describe('PaginaInicio · periodo anterior parcial (sección 8)', () => {
+  it('datos desde el 25/09: el 27/10 no hay % de ingresos ni de gastos (1–27 sept está incompleto)', async () => {
+    vi.setSystemTime(new Date('2026-10-27T10:00:00Z'));
+    escenario({ inicioDatos: '2026-09-25' });
+    pintar();
+    const gastos = (await screen.findByRole('heading', { name: 'Gastos netos · 1–27 oct' })).closest('article');
+    const ingresos = screen.getByRole('heading', { name: 'Ingresos · 1–27 oct' }).closest('article');
+    if (!gastos || !ingresos) throw new Error('sin tarjeta');
+    expect(within(gastos).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+    expect(within(ingresos).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+    expect(within(gastos).queryByText(/%/)).not.toBeInTheDocument();
+    // Ni siquiera se pide el resumen de 1–27 sept.
+    expect(sb.llamadas).not.toContainEqual(
+      expect.objectContaining({ origen: 'rpc:resumen_periodo', args: { p_desde: '2026-09-01', p_hasta: '2026-09-27' } }),
+    );
+  });
+
+  it('datos desde el día 1 del mes anterior: sí hay % de gastos', async () => {
+    escenario({ inicioDatos: '2026-09-01' });
+    pintar();
+    const gastos = (await screen.findByRole('heading', { name: 'Gastos netos · 1–19 oct' })).closest('article');
+    if (!gastos) throw new Error('sin tarjeta');
+    // 900,00 → 961,68: +6,9 %.
+    expect(await within(gastos).findByText('+6,9 %')).toBeInTheDocument();
   });
 });
 
@@ -277,6 +316,15 @@ describe('FormObjetivo', () => {
     await waitFor(() => expect(onHecho).toHaveBeenCalled());
     const insert = sb.llamadas.find((l) => l.origen === 'objetivos' && l.insert)?.insert;
     expect(insert).toEqual({ tipo: 'ahorro_mensual', categoria_id: null, importe: '150.00' });
+  });
+
+  it('en inglés «1,000» + Enter (sin salir del campo) guarda mil euros, no uno', async () => {
+    const onHecho = vi.fn();
+    renderConApp(<FormObjetivo onHecho={onHecho} onCancelar={vi.fn()} />, { sesion: sesionFalsa('u1'), idioma: 'en' });
+    await userEvent.type(await screen.findByLabelText('Savings per month'), '1,000{Enter}');
+    await waitFor(() => expect(onHecho).toHaveBeenCalled());
+    const insert = sb.llamadas.find((l) => l.origen === 'objetivos' && l.insert)?.insert;
+    expect(insert).toEqual({ tipo: 'ahorro_mensual', categoria_id: null, importe: '1000.00' });
   });
 
   it('23505 → aviso amable de que ya existe', async () => {

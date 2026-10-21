@@ -41,7 +41,7 @@ function EditarImporte({ objetivo, etiqueta, onHecho }: { objetivo: Objetivo; et
   const enviar = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    const importe = importePositivo(texto);
+    const importe = importePositivo(texto, locale);
     if (importe === null) {
       setErrorCampo(tc('campo.importeInvalido'));
       return;

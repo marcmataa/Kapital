@@ -11,6 +11,8 @@ const CENTIMOS_MAXIMOS = 999_999_999_999n;
 
 const LITERAL_NUMERICO = /^(\d+(\.\d*)?|\.\d+)$/;
 const MILES_CON_PUNTO = /^\d{1,3}(\.\d{3})+$/;
+/** Inglés: comas de miles en grupos exactos de 3, con decimales opcionales tras el punto. */
+const MILES_CON_COMA = /^\d{1,3}(,\d{3})+(\.\d*)?$/;
 const DECIMAL_CON_SIGNO = /^(-?)(\d+)(?:\.(\d+))?$/;
 
 /**
@@ -28,8 +30,12 @@ export function parsearImporte(texto: string | null | undefined): string | null 
   } else if (MILES_CON_PUNTO.test(s)) {
     s = s.replaceAll('.', '');
   }
-  if (s === '' || !LITERAL_NUMERICO.test(s)) return null;
+  return leerLiteral(s);
+}
 
+/** 'ddd.ddd' (punto decimal, sin miles) → 'd.dd' redondeado al céntimo (mitades hacia arriba), o null. */
+function leerLiteral(s: string): string | null {
+  if (s === '' || !LITERAL_NUMERICO.test(s)) return null;
   const [entera = '', fraccion = ''] = s.split('.');
   let centimos = BigInt(entera === '' ? '0' : entera) * 100n + BigInt(fraccion.slice(0, 2).padEnd(2, '0'));
   const tercera = fraccion.charAt(2);
@@ -37,12 +43,36 @@ export function parsearImporte(texto: string | null | undefined): string | null 
   return desdeCentimos(centimos);
 }
 
+/** Separador decimal del idioma (',' en es/ca, '.' en en). */
+export function separadorDecimal(locale: string): string {
+  return new Intl.NumberFormat(locale).formatToParts(1.5).find((p) => p.type === 'decimal')?.value ?? ',';
+}
+
 /**
- * Importe introducido por el usuario listo para enviar a la base: como `parsearImporte`,
- * pero además exige > 0 y que quepa en numeric(12,2). Si no, null.
+ * Importe escrito por el usuario en la interfaz, leído según el idioma activo. Devuelve 'dddd.dd'
+ * (positivo, 2 decimales: lo que se envía a la base) o null.
+ * - es / ca (coma decimal): igual que `parsearImporte` / `leer_importe` ('1.258,50' → '1258.50').
+ * - en (punto decimal): la coma separa miles y el punto es el decimal ('1,000' → '1000.00',
+ *   '1,234.56' → '1234.56', '38.5' → '38.50'). Una coma que no separa grupos exactos de 3 cifras
+ *   es ambigua ('1,5', '1.258,50') y se rechaza (null) en lugar de adivinar.
+ * El signo se ignora, como en `leer_importe` ('-24' → '24.00').
  */
-export function importePositivo(texto: string | null | undefined): string | null {
-  const valor = parsearImporte(texto);
+export function parsearImporteLocal(texto: string | null | undefined, locale: string): string | null {
+  if (separadorDecimal(locale) !== '.') return parsearImporte(texto);
+  let s = (texto ?? '').replace(/[^0-9,.-]/g, '').replaceAll('-', '');
+  if (s.includes(',')) {
+    if (!MILES_CON_COMA.test(s)) return null;
+    s = s.replaceAll(',', '');
+  }
+  return leerLiteral(s);
+}
+
+/**
+ * Importe introducido por el usuario listo para enviar a la base: como `parsearImporteLocal`
+ * (según el idioma activo), pero además exige > 0 y que quepa en numeric(12,2). Si no, null.
+ */
+export function importePositivo(texto: string | null | undefined, locale: string): string | null {
+  const valor = parsearImporteLocal(texto, locale);
   if (valor === null) return null;
   const c = aCentimos(valor);
   return c > 0n && c <= CENTIMOS_MAXIMOS ? valor : null;

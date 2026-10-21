@@ -1,7 +1,7 @@
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { render, screen, within } from '@testing-library/react';
 import type { Session } from '@supabase/supabase-js';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Proveedores, sesionFalsa } from '@/test/render';
 import { rutas } from './router';
 
@@ -33,6 +33,13 @@ const perfilCon = (onboarding: boolean, idioma = 'es') => ({
   onboarding_completado: onboarding,
   created_at: '2026-10-01T00:00:00Z',
 });
+
+// Las páginas son lazy: se precargan una vez para que cada test no dependa de cuánto tarda el
+// primer import (con la suite en paralelo, eso hacía fallar findBy* de forma intermitente).
+beforeAll(async () => {
+  const paginas = import.meta.glob(['../features/*/pages/*.tsx', '../shared/layout/*.tsx']);
+  await Promise.all(Object.values(paginas).map((cargar) => cargar()));
+}, 60_000);
 
 beforeEach(() => {
   perfil.actual = null;

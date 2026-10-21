@@ -259,13 +259,26 @@ isOneToOne: false
               "categoria_id": string,"color": string,"gasto": number,"icono": string,"nombre": string
             }[]
                            },
+"gasto_por_dia":
+{ Args: { "p_desde": string,"p_hasta": string }; Returns: {
+              "fecha": string,"gasto_neto": number
+            }[]
+                           },
 "gasto_por_metodo":
 { Args: { "p_desde": string,"p_hasta": string }; Returns: {
               "gasto": number,"metodo": Database["public"]['Enums']["metodo_pago"]
             }[]
                            },
+"hacer_principal":
+{ Args: { "p_cuenta": string }; Returns: undefined
+                           },
 "hoy_usuario":
 { Args: Record<PropertyKey, never>; Returns: string
+                           },
+"ingresos_por_categoria":
+{ Args: { "p_desde": string,"p_hasta": string }; Returns: {
+              "categoria_id": string,"color": string,"icono": string,"ingreso": number,"nombre": string
+            }[]
                            },
 "leer_importe":
 { Args: { "p": string }; Returns: number
@@ -284,6 +297,9 @@ isOneToOne: false
                            },
 "registrar_movimiento":
 { Args: { "categoria"?: string,"clave"?: string,"comercio"?: string,"concepto"?: string,"desde"?: string,"fecha"?: string,"hacia"?: string,"importe": string,"metodo"?: string,"tipo": string,"token": string }; Returns: Json
+                           },
+"reintentar_analisis":
+{ Args: { "p_mes": string }; Returns: undefined
                            },
 "resumen_mensual":
 { Args: { "p_desde": string,"p_hasta": string }; Returns: {

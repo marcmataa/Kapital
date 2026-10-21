@@ -48,7 +48,7 @@ describe('leerSaldo (réplica de leer_saldo)', () => {
     ['1,005', '1.01'],
     ['9999999999,99', '9999999999.99'],
   ])('acepta %s → %s', (texto, esperado) => {
-    expect(leerSaldo(texto)).toEqual({ ok: true, valor: esperado });
+    expect(leerSaldo(texto, 'es-ES')).toEqual({ ok: true, valor: esperado });
   });
 
   it.each([
@@ -63,7 +63,22 @@ describe('leerSaldo (réplica de leer_saldo)', () => {
     ['1.2.3', 'invalido'],
     ['10000000000', 'maximo'],
   ])('rechaza «%s» (%s)', (texto, error) => {
-    expect(leerSaldo(texto)).toEqual({ ok: false, error });
+    expect(leerSaldo(texto, 'es-ES')).toEqual({ ok: false, error });
+  });
+});
+
+describe('leerSaldo en inglés', () => {
+  it.each([
+    ['1,258.50', '1258.50'],
+    ['1,000', '1000.00'],
+    ['38.5', '38.50'],
+    ['0', '0.00'],
+  ])('acepta %s → %s', (texto, esperado) => {
+    expect(leerSaldo(texto, 'en-GB')).toEqual({ ok: true, valor: esperado });
+  });
+
+  it('rechaza una coma ambigua («1,5») en vez de leerla como 15 o 1,5', () => {
+    expect(leerSaldo('1,5', 'en-GB')).toEqual({ ok: false, error: 'invalido' });
   });
 });
 
@@ -222,6 +237,26 @@ describe('reducerOnboarding', () => {
 });
 
 describe('construirPayload', () => {
+  it('en inglés lee los saldos con coma de miles: «1,258.50» → 1258.50 y «1,000» → 1000.00', () => {
+    const e = aplicar(
+      [
+        { tipo: 'siguiente' },
+        { tipo: 'principal', banco: caixa },
+        { tipo: 'siguiente' },
+        { tipo: 'saldoPrincipal', texto: '1,258.50' },
+        { tipo: 'siguiente' },
+        { tipo: 'siguiente' },
+        { tipo: 'efectivo', texto: '1,000' },
+        { tipo: 'siguiente' },
+      ],
+      estadoInicial('en'),
+    );
+    expect(e.paso).toBe(6);
+    const payload = construirPayload(e);
+    expect(payload?.p_bancos[0]?.saldo).toBe('1258.50');
+    expect(payload?.p_efectivo).toBe('1000.00');
+  });
+
   it('principal primero, saldos normalizados', () => {
     const e = aplicar(
       [

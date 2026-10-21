@@ -115,7 +115,7 @@ export function crearEsquemaMovimiento(ctx: ContextoEsquema) {
       const error = (path: keyof ValoresMovimiento, message: string) => c.addIssue({ code: 'custom', path: [path], message });
 
       // Importe (> 0, cabe en numeric(12,2); el signo del texto se ignora como en leer_importe)
-      const importe = importePositivo(v.importe);
+      const importe = importePositivo(v.importe, locale);
       if (importe === null) error('importe', t('validacion.importe'));
 
       // Categoría según el tipo (check categoria_segun_tipo + regla 1 del trigger)
@@ -177,7 +177,7 @@ export function crearEsquemaMovimiento(ctx: ContextoEsquema) {
         }
       }
     })
-    .transform((v): PayloadMovimiento => aPayload(v));
+    .transform((v): PayloadMovimiento => aPayload(v, locale));
 }
 
 /**
@@ -188,12 +188,13 @@ export function crearEsquemaMovimiento(ctx: ContextoEsquema) {
  * - ingreso / devolución: cuenta_id = DÓNDE ENTRA (no hay cuenta origen); categoría; método opcional.
  * - traspaso: cuenta_id = desde, cuenta_destino_id = hacia.
  * - ajuste: cuenta_id = cuenta corregida, sentido suma/resta.
+ * El importe se lee con el idioma activo (`locale`) y se envía normalizado ('1258.50').
  */
-export function aPayload(v: ValoresMovimiento): PayloadMovimiento {
+export function aPayload(v: ValoresMovimiento, locale: string): PayloadMovimiento {
   const notas = v.notas.trim();
   return {
     tipo: v.tipo,
-    importe: importePositivo(v.importe) ?? '',
+    importe: importePositivo(v.importe, locale) ?? '',
     fecha: v.fecha,
     concepto: v.concepto.trim(),
     notas: notas === '' ? null : notas,

@@ -1,4 +1,4 @@
-import type { Idioma } from '@/shared/i18n';
+import { LOCALE_DE, type Idioma } from '@/shared/i18n/tipos';
 import { MAX_BANCOS, type Entidad } from '@/shared/lib/bancos';
 import type { BancoElegido } from '../components/SelectorBanco';
 import { leerSaldo } from '../schemas/saldo';
@@ -78,11 +78,11 @@ export function pasoValido(e: EstadoOnboarding): boolean {
     case 2:
       return e.principal !== null;
     case 3:
-      return leerSaldo(e.saldoPrincipal).ok;
+      return leerSaldo(e.saldoPrincipal, LOCALE_DE[e.idioma]).ok;
     case 4:
-      return e.borrador === null || leerSaldo(e.saldoBorrador).ok;
+      return e.borrador === null || leerSaldo(e.saldoBorrador, LOCALE_DE[e.idioma]).ok;
     case 5:
-      return leerSaldo(e.efectivo).ok;
+      return leerSaldo(e.efectivo, LOCALE_DE[e.idioma]).ok;
     case 6:
       return false;
   }
@@ -94,7 +94,7 @@ function aPaso(e: EstadoOnboarding, paso: Paso): EstadoOnboarding {
 
 /** Añade el borrador a `extras` si su saldo es válido y cabe otro banco. */
 function confirmarBorrador(e: EstadoOnboarding): EstadoOnboarding | null {
-  if (e.borrador === null || !leerSaldo(e.saldoBorrador).ok || !caberMasBancos(e)) return null;
+  if (e.borrador === null || !leerSaldo(e.saldoBorrador, LOCALE_DE[e.idioma]).ok || !caberMasBancos(e)) return null;
   return {
     ...e,
     extras: [...e.extras, { banco: e.borrador, saldo: e.saldoBorrador }],
@@ -162,11 +162,11 @@ export function construirPayload(e: EstadoOnboarding): PayloadOnboarding | null 
   if (e.principal === null) return null;
   const bancos = [{ banco: e.principal, saldo: e.saldoPrincipal }, ...e.extras];
   if (bancos.length > MAX_BANCOS) return null;
-  const efectivo = leerSaldo(e.efectivo);
+  const efectivo = leerSaldo(e.efectivo, LOCALE_DE[e.idioma]);
   if (!efectivo.ok) return null;
   const p_bancos: BancoPayload[] = [];
   for (const { banco, saldo } of bancos) {
-    const leido = leerSaldo(saldo);
+    const leido = leerSaldo(saldo, LOCALE_DE[e.idioma]);
     if (!leido.ok) return null;
     p_bancos.push({
       entidad: banco.entidad,

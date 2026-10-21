@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { api, aErrorApi, type ErrorApi } from '@/app/api';
 import { supabase } from '@/shared/lib/supabase';
-import type { MovimientoLigero } from '../lib/agregaciones';
+import type { FilaGastoDia, FilaIngresoCategoria } from '../lib/agregaciones';
 import type { Rango } from '../lib/periodos';
 
 /*
@@ -49,12 +49,17 @@ const esquemaVariacion = z.object({
 });
 export type VariacionPatrimonial = z.infer<typeof esquemaVariacion>;
 
-const esquemaMovimiento = z.object({
+const esquemaGastoDia = z.object({
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  tipo: z.enum(['gasto', 'ingreso', 'devolucion', 'traspaso', 'ajuste']),
-  importe,
-  categoria_id: z.string().nullable(),
-});
+  gasto_neto: importe,
+}) satisfies z.ZodType<FilaGastoDia>;
+
+const esquemaIngresoCategoria = z.object({
+  categoria_id: z.string(),
+  nombre: z.string(),
+  color: z.string(),
+  ingreso: importe,
+}) satisfies z.ZodType<FilaIngresoCategoria>;
 
 const COLUMNAS_RESUMEN =
   'ingresos::text, gastos::text, devoluciones::text, gastos_netos::text, balance::text, ahorro_pct::text, ajustes::text';
@@ -126,23 +131,21 @@ export const estadisticasApi = api.injectEndpoints({
       providesTags: ['Resumen'],
     }),
 
-    /**
-     * Movimientos del tramo que cuentan en el balance (gasto, devolución, ingreso), solo con los
-     * campos necesarios para agregarlos por día o por categoría de ingreso.
-     */
-    estadisticasMovimientos: b.query<MovimientoLigero[], Rango>({
+    /** Gasto neto por día (gastos − devoluciones), agregado en SQL; solo días con movimientos. */
+    estadisticasGastoPorDia: b.query<FilaGastoDia[], Rango>({
+      queryFn: (r) =>
+        validar(supabase.rpc('gasto_por_dia', p(r)).select('fecha, gasto_neto::text'), z.array(esquemaGastoDia)),
+      providesTags: ['Resumen', 'Movimientos'],
+    }),
+
+    /** Ingresos por categoría de ingreso, agregados en SQL. */
+    estadisticasIngresosPorCategoria: b.query<FilaIngresoCategoria[], Rango>({
       queryFn: (r) =>
         validar(
-          supabase
-            .from('movimientos')
-            .select('fecha, tipo, importe::text, categoria_id')
-            .gte('fecha', r.desde)
-            .lte('fecha', r.hasta)
-            .in('tipo', ['gasto', 'devolucion', 'ingreso'])
-            .order('fecha'),
-          z.array(esquemaMovimiento),
+          supabase.rpc('ingresos_por_categoria', p(r)).select('categoria_id, nombre, color, ingreso::text'),
+          z.array(esquemaIngresoCategoria),
         ),
-      providesTags: ['Movimientos'],
+      providesTags: ['Resumen', 'Movimientos', 'Categorias'],
     }),
   }),
 });
@@ -153,5 +156,6 @@ export const {
   useEstadisticasGastoPorCategoriaQuery,
   useEstadisticasGastoPorMetodoQuery,
   useEstadisticasVariacionQuery,
-  useEstadisticasMovimientosQuery,
+  useEstadisticasGastoPorDiaQuery,
+  useEstadisticasIngresosPorCategoriaQuery,
 } = estadisticasApi;

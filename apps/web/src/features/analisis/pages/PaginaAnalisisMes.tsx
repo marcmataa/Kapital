@@ -1,6 +1,7 @@
 import { useParams } from 'react-router';
 import { AlertTriangle, Clock } from 'lucide-react';
 import { useListarCuentasQuery } from '@/shared/api/catalogos';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
 import { formatearFechaHora, formatearMes, inicioDeMes, sumarMeses } from '@/shared/lib/fechas';
@@ -12,9 +13,10 @@ import { CategoriasMes } from '../components/CategoriasMes';
 import { ChipsMeses } from '../components/ChipsMeses';
 import { CifrasMes } from '../components/CifrasMes';
 import { ComentarioIA } from '../components/ComentarioIA';
-import { useHoyUsuario } from '../hooks/useHoyUsuario';
+import { useAhora } from '../hooks/useAhora';
 import { useLocale } from '../hooks/useLocale';
 import { useSondeoAnalisis } from '../hooks/useSondeoAnalisis';
+import { accionAnalisis } from '../lib/acciones';
 import { diaMes } from '../lib/formato';
 import { entradasMeses, esGenerable, inicioDeDatos, mesDeRuta } from '../lib/meses';
 import type { ContenidoAnalisis, DatosAnalisis } from '../schemas/esquemas';
@@ -48,9 +50,11 @@ function DetalleMes({ mes }: { mes: string }) {
   const lista = useAnalisisListarQuery();
   const inicioDatos = cuentas.data ? inicioDeDatos(cuentas.data) : null;
 
-  // Primero sin sondeo; si la fila está pendiente o generando, se sondea cada 5 s (máx. ~2 min).
+  const ahora = useAhora();
+
+  // Primero sin sondeo; si la fila está pendiente o generando (y no atascada), se sondea cada 5 s (máx. ~2 min).
   const consultaInicial = useAnalisisObtenerQuery(mes);
-  const enProceso = consultaInicial.data?.estado === 'pendiente' || consultaInicial.data?.estado === 'generando';
+  const enProceso = consultaInicial.data ? accionAnalisis(consultaInicial.data, ahora) === 'esperar' : false;
   const sondeo = useSondeoAnalisis(enProceso, () => {
     void consultaInicial.refetch();
     void lista.refetch();
@@ -81,6 +85,18 @@ function DetalleMes({ mes }: { mes: string }) {
     );
   } else if (analisis === null || analisis === undefined) {
     cuerpo = <SinAnalisis mes={mes} hoy={hoy} inicioDatos={inicioDatos} cargandoCuentas={cuentas.isLoading} />;
+  } else if (analisis.estado !== 'listo' && accionAnalisis(analisis, ahora) === 'reintentar') {
+    // Falló (quedan reintentos) o lleva más de 15 min atascado: «Reintentar» no consume la regeneración.
+    cuerpo = (
+      <Card>
+        <div className="flex flex-col items-center gap-4 py-6 text-center">
+          <p role="status" className="text-texto">
+            {analisis.estado === 'error' ? t('detalle.errorEstado') : t('detalle.atascado')}
+          </p>
+          <BotonGenerar mes={mes} modo="reintentar" />
+        </div>
+      </Card>
+    );
   } else if (analisis.estado === 'pendiente' || analisis.estado === 'generando') {
     cuerpo = (
       <Card>
@@ -106,8 +122,7 @@ function DetalleMes({ mes }: { mes: string }) {
     cuerpo = (
       <Card>
         <div className="flex flex-col items-center gap-4 py-6 text-center">
-          <p role="status" className="text-texto">{t('detalle.errorEstado')}</p>
-          <BotonGenerar mes={mes} modo="regenerar" regeneraciones={analisis.regeneraciones} />
+          <p role="status" className="text-texto">{t('detalle.sinReintentos')}</p>
         </div>
       </Card>
     );

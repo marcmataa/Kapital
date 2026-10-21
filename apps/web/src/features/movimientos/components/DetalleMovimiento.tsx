@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Lock } from 'lucide-react';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
@@ -40,6 +41,7 @@ export function diaDeRegistro(createdAt: string, zona: string = ZONA_POR_DEFECTO
 export function DetalleMovimiento({ movimiento: m, catalogos, onBorrado, nivelTitulo = 'h2', className }: Props) {
   const t = useT('movimientos');
   const { locale } = useIdioma();
+  const { zona } = useHoyUsuario();
   const [confirmando, setConfirmando] = useState(false);
   const original = useMovimientosObtenerQuery(m.devolucion_de ?? '', { skip: m.devolucion_de === null });
 
@@ -48,7 +50,7 @@ export function DetalleMovimiento({ movimiento: m, catalogos, onBorrado, nivelTi
   const categoria = m.categoria_id === null ? undefined : catalogos.categoriaPorId.get(m.categoria_id);
   const Titulo = nivelTitulo;
 
-  const registrado = diaDeRegistro(m.created_at);
+  const registrado = diaDeRegistro(m.created_at, zona);
   const fecha = formatearFecha(m.fecha, locale, 'corta');
   const textoFecha =
     registrado !== null && registrado !== m.fecha

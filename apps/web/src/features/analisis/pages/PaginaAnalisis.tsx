@@ -1,13 +1,13 @@
 import { Link } from 'react-router';
 import { ChevronRight } from 'lucide-react';
 import { useListarCuentasQuery } from '@/shared/api/catalogos';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
 import { sumarMeses } from '@/shared/lib/fechas';
 import { Badge, Button, Card, Spinner, type TonoBadge } from '@/shared/ui';
 import { useAnalisisListarQuery } from '../api/analisisApi';
 import { BotonGenerar } from '../components/BotonGenerar';
-import { useHoyUsuario } from '../hooks/useHoyUsuario';
 import { useLocale } from '../hooks/useLocale';
 import { diaMes, etiquetaMes } from '../lib/formato';
 import { entradasMeses, inicioDeDatos, rutaDeMes } from '../lib/meses';

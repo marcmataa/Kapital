@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
-import { hoy as hoyEn } from '@/shared/lib/fechas';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { Button, Card, EmptyState, PantallaCarga } from '@/shared/ui';
 import type { Cuenta } from '@/shared/api/catalogos';
 import { FormularioMovimiento } from '../components/FormularioMovimiento';
@@ -42,7 +42,7 @@ export default function PaginaNuevoMovimiento() {
   const [params] = useSearchParams();
   const catalogos = useCatalogos();
   const volver = useVolver('/movimientos');
-  const hoy = useMemo(() => hoyEn(), []);
+  const { hoy } = useHoyUsuario();
   const inicial = useMemo(
     () => (catalogos.cargando ? null : valoresIniciales(params, catalogos.cuentas, hoy)),
     [catalogos.cargando, catalogos.cuentas, params, hoy],

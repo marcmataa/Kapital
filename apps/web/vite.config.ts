@@ -9,21 +9,23 @@ const envDir = fileURLToPath(new URL('../..', import.meta.url));
 
 const COLOR_FONDO = '#07110e';
 
+const COMODIN_SUPABASE = ['https://*.supabase.co', 'wss://*.supabase.co'];
+
 /**
- * Orígenes de Supabase permitidos en connect-src.
- * Siempre *.supabase.co; si VITE_SUPABASE_URL apunta a otro origen (p. ej. el stack
- * local en 127.0.0.1:54321) se añade ese origen exacto. El valor no se imprime nunca.
+ * Orígenes de Supabase permitidos en connect-src: el origen EXACTO de VITE_SUPABASE_URL
+ * (https://<ref>.supabase.co y wss://<ref>.supabase.co, o el stack local en 127.0.0.1:54321).
+ * Solo si falta o no es una URL válida se usa el comodín *.supabase.co (con aviso en el build).
+ * `exacto: false` = se usó el comodín. La URL no es secreta, pero no hace falta imprimirla.
  */
-function origenesSupabase(url: string | undefined): string[] {
-  const base = ['https://*.supabase.co', 'wss://*.supabase.co'];
-  if (!url) return base;
+export function origenesSupabase(url: string | undefined): { origenes: string[]; exacto: boolean } {
+  if (!url) return { origenes: COMODIN_SUPABASE, exacto: false };
   try {
     const u = new URL(url);
-    if (u.hostname.endsWith('.supabase.co')) return base;
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return { origenes: COMODIN_SUPABASE, exacto: false };
     const ws = u.protocol === 'https:' ? 'wss:' : 'ws:';
-    return [...base, u.origin, `${ws}//${u.host}`];
+    return { origenes: [u.origin, `${ws}//${u.host}`], exacto: true };
   } catch {
-    return base;
+    return { origenes: COMODIN_SUPABASE, exacto: false };
   }
 }
 
@@ -36,7 +38,7 @@ export function construirCsp(supabaseUrl: string | undefined): string {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
-    `connect-src 'self' ${origenesSupabase(supabaseUrl).join(' ')}`,
+    `connect-src 'self' ${origenesSupabase(supabaseUrl).origenes.join(' ')}`,
     "worker-src 'self'",
     "manifest-src 'self'",
     "base-uri 'self'",
@@ -54,6 +56,14 @@ function cspEnBuild(supabaseUrl: string | undefined): Plugin {
   return {
     name: 'kapital-csp',
     apply: 'build',
+    buildStart() {
+      if (!origenesSupabase(supabaseUrl).exacto) {
+        this.warn(
+          'VITE_SUPABASE_URL falta o no es una URL válida: la CSP usa el comodín *.supabase.co en connect-src. ' +
+            'Defínela en el .env de la raíz para fijar el origen exacto del proyecto.',
+        );
+      }
+    },
     transformIndexHtml: {
       order: 'post',
       handler: () => [

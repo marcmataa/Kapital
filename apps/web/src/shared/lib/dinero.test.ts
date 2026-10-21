@@ -7,6 +7,8 @@ import {
   formatearPorcentaje,
   importePositivo,
   parsearImporte,
+  parsearImporteLocal,
+  separadorDecimal,
   variacionPorcentual,
 } from './dinero';
 
@@ -47,17 +49,68 @@ describe('parsearImporte (réplica de leer_importe)', () => {
   });
 });
 
+describe('parsearImporteLocal (según el idioma de la interfaz)', () => {
+  it.each([
+    ['1.258,50', '1258.50'],
+    ['38,5', '38.50'],
+    ['1.200', '1200.00'],
+    ['1,000', '1.00'],
+  ])('es/ca como leer_importe: %s → %s', (entrada, esperado) => {
+    expect(parsearImporteLocal(entrada, 'es-ES')).toBe(esperado);
+    expect(parsearImporteLocal(entrada, 'ca-ES')).toBe(esperado);
+  });
+
+  it.each([
+    ['1,000', '1000.00'],
+    ['1,234.56', '1234.56'],
+    ['1,234,567.8', '1234567.80'],
+    ['38.5', '38.50'],
+    ['1258.50', '1258.50'],
+    ['1.258', '1.26'],
+    ['1000', '1000.00'],
+    ['-24', '24.00'],
+    ['£ 1,000.00 €', '1000.00'],
+    ['.5', '0.50'],
+  ])('en: la coma separa miles y el punto es decimal: %s → %s', (entrada, esperado) => {
+    expect(parsearImporteLocal(entrada, 'en-GB')).toBe(esperado);
+  });
+
+  it.each(['1,5', '1,2345', '12,34', '1.258,50', '1,000,00', ',5', '1.2.3', 'abc', ''])(
+    'en: rechaza entradas ambiguas o mal formadas en vez de adivinar: %j',
+    (entrada) => {
+      expect(parsearImporteLocal(entrada, 'en-GB')).toBeNull();
+    },
+  );
+
+  it('lo que se envía a la base siempre es dddd.dd y se vuelve a leer igual en SQL', () => {
+    const enviado = parsearImporteLocal('1,234.56', 'en-GB');
+    expect(enviado).toBe('1234.56');
+    expect(parsearImporte(enviado)).toBe('1234.56');
+  });
+
+  it('separador decimal por idioma', () => {
+    expect(separadorDecimal('es-ES')).toBe(',');
+    expect(separadorDecimal('ca-ES')).toBe(',');
+    expect(separadorDecimal('en-GB')).toBe('.');
+  });
+});
+
 describe('importePositivo', () => {
+  it('en inglés, "1,000" son mil euros (no 1,00)', () => {
+    expect(importePositivo('1,000', 'en-GB')).toBe('1000.00');
+    expect(importePositivo('0.004', 'en-GB')).toBeNull();
+  });
+
   it('acepta importes válidos', () => {
-    expect(importePositivo('38,5')).toBe('38.50');
-    expect(importePositivo('-24')).toBe('24.00');
-    expect(importePositivo('9999999999,99')).toBe('9999999999.99');
+    expect(importePositivo('38,5', 'es-ES')).toBe('38.50');
+    expect(importePositivo('-24', 'es-ES')).toBe('24.00');
+    expect(importePositivo('9999999999,99', 'es-ES')).toBe('9999999999.99');
   });
   it('rechaza cero, basura y desbordes de numeric(12,2)', () => {
-    expect(importePositivo('0')).toBeNull();
-    expect(importePositivo('0,004')).toBeNull();
-    expect(importePositivo('abc')).toBeNull();
-    expect(importePositivo('10000000000')).toBeNull();
+    expect(importePositivo('0', 'es-ES')).toBeNull();
+    expect(importePositivo('0,004', 'es-ES')).toBeNull();
+    expect(importePositivo('abc', 'es-ES')).toBeNull();
+    expect(importePositivo('10000000000', 'es-ES')).toBeNull();
   });
 });
 

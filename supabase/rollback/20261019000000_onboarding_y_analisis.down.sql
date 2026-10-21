@@ -1,3 +1,13 @@
+-- ¡AVISO DE SEGURIDAD! Este script borra el trigger kapital_validar_registro
+-- (registro restringido). En cuanto termine, CUALQUIERA puede registrarse si en
+-- Supabase → Authentication están activadas las altas (email o Google).
+-- Antes de ejecutarlo en producción: desactiva «Allow new users to sign up» en
+-- Authentication → Sign In / Providers, y no lo vuelvas a activar hasta
+-- re-aplicar la migración 20261019000000_onboarding_y_analisis.sql.
+--
+-- ORDEN: si existe 20261020000000_correcciones.sql aplicada, ejecuta antes
+-- su rollback (supabase/rollback/20261020000000_correcciones.down.sql).
+--
 -- Rollback de 20261019000000_onboarding_y_analisis.sql
 -- Deja intacto el esquema inicial. BORRA los análisis mensuales, la lista de
 -- registro y las columnas onboarding_completado, entidad y color.

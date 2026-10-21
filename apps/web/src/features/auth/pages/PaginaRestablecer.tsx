@@ -16,11 +16,13 @@ import { PASSWORD_MINIMO, esquemaRestablecer, type DatosRestablecer } from '../s
 
 /**
  * Destino del enlace del email de recuperación. supabase-js canjea el código de la URL por una
- * sesión; sin sesión, el enlace no vale (caducado o ya usado).
+ * sesión y emite PASSWORD_RECOVERY (`recuperandoPassword`). El formulario SOLO aparece tras ese
+ * evento: una sesión normal (p. ej. un dispositivo desbloqueado) no basta para cambiar la
+ * contraseña desde aquí. Sin sesión, el enlace no vale (caducado o ya usado).
  */
 export default function PaginaRestablecer() {
   const t = useT('auth');
-  const { cargando, sesion } = useAuth();
+  const { cargando, sesion, recuperandoPassword } = useAuth();
   const navigate = useNavigate();
   const esquema = useMemo(() => esquemaRestablecer(t), [t]);
   const [error, setError] = useState<ClaveErrorAuth | null>(null);
@@ -50,6 +52,23 @@ export default function PaginaRestablecer() {
           icono={<LinkIcon className="size-6" />}
           titulo={t('restablecer.enlaceInvalidoTitulo')}
           descripcion={t('restablecer.enlaceInvalidoTexto')}
+          accion={
+            <Link to="/recuperar" className={clasesBoton('primario')}>
+              {t('restablecer.pedirOtro')}
+            </Link>
+          }
+        />
+      </AuthLayout>
+    );
+  }
+
+  if (!recuperandoPassword) {
+    return (
+      <AuthLayout titulo={t('restablecer.sinRecuperacionTitulo')}>
+        <EmptyState
+          icono={<LinkIcon className="size-6" />}
+          titulo={t('restablecer.sinRecuperacionTitulo')}
+          descripcion={t('restablecer.sinRecuperacionTexto')}
           accion={
             <Link to="/recuperar" className={clasesBoton('primario')}>
               {t('restablecer.pedirOtro')}

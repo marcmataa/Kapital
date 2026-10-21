@@ -61,23 +61,12 @@ async function sinDatos(consulta: PromiseLike<{ error: unknown }>): Promise<Resu
 }
 
 /**
- * Cambia la cuenta principal. El índice único parcial `cuentas_una_principal` impide tener dos a
- * la vez, así que primero se desmarca la actual y luego se marca la nueva. Son dos peticiones sin
- * transacción: si la segunda falla, se intenta volver a marcar la anterior para no quedarse sin
- * principal (el atajo la necesita). Si también eso falla, el usuario queda sin principal y la UI
- * avisa; lo arregla repitiendo la acción.
+ * Cambia la cuenta principal con `hacer_principal`: desmarca la anterior y marca la nueva en una
+ * sola transacción en la base (sin carreras ni estados intermedios sin principal).
+ * 22023 si la cuenta no es uno de tus bancos abiertos.
  */
-export async function cambiarPrincipal(nuevaId: string, actualId: string | null): Promise<Resultado<null>> {
-  if (actualId === nuevaId) return { data: null };
-  if (actualId !== null) {
-    const quitar = await sinDatos(supabase.from('cuentas').update({ es_principal: false }).eq('id', actualId));
-    if ('error' in quitar) return quitar;
-  }
-  const poner = await sinDatos(supabase.from('cuentas').update({ es_principal: true }).eq('id', nuevaId));
-  if ('error' in poner && actualId !== null) {
-    await sinDatos(supabase.from('cuentas').update({ es_principal: true }).eq('id', actualId));
-  }
-  return poner;
+export function cambiarPrincipal(cuentaId: string): Promise<Resultado<null>> {
+  return sinDatos(supabase.rpc('hacer_principal', { p_cuenta: cuentaId }));
 }
 
 export const configuracionApi = api.injectEndpoints({
@@ -102,8 +91,8 @@ export const configuracionApi = api.injectEndpoints({
       invalidatesTags: ['Cuentas', 'Resumen'],
     }),
 
-    configHacerPrincipal: b.mutation<null, { nuevaId: string; actualId: string | null }>({
-      queryFn: ({ nuevaId, actualId }) => cambiarPrincipal(nuevaId, actualId),
+    configHacerPrincipal: b.mutation<null, string>({
+      queryFn: (cuentaId) => cambiarPrincipal(cuentaId),
       invalidatesTags: ['Cuentas'],
     }),
 

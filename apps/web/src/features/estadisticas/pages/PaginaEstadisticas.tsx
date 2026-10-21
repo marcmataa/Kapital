@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query/react';
-import { useListarCategoriasQuery, useListarCuentasQuery } from '@/shared/api/catalogos';
+import { useListarCuentasQuery } from '@/shared/api/catalogos';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
 import { finDeMes, inicioDeMes, sumarDias, sumarMeses } from '@/shared/lib/fechas';
@@ -8,7 +9,8 @@ import { Card, EmptyState, SegmentedControl, Select } from '@/shared/ui';
 import {
   useEstadisticasGastoPorCategoriaQuery,
   useEstadisticasGastoPorMetodoQuery,
-  useEstadisticasMovimientosQuery,
+  useEstadisticasGastoPorDiaQuery,
+  useEstadisticasIngresosPorCategoriaQuery,
   useEstadisticasResumenMensualQuery,
   useEstadisticasResumenPeriodoQuery,
   useEstadisticasVariacionQuery,
@@ -22,8 +24,7 @@ import { Interanual } from '../components/Interanual';
 import { MetodosPago } from '../components/MetodosPago';
 import { TarjetasComparativa } from '../components/TarjetasComparativa';
 import { TarjetaVariacion } from '../components/TarjetaVariacion';
-import { useHoyUsuario } from '../hooks/useHoyUsuario';
-import { gastoNetoPorDia, ingresosPorCategoria } from '../lib/agregaciones';
+import { repartirIngresos, serieGastoDiario } from '../lib/agregaciones';
 import { etiquetaMes } from '../lib/formato';
 import {
   hayInteranual,
@@ -60,10 +61,10 @@ export default function PaginaEstadisticas() {
   const verIngresos = pestana === 'ingresos';
   const verBalance = pestana === 'balance';
 
-  const movimientos = useEstadisticasMovimientosQuery(verGastos || verIngresos ? periodos.actual : skipToken);
+  const gastoDiario = useEstadisticasGastoPorDiaQuery(verGastos ? periodos.actual : skipToken);
+  const ingresos = useEstadisticasIngresosPorCategoriaQuery(verIngresos ? periodos.actual : skipToken);
   const categorias = useEstadisticasGastoPorCategoriaQuery(verGastos ? periodos.actual : skipToken);
   const metodos = useEstadisticasGastoPorMetodoQuery(verGastos ? periodos.actual : skipToken);
-  const categoriasUsuario = useListarCategoriasQuery(verIngresos ? undefined : skipToken);
 
   const mesesBalance = ultimosMeses(mes, MESES_GRAFICO_BALANCE, inicioDatos);
   const primerMesBalance = mesesBalance[0];
@@ -77,7 +78,7 @@ export default function PaginaEstadisticas() {
     verBalance && hayMesCerrado ? { d1: sumarDias(mesCerrado, -1), d2: finDeMes(mesCerrado) } : skipToken,
   );
   const conInteranual = hayInteranual(mes, hoy, inicioDatos);
-  const rangoAnio = rangoInteranual(periodos.actual);
+  const rangoAnio = rangoInteranual(periodos.actual, periodos.enCurso);
   const resumenAnio = useEstadisticasResumenPeriodoQuery(verBalance && conInteranual ? rangoAnio : skipToken);
 
   const reintentar = (...qs: { refetch: () => unknown; isUninitialized: boolean }[]) => () => {
@@ -137,12 +138,12 @@ export default function PaginaEstadisticas() {
           <>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <EstadoConsulta
-                datos={movimientos.data}
-                cargando={movimientos.isFetching}
-                error={movimientos.error}
-                reintentar={reintentar(movimientos)}
+                datos={gastoDiario.data}
+                cargando={gastoDiario.isFetching}
+                error={gastoDiario.error}
+                reintentar={reintentar(gastoDiario)}
               >
-                {(movs) => <GraficoGastoDiario dias={gastoNetoPorDia(movs, mes, hoy)} />}
+                {(filas) => <GraficoGastoDiario dias={serieGastoDiario(filas, mes, hoy)} />}
               </EstadoConsulta>
               <EstadoConsulta
                 datos={categorias.data !== undefined && resumen.data !== undefined ? categorias.data : undefined}
@@ -166,12 +167,12 @@ export default function PaginaEstadisticas() {
 
         {verIngresos && (
           <EstadoConsulta
-            datos={movimientos.data !== undefined && categoriasUsuario.data !== undefined ? movimientos.data : undefined}
-            cargando={movimientos.isFetching || categoriasUsuario.isFetching}
-            error={movimientos.error ?? categoriasUsuario.error}
-            reintentar={reintentar(movimientos, categoriasUsuario)}
+            datos={ingresos.data}
+            cargando={ingresos.isFetching}
+            error={ingresos.error}
+            reintentar={reintentar(ingresos)}
           >
-            {(movs) => <IngresosPorCategoria ingresos={ingresosPorCategoria(movs, categoriasUsuario.data ?? [])} />}
+            {(filas) => <IngresosPorCategoria ingresos={repartirIngresos(filas)} />}
           </EstadoConsulta>
         )}
 

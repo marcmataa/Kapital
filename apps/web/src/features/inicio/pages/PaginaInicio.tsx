@@ -1,5 +1,9 @@
+import { skipToken } from '@reduxjs/toolkit/query';
+import { useListarCuentasQuery } from '@/shared/api/catalogos';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { useT } from '@/shared/i18n';
 import { finDeMes, inicioDeMes, mismoDiaMesAnterior } from '@/shared/lib/fechas';
+import { inicioDeDatos, tramoConDatos } from '@/shared/lib/periodos';
 import { CabeceraPagina } from '@/shared/layout';
 import { Card, EmptyState } from '@/shared/ui';
 import {
@@ -14,21 +18,25 @@ import { GraficoCapital } from '../components/GraficoCapital';
 import { TarjetaObjetivos } from '../components/TarjetaObjetivos';
 import { TarjetasKpi } from '../components/TarjetasKpi';
 import { UltimosMovimientos } from '../components/UltimosMovimientos';
-import { useHoyUsuario } from '../hooks/useHoyUsuario';
 
 /**
  * Inicio (mes en curso, del día 1 a hoy). Reglas: secciones 3, 4, 7 y 8.
- * - Tarjetas: patrimonio a hoy vs d' y 1..hoy vs 1..d' del mes anterior.
+ * - Tarjetas: patrimonio a hoy vs d' y 1..hoy vs 1..d' del mes anterior. Si 1..d' empieza antes
+ *   del primer día con datos, no tiene la misma longitud: «Sin datos del mes anterior» (sección 8).
  * - Gráfico de capital (serie diaria), donut de categorías, últimos movimientos y objetivos.
  */
 export default function PaginaInicio() {
   const t = useT('inicio');
-  const hoy = useHoyUsuario();
+  const { hoy } = useHoyUsuario();
   const dPrima = mismoDiaMesAnterior(hoy);
   const mes = { desde: inicioDeMes(hoy), hasta: hoy };
 
   const resumen = useInicioResumenQuery(mes);
-  const resumenAnterior = useInicioResumenQuery({ desde: inicioDeMes(dPrima), hasta: dPrima });
+  const cuentas = useListarCuentasQuery();
+  const inicioDatos = cuentas.data ? inicioDeDatos(cuentas.data) : null;
+  const tramoAnterior = { desde: inicioDeMes(dPrima), hasta: dPrima };
+  const hayAnterior = tramoConDatos(tramoAnterior.desde, inicioDatos);
+  const resumenAnterior = useInicioResumenQuery(hayAnterior ? tramoAnterior : skipToken);
   const serie = useInicioSeriePatrimonioQuery({ desde: inicioDeMes(hoy), hasta: finDeMes(hoy), hoy });
   const serieAnterior = useInicioSeriePatrimonioQuery({ desde: inicioDeMes(dPrima), hasta: finDeMes(dPrima), hoy });
   const categorias = useInicioGastoCategoriasQuery(mes);
@@ -36,11 +44,12 @@ export default function PaginaInicio() {
   const patrimonioHoy = serie.data?.find((p) => p.fecha === hoy)?.patrimonio ?? null;
   const patrimonioAnterior = serieAnterior.data?.find((p) => p.fecha === dPrima)?.patrimonio ?? null;
 
-  const kpiCargando = resumen.isLoading || resumenAnterior.isLoading || serie.isLoading || serieAnterior.isLoading;
+  const kpiCargando = cuentas.isLoading || resumen.isLoading || resumenAnterior.isLoading || serie.isLoading || serieAnterior.isLoading;
   const kpiError = resumen.isError || serie.isError || serieAnterior.isError;
   const reintentarKpi = () => {
     void resumen.refetch();
-    void resumenAnterior.refetch();
+    if (!resumenAnterior.isUninitialized) void resumenAnterior.refetch();
+    if (!cuentas.isUninitialized) void cuentas.refetch();
     void serie.refetch();
     void serieAnterior.refetch();
   };
@@ -64,8 +73,8 @@ export default function PaginaInicio() {
             patrimonioHoy={patrimonioHoy}
             patrimonioAnterior={patrimonioAnterior}
             resumenActual={resumen.data}
-            // Sin el resumen anterior, las tarjetas dicen «Sin datos del mes anterior».
-            resumenAnterior={resumenAnterior.data ?? null}
+            // Sin el resumen anterior (o si su tramo es parcial), las tarjetas dicen «Sin datos del mes anterior».
+            resumenAnterior={hayAnterior ? (resumenAnterior.data ?? null) : null}
           />
         )}
 

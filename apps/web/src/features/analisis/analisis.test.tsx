@@ -5,9 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderConApp, sesionFalsa } from '@/test/render';
 import PaginaAnalisis from './pages/PaginaAnalisis';
 import PaginaAnalisisMes from './pages/PaginaAnalisisMes';
-import { columnas, estado, PERFIL, reiniciar, type Llamada, type Respuesta } from './test/supabaseFalso';
+import { columnas, estado, PERFIL, reiniciar, type Llamada, type Respuesta } from '@/test/supabaseFalso';
 
-vi.mock('@/shared/lib/supabase', async () => (await import('./test/supabaseFalso')).moduloFalso);
+vi.mock('@/shared/lib/supabase', async () => (await import('@/test/supabaseFalso')).moduloFalso);
 
 const RESUMEN = {
   ingresos: '1508.00',
@@ -56,8 +56,19 @@ const FILA = {
   estado: 'listo',
   mes_incompleto: false,
   regeneraciones: 0,
+  intentos: 0,
   generado_at: '2026-10-01T05:00:00Z',
+  updated_at: '2026-10-01T05:00:00Z',
 };
+
+const http = (status: number, codigo: string) => ({
+  data: null,
+  error: {
+    name: 'FunctionsHttpError',
+    message: 'Edge Function returned a non-2xx status code',
+    context: new Response(JSON.stringify({ error: codigo }), { status }),
+  },
+});
 
 function servir({ filas = [FILA], detalle = { ...FILA, datos: DATOS, contenido: CONTENIDO } as unknown } = {}) {
   estado.responder = (ll: Llamada): Respuesta => {
@@ -100,7 +111,9 @@ describe('Lista de análisis', () => {
     await screen.findByRole('link', { name: /Septiembre de 2026/ });
     const consultas = estado.llamadas.filter((l) => l.nombre === 'analisis_mensuales');
     expect(consultas).toHaveLength(1);
-    expect(columnas(consultas[0] as Llamada)).toBe('id, mes, estado, mes_incompleto, regeneraciones, generado_at');
+    expect(columnas(consultas[0] as Llamada)).toBe(
+      'id, mes, estado, mes_incompleto, regeneraciones, intentos, generado_at, updated_at',
+    );
     expect(columnas(consultas[0] as Llamada)).not.toMatch(/datos|contenido/);
   });
 
@@ -211,10 +224,56 @@ describe('Detalle del análisis', () => {
     expect(screen.getByText('Ya regeneraste este análisis.')).toBeInTheDocument();
   });
 
-  it('estado error → se reintentará automáticamente', async () => {
-    servir({ detalle: { ...FILA, estado: 'error', datos: null, contenido: null } });
+  it('estado error con intentos < 3 → «Reintentar» (no consume) y no «Regenerar»', async () => {
+    servir({ detalle: { ...FILA, estado: 'error', intentos: 1, datos: null, contenido: null } });
+    estado.invoke.mockResolvedValue({ data: { ok: true }, error: null });
     montarDetalle();
-    expect(await screen.findByText('No se pudo generar; se reintentará automáticamente.')).toBeInTheDocument();
+    expect(await screen.findByText('No se pudo generar este análisis.')).toBeInTheDocument();
+    expect(screen.getByText('No gasta tu regeneración.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Regenerar/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(estado.invoke).toHaveBeenCalledWith('analisis-mensual', { body: { mes: '2026-09-01' } });
+  });
+
+  it('estado error sin reintentos (3 intentos): sin botón', async () => {
+    servir({ detalle: { ...FILA, estado: 'error', intentos: 3, datos: null, contenido: null } });
+    montarDetalle();
+    expect(await screen.findByText(/tras varios intentos/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Reintentar|Regenerar/ })).not.toBeInTheDocument();
+  });
+
+  it('429 limite_reintentos → mensaje amable', async () => {
+    servir({ detalle: { ...FILA, estado: 'error', intentos: 2, datos: null, contenido: null } });
+    estado.invoke.mockResolvedValue(http(429, 'limite_reintentos'));
+    montarDetalle();
+    await userEvent.click(await screen.findByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ya no quedan reintentos para este análisis.');
+    expect(screen.queryByText(/non-2xx/)).not.toBeInTheDocument();
+  });
+
+  it('generando atascado (> 15 min sin cambios) → «Reintentar»; 409 en_curso → mensaje amable', async () => {
+    servir({ detalle: { ...FILA, estado: 'generando', updated_at: '2026-10-19T09:40:00Z', datos: null, contenido: null } });
+    estado.invoke.mockResolvedValue(http(409, 'en_curso'));
+    montarDetalle();
+    expect(await screen.findByText('La generación se ha quedado parada. Puedes volver a intentarlo.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tu análisis ya se está generando.');
+  });
+
+  it('generando reciente (< 15 min) → espera, sin botón', async () => {
+    servir({ detalle: { ...FILA, estado: 'pendiente', updated_at: '2026-10-19T09:50:00Z', datos: null, contenido: null } });
+    montarDetalle();
+    expect(await screen.findByText('Generando tu análisis… Puede tardar un minuto.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
+  });
+
+  it('sin mes anterior completo (resumen_mes_anterior null): «Sin datos del mes anterior» y solo una barra', async () => {
+    servir({ detalle: { ...FILA, datos: { ...DATOS, resumen_mes_anterior: null }, contenido: CONTENIDO } });
+    montarDetalle();
+    const tabla = await screen.findByRole('table', { name: 'Ingresos y gastos netos' });
+    expect(within(tabla).queryByRole('row', { name: /Agosto/ })).not.toBeInTheDocument();
+    expect(within(tabla).getByRole('row', { name: /Septiembre/ })).toBeInTheDocument();
+    expect(screen.getByText('Sin datos del mes anterior')).toBeInTheDocument();
   });
 
   it('pendiente: sondea la fila hasta que está lista', async () => {
@@ -224,7 +283,7 @@ describe('Detalle del análisis', () => {
       if (ll.nombre === 'analisis_mensuales' && ll.cadena.some(([m]) => m === 'maybeSingle')) {
         llamadasDetalle++;
         return {
-          data: llamadasDetalle < 2 ? { ...FILA, estado: 'generando' } : { ...FILA, datos: DATOS, contenido: CONTENIDO },
+          data: llamadasDetalle < 2 ? { ...FILA, estado: 'generando', updated_at: '2026-10-19T09:59:00Z' } : { ...FILA, datos: DATOS, contenido: CONTENIDO },
           error: null,
         };
       }
