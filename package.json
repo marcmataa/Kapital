@@ -13,6 +13,7 @@
     "test:db": "vitest run tests/db",
     "test:functions": "vitest run tests/functions",
     "test:web": "npm run test -w @kapital/web",
+    "test:integration": "npm test --prefix tests/integration",
     "build": "npm run build -w @kapital/web",
     "dev": "npm run dev -w @kapital/web"
   },

@@ -7,6 +7,7 @@ export default defineConfig({
     root: import.meta.dirname,
     include: ['**/*.integration.ts'],
     exclude: ['node_modules/**'],
+    globalSetup: ['./global-setup.ts'],
     testTimeout: 30_000,
     hookTimeout: 120_000,
     fileParallelism: false,
