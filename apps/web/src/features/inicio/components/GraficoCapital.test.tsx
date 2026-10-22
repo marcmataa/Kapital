@@ -102,6 +102,29 @@ describe('GraficoCapital', () => {
     expect(screen.getByText('2.600 €')).toBeInTheDocument();
   });
 
+  it('mes cerrado: llega al último día, punto lleno de cierre y sin «hoy» ni «provisional»', () => {
+    const AGO = Array.from({ length: 31 }, (_, i) => `${1700 + i * 5}.00`);
+    renderConApp(
+      <GraficoCapital hoy="2026-10-19" mes="2026-09-01" actual={serie('2026-09', SEPT)} anterior={serie('2026-08', AGO)} />,
+    );
+    // 30 sept (2.090,00 €) vs 30 ago (1.845,00 €), d′ de la sección 7.
+    expect(normal(lectura().textContent)).toContain('30 sept · 2.090,00 €');
+    expect(normal(lectura().textContent)).toContain('vs 30 ago 1.845,00 € · +245,00 € (+13,3 %)');
+    expect(screen.getByTestId('punto-cierre')).toBeInTheDocument();
+    expect(screen.queryByTestId('punto-hoy')).not.toBeInTheDocument();
+    expect(screen.queryByText(/provisional|\(hoy\)/)).not.toBeInTheDocument();
+    expect(screen.getByText(/El último punto es el cierre del mes/)).toBeInTheDocument();
+    const control = screen.getByRole('slider');
+    expect(control).toHaveAttribute('aria-valuenow', '30');
+    expect(control).toHaveAttribute('aria-valuemax', '30');
+    expect((screen.getByTestId('linea-actual').getAttribute('points') ?? '').trim().split(/\s+/)).toHaveLength(30);
+  });
+
+  it('mes cerrado sin datos: estado vacío propio', () => {
+    renderConApp(<GraficoCapital hoy="2026-10-19" mes="2026-09-01" actual={[]} anterior={[]} />);
+    expect(screen.getByText('No hay datos de patrimonio de ese mes.')).toBeInTheDocument();
+  });
+
   it('sin datos muestra un estado vacío', () => {
     pintar('2026-10-19', [], []);
     expect(screen.getByText('Todavía no hay datos de patrimonio este mes.')).toBeInTheDocument();

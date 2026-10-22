@@ -8,6 +8,11 @@ export default {
 
   'error.cargar': "No s'han pogut carregar aquestes dades.",
 
+  'selector.etiqueta': 'Mes',
+  'selector.enCurso': '{mes} · fins avui',
+  'selector.anterior': 'Mes anterior',
+  'selector.siguiente': 'Mes següent',
+
   'kpi.region': 'Resum del mes',
   'kpi.patrimonio': 'Patrimoni a {fecha}',
   'kpi.ingresos': 'Ingressos · 1–{dia} {mes}',
@@ -26,6 +31,11 @@ export default {
   'grafico.ayuda':
     'Passa el ratolí o el dit pel gràfic, o fes servir les fletxes del teclat, per veure cada dia. El punt buit és avui: provisional fins a les 23:59.',
   'grafico.vacio': 'Encara no hi ha dades de patrimoni aquest mes.',
+  'grafico.alternativaCerrado':
+    'Patrimoni diari de {mesActual} fins al {fecha} ({valorHoy}) comparat amb {mesAnterior}. Fes servir el control del gràfic per recórrer cada dia.',
+  'grafico.ayudaCerrado':
+    "Passa el ratolí o el dit pel gràfic, o fes servir les fletxes del teclat, per veure cada dia. L'últim punt és el tancament del mes.",
+  'grafico.vacioCerrado': "No hi ha dades de patrimoni d'aquell mes.",
   'grafico.lectura.hoy': '{fecha} · avui (provisional)',
   'grafico.lectura.comparacion': 'vs {fecha} {valor} · {diferencia} ({porcentaje})',
   'grafico.lectura.comparacionSinPorcentaje': 'vs {fecha} {valor} · {diferencia}',
@@ -37,6 +47,7 @@ export default {
   'categorias.titulo': 'Despeses per categoria',
   'categorias.gastoNeto': 'despesa neta',
   'categorias.vacio': 'Encara no tens despeses aquest mes.',
+  'categorias.vacioCerrado': 'No vas tenir despeses a {mes}.',
   'categorias.grafico': 'Gràfic circular de la despesa neta per categoria',
   'categorias.lista': 'Despesa neta per categoria',
   'categorias.negativa': "T'han retornat més del que vas gastar: no entra al gràfic.",
@@ -45,6 +56,8 @@ export default {
   'analisis.ia': 'IA',
   'analisis.verCompleto': "Veure l'anàlisi completa →",
   'analisis.pendiente': "La teva primera anàlisi amb IA arribarà el dia 1 del mes que ve.",
+  'analisis.sinAnalisisMes': 'Encara no hi ha anàlisi per a {mes}.',
+  'analisis.irAnalisis': "Anar a l'anàlisi →",
 
   'movimientos.titulo': 'Últims moviments',
   'movimientos.verTodos': 'Veure-ho tot →',

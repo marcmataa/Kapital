@@ -2,9 +2,9 @@ import { skipToken } from '@reduxjs/toolkit/query';
 import { useListarCuentasQuery } from '@/shared/api/catalogos';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { useNombreUsuario } from '@/shared/hooks/useNombreUsuario';
-import { useT } from '@/shared/i18n';
-import { finDeMes, inicioDeMes, mismoDiaMesAnterior } from '@/shared/lib/fechas';
-import { inicioDeDatos, tramoConDatos } from '@/shared/lib/periodos';
+import { useIdioma, useT } from '@/shared/i18n';
+import { finDeMes, inicioDeMes, mismoDiaMesAnterior, sumarMeses } from '@/shared/lib/fechas';
+import { inicioDeDatos, periodosComparacion } from '@/shared/lib/periodos';
 import { CabeceraPagina } from '@/shared/layout';
 import { Card, EmptyState } from '@/shared/ui';
 import {
@@ -16,44 +16,78 @@ import { AnalisisDestacado } from '../components/AnalisisDestacado';
 import { DonutCategorias } from '../components/DonutCategorias';
 import { ErrorCarga, Esqueleto } from '../components/Estados';
 import { GraficoCapital } from '../components/GraficoCapital';
+import { SelectorMes } from '../components/SelectorMes';
 import { TarjetaObjetivos } from '../components/TarjetaObjetivos';
 import { TarjetasKpi } from '../components/TarjetasKpi';
 import { UltimosMovimientos } from '../components/UltimosMovimientos';
+import { useMesSeleccionado } from '../hooks/useMesSeleccionado';
+import { mesLargo } from '../lib/calculos';
+
+interface EstadoConsulta {
+  isUninitialized: boolean;
+  isError: boolean;
+  currentData?: unknown;
+}
+
+/** Cargando los datos de sus argumentos actuales (al cambiar de mes no se enseñan los del anterior). */
+const pendiente = (q: EstadoConsulta) => !q.isUninitialized && !q.isError && q.currentData === undefined;
 
 /**
- * Inicio (mes en curso, del día 1 a hoy). Reglas: secciones 3, 4, 7 y 8.
- * - Tarjetas: patrimonio a hoy vs d' y 1..hoy vs 1..d' del mes anterior. Si 1..d' empieza antes
- *   del primer día con datos, no tiene la misma longitud: «Sin datos del mes anterior» (sección 8).
- * - Gráfico de capital (serie diaria), donut de categorías, últimos movimientos y objetivos.
+ * Inicio de un mes (`?mes=YYYY-MM`; sin parámetro, el mes en curso). Reglas: secciones 3, 4, 7 y 8.
+ * - Mes en curso: patrimonio a hoy vs d' y 1..hoy vs 1..d' del mes anterior.
+ * - Mes cerrado: patrimonio al último día vs su d' y mes completo vs mes anterior completo.
+ * Si el tramo anterior empieza antes del primer día con datos, no tiene la misma longitud:
+ * «Sin datos del mes anterior» (sección 8). Todos los periodos salen de `periodosComparacion`,
+ * la misma función que Estadísticas; las cifras, de las RPC (nada de dinero calculado aquí).
+ * - Gráfico de capital (serie diaria), donut de categorías y destacados del análisis del mes.
+ * - Últimos movimientos y objetivos: siempre del mes en curso.
  */
 export default function PaginaInicio() {
   const t = useT('inicio');
+  const { locale } = useIdioma();
   const { hoy } = useHoyUsuario();
   const { dePila } = useNombreUsuario();
-  const dPrima = mismoDiaMesAnterior(hoy);
-  const mes = { desde: inicioDeMes(hoy), hasta: hoy };
 
-  const resumen = useInicioResumenQuery(mes);
   const cuentas = useListarCuentasQuery();
   const inicioDatos = cuentas.data ? inicioDeDatos(cuentas.data) : null;
-  const tramoAnterior = { desde: inicioDeMes(dPrima), hasta: dPrima };
-  const hayAnterior = tramoConDatos(tramoAnterior.desde, inicioDatos);
-  const resumenAnterior = useInicioResumenQuery(hayAnterior ? tramoAnterior : skipToken);
-  const serie = useInicioSeriePatrimonioQuery({ desde: inicioDeMes(hoy), hasta: finDeMes(hoy), hoy });
-  const serieAnterior = useInicioSeriePatrimonioQuery({ desde: inicioDeMes(dPrima), hasta: finDeMes(dPrima), hoy });
-  const categorias = useInicioGastoCategoriasQuery(mes);
+  const seleccion = useMesSeleccionado(hoy, inicioDatos, !cuentas.isLoading);
+  const { mes, enCurso, resuelto } = seleccion;
+  const periodos = periodosComparacion(mes, hoy, inicioDatos);
+  // Fecha de referencia d del patrimonio: hoy (provisional) o el cierre del último día del mes.
+  const referencia = enCurso ? hoy : finDeMes(mes);
+  const dPrima = mismoDiaMesAnterior(referencia);
+  const mesAnterior = sumarMeses(mes, -1);
 
-  const patrimonioHoy = serie.data?.find((p) => p.fecha === hoy)?.patrimonio ?? null;
-  const patrimonioAnterior = serieAnterior.data?.find((p) => p.fecha === dPrima)?.patrimonio ?? null;
+  const resumen = useInicioResumenQuery(resuelto ? periodos.actual : skipToken);
+  const resumenAnterior = useInicioResumenQuery(resuelto && periodos.anterior ? periodos.anterior : skipToken);
+  const serie = useInicioSeriePatrimonioQuery(resuelto ? { desde: mes, hasta: finDeMes(mes), hoy } : skipToken);
+  const serieAnterior = useInicioSeriePatrimonioQuery(
+    resuelto ? { desde: mesAnterior, hasta: finDeMes(mesAnterior), hoy } : skipToken,
+  );
+  const categorias = useInicioGastoCategoriasQuery(resuelto ? periodos.actual : skipToken);
 
-  const kpiCargando = cuentas.isLoading || resumen.isLoading || resumenAnterior.isLoading || serie.isLoading || serieAnterior.isLoading;
+  // Objetivos: del mes en curso, se mire el mes que se mire (en curso, comparte caché con lo de arriba).
+  const tramoEnCurso = { desde: inicioDeMes(hoy), hasta: hoy };
+  const resumenEnCurso = useInicioResumenQuery(tramoEnCurso);
+  const categoriasEnCurso = useInicioGastoCategoriasQuery(tramoEnCurso);
+
+  const datosResumen = resumen.currentData;
+  const datosSerie = serie.currentData;
+  const datosSerieAnterior = serieAnterior.currentData;
+  const datosCategorias = categorias.currentData;
+  const patrimonioRef = datosSerie?.find((p) => p.fecha === referencia)?.patrimonio ?? null;
+  const patrimonioAnterior = datosSerieAnterior?.find((p) => p.fecha === dPrima)?.patrimonio ?? null;
+
+  const kpiCargando =
+    !resuelto ||
+    cuentas.isLoading ||
+    pendiente(resumen) ||
+    pendiente(resumenAnterior) ||
+    pendiente(serie) ||
+    pendiente(serieAnterior);
   const kpiError = resumen.isError || serie.isError || serieAnterior.isError;
-  const reintentarKpi = () => {
-    void resumen.refetch();
-    if (!resumenAnterior.isUninitialized) void resumenAnterior.refetch();
-    if (!cuentas.isUninitialized) void cuentas.refetch();
-    void serie.refetch();
-    void serieAnterior.refetch();
+  const reintentar = (...qs: { refetch: () => unknown; isUninitialized: boolean }[]) => () => {
+    for (const q of qs) if (!q.isUninitialized) void q.refetch();
   };
 
   return (
@@ -63,6 +97,16 @@ export default function PaginaInicio() {
         titulo={dePila === null ? t('titulo') : t('tituloConNombre', { nombre: dePila })}
         tituloDocumento={t('titulo')}
         descripcion={t('descripcion')}
+        acciones={
+          <SelectorMes
+            mes={mes}
+            meses={seleccion.meses}
+            mesActual={inicioDeMes(hoy)}
+            anterior={seleccion.anterior}
+            siguiente={seleccion.siguiente}
+            onElegir={seleccion.elegir}
+          />
+        }
       />
 
       <div className="flex flex-col gap-4 sm:gap-5">
@@ -72,65 +116,59 @@ export default function PaginaInicio() {
             <Esqueleto className="h-28" />
             <Esqueleto className="h-28" />
           </div>
-        ) : kpiError || !resumen.data ? (
-          <ErrorCarga onReintentar={reintentarKpi} />
+        ) : kpiError || !datosResumen ? (
+          <ErrorCarga onReintentar={reintentar(resumen, resumenAnterior, cuentas, serie, serieAnterior)} />
         ) : (
           <TarjetasKpi
             hoy={hoy}
-            patrimonioHoy={patrimonioHoy}
+            mes={mes}
+            patrimonioHoy={patrimonioRef}
             patrimonioAnterior={patrimonioAnterior}
-            resumenActual={resumen.data}
+            resumenActual={datosResumen}
             // Sin el resumen anterior (o si su tramo es parcial), las tarjetas dicen «Sin datos del mes anterior».
-            resumenAnterior={hayAnterior ? (resumenAnterior.data ?? null) : null}
+            resumenAnterior={periodos.anterior ? (resumenAnterior.currentData ?? null) : null}
           />
         )}
 
         <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-2">
           <Card className="min-w-0">
-            {serie.isLoading || serieAnterior.isLoading ? (
+            {!resuelto || pendiente(serie) || pendiente(serieAnterior) ? (
               <Esqueleto className="h-80" />
-            ) : serie.isError || serieAnterior.isError || !serie.data || !serieAnterior.data ? (
-              <ErrorCarga
-                onReintentar={() => {
-                  void serie.refetch();
-                  void serieAnterior.refetch();
-                }}
-              />
+            ) : serie.isError || serieAnterior.isError || !datosSerie || !datosSerieAnterior ? (
+              <ErrorCarga onReintentar={reintentar(serie, serieAnterior)} />
             ) : (
-              <GraficoCapital key={hoy} hoy={hoy} actual={serie.data} anterior={serieAnterior.data} />
+              <GraficoCapital key={`${mes}:${hoy}`} hoy={hoy} mes={mes} actual={datosSerie} anterior={datosSerieAnterior} />
             )}
           </Card>
 
           <Card titulo={t('categorias.titulo')} className="flex min-w-0 flex-col gap-4">
-            {categorias.isLoading || resumen.isLoading ? (
+            {!resuelto || pendiente(categorias) || pendiente(resumen) ? (
               <Esqueleto className="h-44" />
-            ) : categorias.isError || resumen.isError || !categorias.data || !resumen.data ? (
-              <ErrorCarga
-                onReintentar={() => {
-                  void categorias.refetch();
-                  void resumen.refetch();
-                }}
-              />
-            ) : categorias.data.some((c) => c.gasto !== '0.00') ? (
+            ) : categorias.isError || resumen.isError || !datosCategorias || !datosResumen ? (
+              <ErrorCarga onReintentar={reintentar(categorias, resumen)} />
+            ) : datosCategorias.some((c) => c.gasto !== '0.00') ? (
               <DonutCategorias
-                categorias={categorias.data.map((c) => ({
+                categorias={datosCategorias.map((c) => ({
                   id: c.categoria_id,
                   nombre: c.nombre,
                   color: c.color,
                   gasto: c.gasto,
                 }))}
-                totalGastoNeto={resumen.data.gastos_netos}
+                totalGastoNeto={datosResumen.gastos_netos}
               />
             ) : (
-              <EmptyState titulo={t('categorias.vacio')} className="py-6" />
+              <EmptyState
+                titulo={enCurso ? t('categorias.vacio') : t('categorias.vacioCerrado', { mes: mesLargo(mes, locale) })}
+                className="py-6"
+              />
             )}
-            <AnalisisDestacado />
+            {resuelto && <AnalisisDestacado mes={enCurso ? undefined : mes} />}
           </Card>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
           <UltimosMovimientos />
-          <TarjetaObjetivos hoy={hoy} balance={resumen.data?.balance} gastos={categorias.data} />
+          <TarjetaObjetivos hoy={hoy} balance={resumenEnCurso.data?.balance} gastos={categoriasEnCurso.data} />
         </div>
       </div>
     </>

@@ -146,6 +146,28 @@ export const inicioApi = api.injectEndpoints({
       },
       providesTags: ['Analisis'],
     }),
+
+    /** Análisis listo de un mes cerrado ('YYYY-MM-01'), o null si no hay o su contenido no cuadra. */
+    inicioAnalisisMes: b.query<AnalisisReciente | null, string>({
+      queryFn: async (mes) => {
+        try {
+          const { data, error } = await supabase
+            .from('analisis_mensuales')
+            .select(SELECT_ANALISIS)
+            .eq('estado', 'listo')
+            .eq('mes', mes)
+            .maybeSingle();
+          if (error) return { error: aErrorApi(error) };
+          if (data === null) return { data: null };
+          const contenido = esquemaContenido.safeParse(data.contenido);
+          if (!contenido.success) return { data: null };
+          return { data: { mes: data.mes, destacados: contenido.data.destacados.slice(0, 2) } };
+        } catch (e) {
+          return { error: aErrorApi(e) };
+        }
+      },
+      providesTags: (_r, _e, mes) => [{ type: 'Analisis', id: mes }, 'Analisis'],
+    }),
   }),
 });
 
@@ -155,4 +177,5 @@ export const {
   useInicioGastoCategoriasQuery,
   useInicioUltimosMovimientosQuery,
   useInicioUltimoAnalisisQuery,
+  useInicioAnalisisMesQuery,
 } = inicioApi;

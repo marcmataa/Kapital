@@ -1,22 +1,47 @@
 import { Link } from 'react-router';
+import { skipToken } from '@reduxjs/toolkit/query';
 import { Sparkles } from 'lucide-react';
 import { useIdioma, useT } from '@/shared/i18n';
-import { useInicioUltimoAnalisisQuery } from '../api/inicioApi';
+import { useInicioAnalisisMesQuery, useInicioUltimoAnalisisQuery } from '../api/inicioApi';
 import { mesLargo } from '../lib/calculos';
 
+interface Props {
+  /**
+   * Mes cerrado elegido en Inicio ('YYYY-MM-01'): se muestran los destacados de ESE mes.
+   * Sin mes (mes en curso): los del último análisis listo.
+   */
+  mes?: string | undefined;
+}
+
 /**
- * Bajo el donut: 2 destacados del último análisis listo, como texto plano, y enlace al análisis
- * completo (`/analisis/YYYY-MM`). Sin análisis: aviso de que el primero llega el día 1.
+ * Bajo el donut: 2 destacados del análisis, como texto plano, y enlace al análisis completo
+ * (`/analisis/YYYY-MM`).
+ * - Mes en curso sin análisis: aviso de que el primero llega el día 1.
+ * - Mes cerrado sin análisis listo: aviso y enlace a su página de Análisis, que decide si se
+ *   puede generar (como la propia página Análisis).
  * Si falla la carga no se muestra nada: es un complemento, no un dato financiero.
  */
-export function AnalisisDestacado() {
+export function AnalisisDestacado({ mes }: Props) {
   const t = useT('inicio');
   const { locale } = useIdioma();
-  const { data, isLoading, isError } = useInicioUltimoAnalisisQuery();
+  const ultimo = useInicioUltimoAnalisisQuery(mes === undefined ? undefined : skipToken);
+  const delMes = useInicioAnalisisMesQuery(mes ?? skipToken);
+  // `currentData`: al cambiar de mes no se muestran los destacados del mes anterior mientras carga.
+  const { currentData: data, isError } = mes === undefined ? ultimo : delMes;
 
-  if (isLoading || isError) return null;
+  if (isError || data === undefined) return null;
 
   if (!data) {
+    if (mes !== undefined) {
+      return (
+        <p className="mt-auto flex flex-col gap-1.5 rounded-xl border border-borde bg-superficie-2 p-4 text-sm text-apagado">
+          <span>{t('analisis.sinAnalisisMes', { mes: mesLargo(mes, locale) })}</span>
+          <Link to={`/analisis/${mes.slice(0, 7)}`} className="font-semibold text-enlace hover:underline">
+            {t('analisis.irAnalisis')}
+          </Link>
+        </p>
+      );
+    }
     return (
       <p className="mt-auto rounded-xl border border-borde bg-superficie-2 p-4 text-sm text-apagado">
         {t('analisis.pendiente')}

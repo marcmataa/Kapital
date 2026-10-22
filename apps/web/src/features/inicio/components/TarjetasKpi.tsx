@@ -6,17 +6,22 @@ import {
   formatearPorcentaje,
   variacionPorcentual,
 } from '@/shared/lib/dinero';
-import { formatearFecha, mismoDiaMesAnterior, partesDe } from '@/shared/lib/fechas';
+import { finDeMes, formatearFecha, inicioDeMes, mismoDiaMesAnterior, partesDe, sumarMeses } from '@/shared/lib/fechas';
 import { StatCard, type Tendencia, type VariacionStat } from '@/shared/ui';
 import type { ResumenPeriodo } from '../api/inicioApi';
 import { mesCorto, restarImportes } from '../lib/calculos';
 
 interface Props {
   hoy: string;
-  /** Patrimonio al cierre de hoy (provisional) y del día equivalente d' del mes anterior. */
+  /** Mes mostrado (día 1). Por defecto, el de hoy (mes en curso). */
+  mes?: string | undefined;
+  /**
+   * Patrimonio al cierre de la fecha de referencia d (hoy, provisional, o el último día del mes
+   * cerrado) y del día equivalente d' del mes anterior (sección 7).
+   */
   patrimonioHoy: string | null;
   patrimonioAnterior: string | null;
-  /** Resumen de 1..hoy y de 1..d' del mes anterior (sección 7). */
+  /** Mes en curso: 1..hoy y 1..d'. Mes cerrado: mes completo y mes anterior completo (sección 7). */
   resumenActual: ResumenPeriodo;
   resumenAnterior: ResumenPeriodo | null;
 }
@@ -24,16 +29,21 @@ interface Props {
 const TENDENCIA: Record<-1 | 0 | 1, Tendencia> = { [-1]: 'baja', 0: 'igual', 1: 'sube' };
 
 /**
- * Tarjetas del mes en curso: patrimonio a hoy vs d', ingresos y gastos netos de 1..hoy vs 1..d'.
+ * Tarjetas del mes:
+ * - En curso: patrimonio a hoy vs d', ingresos y gastos netos de 1..hoy vs 1..d'.
+ * - Cerrado: patrimonio al último día vs su d', ingresos y gastos del mes completo vs el anterior completo.
  * Color por significado (sección 8): que suban los gastos es rojo. Base 0 o sin datos →
  * «Sin datos del mes anterior». El balance no se mezcla con el patrimonio.
  */
-export function TarjetasKpi({ hoy, patrimonioHoy, patrimonioAnterior, resumenActual, resumenAnterior }: Props) {
+export function TarjetasKpi({ hoy, mes: mesMostrado, patrimonioHoy, patrimonioAnterior, resumenActual, resumenAnterior }: Props) {
   const t = useT('inicio');
   const { locale } = useIdioma();
-  const dPrima = mismoDiaMesAnterior(hoy);
-  const dia = partesDe(hoy).dia;
-  const vsTramo = t('kpi.vsTramo', { dia: partesDe(dPrima).dia, mes: mesCorto(dPrima, locale) });
+  const enCurso = mesMostrado === undefined || inicioDeMes(mesMostrado) === inicioDeMes(hoy);
+  const fecha = enCurso ? hoy : finDeMes(mesMostrado);
+  const dPrima = mismoDiaMesAnterior(fecha);
+  const hastaAnterior = enCurso ? dPrima : finDeMes(sumarMeses(fecha, -1));
+  const dia = partesDe(fecha).dia;
+  const vsTramo = t('kpi.vsTramo', { dia: partesDe(hastaAnterior).dia, mes: mesCorto(hastaAnterior, locale) });
 
   const variacionImporte = (
     actual: string,
@@ -72,14 +82,14 @@ export function TarjetasKpi({ hoy, patrimonioHoy, patrimonioAnterior, resumenAct
   }
 
   const sinAnterior = t('kpi.sinAnterior');
-  const mes = mesCorto(hoy, locale);
+  const mes = mesCorto(fecha, locale);
   const ingresos = variacionImporte(resumenActual.ingresos, resumenAnterior?.ingresos ?? null, true);
   const gastos = variacionImporte(resumenActual.gastos_netos, resumenAnterior?.gastos_netos ?? null, false);
 
   return (
     <section aria-label={t('kpi.region')} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <StatCard
-        titulo={t('kpi.patrimonio', { fecha: formatearFecha(hoy, locale, 'corta') })}
+        titulo={t('kpi.patrimonio', { fecha: formatearFecha(fecha, locale, 'corta') })}
         valor={patrimonioHoy !== null ? formatearEuros(patrimonioHoy, locale) : t('kpi.sinValor')}
         {...(variacionPatrimonio ? { variacion: variacionPatrimonio } : { pie: sinAnterior })}
       />
