@@ -30,6 +30,9 @@ Cada una tiene su rollback en `supabase/rollback/`. Los rollbacks se ejecutan en
   - *Authorized redirect URI*: `https://<ref-del-proyecto>.supabase.co/auth/v1/callback`.
 - [ ] Copia el *Client ID* y el *Client secret* en Supabase → Providers → Google.
   - El secret lo pegas tú en el panel. Nunca va al repositorio.
+- [ ] **Ojo:** un *Client secret* nuevo de Google puede tardar unos minutos en funcionar. Si al volver de Google el login falla y los logs de Auth (Dashboard → Logs → Auth) muestran `invalid_client "The provided client secret is invalid."`:
+  - comprueba que el secret pegado es el correcto: empieza por `GOCSPX-` y solo se puede copiar al crearlo (si ya no lo tienes, crea otro);
+  - espera unos minutos antes de volver a probar.
 
 **Altas:**
 - [ ] *Allow new users to sign up* puede quedar activado: el registro está restringido en la base por `registro_permitidos` (ver el punto 4).
@@ -37,9 +40,9 @@ Cada una tiene su rollback en `supabase/rollback/`. Los rollbacks se ejecutan en
 
 ## 3. Authentication → URL Configuration
 
-- [ ] *Site URL*: la URL de la web en producción, por ejemplo `https://kapital.example.com`.
+- [ ] *Site URL*: la URL de la web en producción: `https://kapital-pd1.pages.dev`.
 - [ ] *Redirect URLs*: solo las de la web, exactas:
-  - `https://kapital.example.com/**` (o las rutas concretas de vuelta de login y de recuperación de contraseña);
+  - `https://kapital-pd1.pages.dev/**` (o las rutas concretas de vuelta de login y de recuperación de contraseña);
   - si hace falta en desarrollo, `http://localhost:5173/**`.
   - Nunca `*` a secas.
 
@@ -81,7 +84,7 @@ En **Edge Functions → Secrets**, escritos por ti:
 |---|---|
 | `OPENAI_API_KEY` | Clave **nueva y exclusiva** de Kapital, en un proyecto de OpenAI con **límite de gasto** mensual. No reutilices claves de otros proyectos. |
 | `CRON_SECRET` | Aleatorio, de 32 caracteres como mínimo (recomendado: 64 hexadecimales). Con menos, el modo cron se rechaza siempre. |
-| `APP_ORIGIN` | Orígenes de la web separados por comas, por ejemplo `https://kapital.example.com`. Nunca `*`. |
+| `APP_ORIGIN` | Orígenes de la web separados por comas: en producción, `https://kapital-pd1.pages.dev`. Nunca `*`. |
 
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta Supabase. La clave `service_role` **nunca** sale del panel de Supabase:
 - ni en la web;

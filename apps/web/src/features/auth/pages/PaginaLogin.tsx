@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link } from 'react-router';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useT } from '@/shared/i18n';
 import { Button, Input } from '@/shared/ui';
 import { iniciarSesion } from '../api/authServicio';
+import { descartarErrorOAuth, errorOAuthPendiente } from '../api/errorOAuth';
 import type { ClaveErrorAuth } from '../api/errores';
 import { AlertaError } from '../components/AlertaError';
 import { AuthLayout } from '../components/AuthLayout';
@@ -15,7 +16,9 @@ import { esquemaLogin, type DatosLogin } from '../schemas/esquemas';
 export default function PaginaLogin() {
   const t = useT('auth');
   const esquema = useMemo(() => esquemaLogin(t), [t]);
-  const [error, setError] = useState<ClaveErrorAuth | null>(null);
+  // Si se vuelve de Google con error, main.tsx lo ha capturado antes de redirigir aquí.
+  const [error, setError] = useState<ClaveErrorAuth | null>(errorOAuthPendiente);
+  useEffect(() => descartarErrorOAuth(), []);
   const {
     register,
     handleSubmit,

@@ -53,4 +53,6 @@ export default {
   'error.mismaPassword': 'La nueva contraseña debe ser distinta de la anterior.',
   'error.red': 'No hay conexión. Revisa tu red e inténtalo de nuevo.',
   'error.generico': 'No se ha podido completar la operación. Inténtalo de nuevo.',
+  'error.google': 'No se pudo iniciar sesión con Google. Inténtalo de nuevo.',
+  'error.sinAcceso': 'Este email no tiene acceso a Kapital todavía.',
 } as const satisfies Mensajes;

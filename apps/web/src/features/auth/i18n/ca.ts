@@ -54,4 +54,6 @@ export default {
   'error.mismaPassword': "La nova contrasenya ha de ser diferent de l'anterior.",
   'error.red': 'No hi ha connexió. Revisa la xarxa i torna-ho a provar.',
   'error.generico': "No s'ha pogut completar l'operació. Torna-ho a provar.",
+  'error.google': "No s'ha pogut iniciar sessió amb Google. Torna-ho a provar.",
+  'error.sinAcceso': 'Aquest correu encara no té accés a Kapital.',
 } satisfies Traduccion<typeof es>;
