@@ -158,9 +158,42 @@
 }
 
 @layer base {
+  /*
+   * Sensación de app nativa: el texto de la interfaz no se selecciona al arrastrar ni al
+   * mantener pulsado (sin menú de copiar en iOS), y las imágenes y enlaces no se arrastran.
+   * No afecta a lectores de pantalla ni al foco por teclado.
+   */
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  img,
+  svg,
+  a {
+    -webkit-user-drag: none;
+  }
+  /*
+   * Excepciones: los campos editables y lo que el usuario copia a propósito (p. ej. el token del
+   * Atajo, marcado con `select-all` o `select-text`) siguen siendo seleccionables. Las utilidades
+   * de Tailwind ya fijan user-select; aquí se recupera además el menú de copiar de iOS.
+   */
+  input,
+  textarea,
+  select,
+  [contenteditable]:not([contenteditable='false']) {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  input,
+  textarea,
+  select,
+  [contenteditable]:not([contenteditable='false']),
+  .select-text,
+  .select-all {
+    -webkit-touch-callout: default;
   }
   body {
     @apply bg-fondo text-texto font-sans antialiased;
