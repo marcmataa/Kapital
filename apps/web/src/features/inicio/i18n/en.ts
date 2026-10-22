@@ -8,6 +8,11 @@ export default {
 
   'error.cargar': "We couldn't load this data.",
 
+  'selector.etiqueta': 'Month',
+  'selector.enCurso': '{mes} · so far',
+  'selector.anterior': 'Previous month',
+  'selector.siguiente': 'Next month',
+
   'kpi.region': 'Month summary',
   'kpi.patrimonio': 'Net worth on {fecha}',
   'kpi.ingresos': 'Income · 1–{dia} {mes}',
@@ -26,6 +31,11 @@ export default {
   'grafico.ayuda':
     'Hover or drag your finger over the chart, or use the arrow keys, to see each day. The hollow dot is today: provisional until 23:59.',
   'grafico.vacio': 'There is no net worth data this month yet.',
+  'grafico.alternativaCerrado':
+    'Daily net worth for {mesActual} up to {fecha} ({valorHoy}) compared with {mesAnterior}. Use the chart control to go through each day.',
+  'grafico.ayudaCerrado':
+    'Hover or drag your finger over the chart, or use the arrow keys, to see each day. The last dot is the month-end close.',
+  'grafico.vacioCerrado': 'There is no net worth data for that month.',
   'grafico.lectura.hoy': '{fecha} · today (provisional)',
   'grafico.lectura.comparacion': 'vs {fecha} {valor} · {diferencia} ({porcentaje})',
   'grafico.lectura.comparacionSinPorcentaje': 'vs {fecha} {valor} · {diferencia}',
@@ -37,6 +47,7 @@ export default {
   'categorias.titulo': 'Spending by category',
   'categorias.gastoNeto': 'net spending',
   'categorias.vacio': 'You have no spending this month yet.',
+  'categorias.vacioCerrado': 'You had no spending in {mes}.',
   'categorias.grafico': 'Donut chart of net spending by category',
   'categorias.lista': 'Net spending by category',
   'categorias.negativa': 'You got back more than you spent: not included in the chart.',
@@ -45,6 +56,8 @@ export default {
   'analisis.ia': 'AI',
   'analisis.verCompleto': 'See the full analysis →',
   'analisis.pendiente': 'Your first AI analysis will arrive on the 1st of next month.',
+  'analisis.sinAnalisisMes': 'There is no analysis for {mes} yet.',
+  'analisis.irAnalisis': 'Go to the analysis →',
 
   'movimientos.titulo': 'Latest transactions',
   'movimientos.verTodos': 'See all →',

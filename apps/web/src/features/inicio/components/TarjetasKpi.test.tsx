@@ -81,6 +81,39 @@ describe('TarjetasKpi', () => {
     expect(gastos.parentElement).toHaveClass('text-positivo');
   });
 
+  it('mes cerrado: patrimonio al último día vs d′ y mes completo vs mes anterior completo', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-10-19"
+        mes="2026-09-01"
+        patrimonioHoy="2327.44"
+        patrimonioAnterior="2000.00"
+        resumenActual={{ ingresos: '1508.00', gastos_netos: '1168.28', balance: '339.72' }}
+        resumenAnterior={{ ingresos: '1400.00', gastos_netos: '1000.00', balance: '400.00' }}
+      />,
+    );
+    const patrimonio = tarjeta('Patrimonio a 30/09/2026');
+    expect(within(patrimonio).getByText('vs 30/08/2026')).toBeInTheDocument();
+    expect(within(patrimonio).getByText('+16,4 %')).toBeInTheDocument();
+    expect(within(tarjeta('Ingresos · 1–30 sept')).getByText('vs 1–31 ago')).toBeInTheDocument();
+    expect(within(tarjeta('Gastos netos · 1–30 sept')).getByText('+16,8 %')).toBeInTheDocument();
+  });
+
+  it('mes cerrado de 31 días: d′ es el último día del mes anterior (sección 11)', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-11-05"
+        mes="2026-10-01"
+        patrimonioHoy="1000.00"
+        patrimonioAnterior="1000.00"
+        resumenActual={{ ingresos: '0.00', gastos_netos: '0.00', balance: '0.00' }}
+        resumenAnterior={null}
+      />,
+    );
+    expect(within(tarjeta('Patrimonio a 31/10/2026')).getByText('vs 30/09/2026')).toBeInTheDocument();
+    expect(within(tarjeta('Ingresos · 1–31 oct')).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+  });
+
   it('sin patrimonio del día equivalente: «Sin datos del mes anterior»', () => {
     renderConApp(
       <TarjetasKpi

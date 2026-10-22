@@ -1,7 +1,7 @@
 import { useEffect, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useIdioma, useT } from '@/shared/i18n';
 import { aCentimos, formatearEuros, formatearPorcentaje, variacionPorcentual } from '@/shared/lib/dinero';
-import { componerFecha, diasDelMes, mismoDiaMesAnterior, partesDe, sumarMeses } from '@/shared/lib/fechas';
+import { componerFecha, diasDelMes, finDeMes, inicioDeMes, mismoDiaMesAnterior, partesDe, sumarMeses } from '@/shared/lib/fechas';
 import { cx } from '@/shared/lib/cx';
 import type { PuntoPatrimonio } from '../api/inicioApi';
 import {
@@ -15,9 +15,11 @@ import {
 } from '../lib/calculos';
 
 interface Props {
-  /** Hoy en la zona del usuario ('YYYY-MM-DD'). El gráfico es el del mes de hoy. */
+  /** Hoy en la zona del usuario ('YYYY-MM-DD'). */
   hoy: string;
-  /** Serie del mes actual (serie_patrimonio): hasta hoy, sin días anteriores a los datos. */
+  /** Mes del gráfico (día 1). Por defecto, el de hoy; si es un mes cerrado no hay día provisional. */
+  mes?: string | undefined;
+  /** Serie del mes mostrado (serie_patrimonio): hasta hoy, sin días anteriores a los datos. */
   actual: readonly PuntoPatrimonio[];
   /** Serie completa del mes anterior. */
   anterior: readonly PuntoPatrimonio[];
@@ -64,20 +66,26 @@ export interface LecturaDia {
 }
 
 /**
- * Patrimonio diario del mes actual (línea continua hasta hoy, punto hueco provisional) frente al
- * mes anterior (discontinua, sobre sus propios días). Reglas, sección 7. Se recorre día a día con
- * ratón, dedo (pointer events, `touch-action: pan-y`) o teclado (control deslizante accesible).
+ * Patrimonio diario del mes mostrado (línea continua) frente al mes anterior (discontinua, sobre
+ * sus propios días). Reglas, sección 7.
+ * - Mes en curso: la línea termina hoy, con punto hueco provisional.
+ * - Mes cerrado: la línea llega al último día del mes, cerrado (punto lleno, sin «provisional»).
+ * Se recorre día a día con ratón, dedo (pointer events, `touch-action: pan-y`) o teclado
+ * (control deslizante accesible).
  */
-export function GraficoCapital({ hoy, actual, anterior, className }: Props) {
+export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props) {
   const t = useT('inicio');
   const { locale } = useIdioma();
   const [contenedor, setContenedor] = useState<HTMLDivElement | null>(null);
   const ancho = useAncho(contenedor);
 
-  const hoyP = partesDe(hoy);
-  const inicioActual = componerFecha({ ...hoyP, dia: 1 });
-  const inicioAnterior = sumarMeses(hoy, -1);
-  const diasActual = diasDelMes(hoyP.anio, hoyP.mes);
+  const inicioActual = inicioDeMes(mes ?? hoy);
+  const enCurso = inicioActual === inicioDeMes(hoy);
+  // Fecha de referencia: hoy (provisional) o el último día del mes cerrado.
+  const referencia = enCurso ? hoy : finDeMes(inicioActual);
+  const refP = partesDe(referencia);
+  const inicioAnterior = sumarMeses(inicioActual, -1);
+  const diasActual = diasDelMes(refP.anio, refP.mes);
   const pa = partesDe(inicioAnterior);
   const diasAnterior = diasDelMes(pa.anio, pa.mes);
   const diasEje = Math.max(diasActual, diasAnterior);
@@ -85,15 +93,15 @@ export function GraficoCapital({ hoy, actual, anterior, className }: Props) {
   const valoresActual = porDia(actual, inicioActual);
   const valoresAnterior = porDia(anterior, inicioAnterior);
 
-  const [diaSel, setDiaSel] = useState(hoyP.dia);
+  const [diaSel, setDiaSel] = useState(refP.dia);
 
   // ---------------------------------------------------------------- Lectura del día elegido
-  const fechaDe = (dia: number) => componerFecha({ ...hoyP, dia });
+  const fechaDe = (dia: number) => componerFecha({ ...refP, dia });
 
   const lectura = (dia: number): LecturaDia => {
     const fecha = fechaDe(dia);
     const fechaTexto = formatearDiaMes(fecha, locale);
-    const esHoy = fecha === hoy;
+    const esHoy = enCurso && fecha === hoy;
     const esFuturo = fecha > hoy;
     const valor = esFuturo ? undefined : valoresActual.get(dia);
     const fechaAnt = mismoDiaMesAnterior(fecha);
@@ -163,13 +171,13 @@ export function GraficoCapital({ hoy, actual, anterior, className }: Props) {
       ? `${puntos(valoresActual)} ${r1(x(ultimoDia))},${fondoPlot} ${r1(x(primerDia))},${fondoPlot}`
       : '';
 
-  const valorHoy = valoresActual.get(hoyP.dia);
-  const xHoy = x(hoyP.dia);
+  const valorHoy = valoresActual.get(refP.dia);
+  const xHoy = x(refP.dia);
   const yHoy = valorHoy !== undefined ? y(valorHoy) : 0;
   const etiquetaHoyALaIzquierda = xHoy > izquierda + anchoPlot * 0.6;
   const etiquetaHoyDebajo = yHoy < MARGEN.arriba + 22;
 
-  const valorSel = diaSel <= hoyP.dia ? valoresActual.get(diaSel) : undefined;
+  const valorSel = diaSel <= refP.dia ? valoresActual.get(diaSel) : undefined;
   const diaAntSel = partesDe(mismoDiaMesAnterior(fechaDe(diaSel))).dia;
   const valorAntSel = valoresAnterior.get(diaAntSel);
 
@@ -213,7 +221,7 @@ export function GraficoCapital({ hoy, actual, anterior, className }: Props) {
       </div>
 
       {!hayDatos ? (
-        <p className="rounded-xl bg-superficie-2 px-3 py-6 text-center text-sm text-apagado">{t('grafico.vacio')}</p>
+        <p className="rounded-xl bg-superficie-2 px-3 py-6 text-center text-sm text-apagado">{t(enCurso ? 'grafico.vacio' : 'grafico.vacioCerrado')}</p>
       ) : (
         <>
           <div
@@ -227,10 +235,11 @@ export function GraficoCapital({ hoy, actual, anterior, className }: Props) {
           </div>
 
           <p className="sr-only">
-            {t('grafico.alternativa', {
+            {t(enCurso ? 'grafico.alternativa' : 'grafico.alternativaCerrado', {
               mesActual: nombreActual,
               mesAnterior: nombreAnterior,
               valorHoy: valorHoy !== undefined ? formatearEuros(valorHoy, locale) : t('grafico.lectura.sinDatos'),
+              fecha: formatearDiaMes(referencia, locale),
             })}
           </p>
 
@@ -323,18 +332,18 @@ export function GraficoCapital({ hoy, actual, anterior, className }: Props) {
               {valorAntSel !== undefined && (
                 <circle cx={r1(x(diaAntSel))} cy={r1(y(valorAntSel))} r={4} className="fill-tenue" />
               )}
-              {valorSel !== undefined && diaSel !== hoyP.dia && (
+              {valorSel !== undefined && diaSel !== refP.dia && (
                 <circle cx={r1(x(diaSel))} cy={r1(y(valorSel))} r={5} className="fill-acento" />
               )}
 
               {valorHoy !== undefined && (
                 <>
                   <circle
-                    data-testid="punto-hoy"
+                    data-testid={enCurso ? 'punto-hoy' : 'punto-cierre'}
                     cx={r1(xHoy)}
                     cy={r1(yHoy)}
                     r={6}
-                    className="fill-superficie stroke-acento"
+                    className={enCurso ? 'fill-superficie stroke-acento' : 'fill-acento stroke-acento'}
                     strokeWidth={3}
                   />
                   <text
@@ -343,13 +352,13 @@ export function GraficoCapital({ hoy, actual, anterior, className }: Props) {
                     textAnchor={etiquetaHoyALaIzquierda ? 'end' : 'start'}
                     className="fill-texto text-xs font-medium"
                   >
-                    {t('grafico.hoy', { fecha: formatearDiaMes(hoy, locale) })}
+                    {enCurso ? t('grafico.hoy', { fecha: formatearDiaMes(hoy, locale) }) : formatearDiaMes(referencia, locale)}
                   </text>
                 </>
               )}
             </svg>
           </div>
-          <p className="text-xs text-apagado sm:text-sm">{t('grafico.ayuda')}</p>
+          <p className="text-xs text-apagado sm:text-sm">{t(enCurso ? 'grafico.ayuda' : 'grafico.ayudaCerrado')}</p>
         </>
       )}
     </div>

@@ -7,6 +7,11 @@ export default {
 
   'error.cargar': 'No se han podido cargar estos datos.',
 
+  'selector.etiqueta': 'Mes',
+  'selector.enCurso': '{mes} · hasta hoy',
+  'selector.anterior': 'Mes anterior',
+  'selector.siguiente': 'Mes siguiente',
+
   'kpi.region': 'Resumen del mes',
   'kpi.patrimonio': 'Patrimonio a {fecha}',
   'kpi.ingresos': 'Ingresos · 1–{dia} {mes}',
@@ -25,6 +30,11 @@ export default {
   'grafico.ayuda':
     'Pasa el ratón o el dedo por el gráfico, o usa las flechas del teclado, para ver cada día. El punto hueco es hoy: provisional hasta las 23:59.',
   'grafico.vacio': 'Todavía no hay datos de patrimonio este mes.',
+  'grafico.alternativaCerrado':
+    'Patrimonio diario de {mesActual} hasta el {fecha} ({valorHoy}) comparado con {mesAnterior}. Usa el control del gráfico para recorrer cada día.',
+  'grafico.ayudaCerrado':
+    'Pasa el ratón o el dedo por el gráfico, o usa las flechas del teclado, para ver cada día. El último punto es el cierre del mes.',
+  'grafico.vacioCerrado': 'No hay datos de patrimonio de ese mes.',
   'grafico.lectura.hoy': '{fecha} · hoy (provisional)',
   'grafico.lectura.comparacion': 'vs {fecha} {valor} · {diferencia} ({porcentaje})',
   'grafico.lectura.comparacionSinPorcentaje': 'vs {fecha} {valor} · {diferencia}',
@@ -36,6 +46,7 @@ export default {
   'categorias.titulo': 'Gastos por categoría',
   'categorias.gastoNeto': 'gasto neto',
   'categorias.vacio': 'Todavía no tienes gastos este mes.',
+  'categorias.vacioCerrado': 'No tuviste gastos en {mes}.',
   'categorias.grafico': 'Gráfico circular del gasto neto por categoría',
   'categorias.lista': 'Gasto neto por categoría',
   'categorias.negativa': 'Te han devuelto más de lo que gastaste: no entra en el gráfico.',
@@ -44,6 +55,8 @@ export default {
   'analisis.ia': 'IA',
   'analisis.verCompleto': 'Ver el análisis completo →',
   'analisis.pendiente': 'Tu primer análisis con IA llegará el día 1 del mes que viene.',
+  'analisis.sinAnalisisMes': 'Todavía no hay análisis de {mes}.',
+  'analisis.irAnalisis': 'Ir al análisis →',
 
   'movimientos.titulo': 'Últimos movimientos',
   'movimientos.verTodos': 'Ver todos →',

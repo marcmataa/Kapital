@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderConApp, sesionFalsa } from '@/test/render';
 
@@ -94,6 +95,13 @@ function escenario({
       case 'analisis_mensuales':
         return ok(analisis);
       case 'rpc:resumen_periodo':
+        // Meses completos (selector de mes): septiembre (sección 3) y agosto.
+        if (l.args?.p_desde === '2026-09-01' && l.args.p_hasta === '2026-09-30') {
+          return ok([{ ingresos: '1508.00', gastos_netos: '1168.28', balance: '339.72' }]);
+        }
+        if (l.args?.p_desde === '2026-08-01' && l.args.p_hasta === '2026-08-31') {
+          return ok([{ ingresos: '1400.00', gastos_netos: '1000.00', balance: '400.00' }]);
+        }
         return l.args?.p_desde === '2026-10-01'
           ? ok([{ ingresos: '3420.00', gastos_netos: '961.68', balance: '342.00' }])
           : ok([{ ingresos: '0.00', gastos_netos: '900.00', balance: '-900.00' }]);
@@ -259,6 +267,137 @@ describe('PaginaInicio · análisis bajo el donut', () => {
     escenario({ analisis: { mes: '2026-09-01', contenido: { resumen: 1 } } });
     pintar();
     expect(await screen.findByText('Tu primer análisis con IA llegará el día 1 del mes que viene.')).toBeInTheDocument();
+  });
+});
+
+/** Muestra la query string actual para comprobar que el mes se refleja en la URL. */
+function Ubicacion() {
+  const { search } = useLocation();
+  return <output data-testid="ubicacion">{search}</output>;
+}
+
+const pintarEn = (ruta: string) =>
+  renderConApp(
+    <>
+      <PaginaInicio />
+      <Ubicacion />
+    </>,
+    { sesion: sesionFalsa('u1'), ruta },
+  );
+
+const argsRpc = () => sb.llamadas.filter((l) => l.origen.startsWith('rpc:')).map((l) => [l.origen, l.args]);
+
+describe('PaginaInicio · selector de mes', () => {
+  it('sin ?mes muestra el mes en curso; «siguiente» desactivado (no hay futuro)', async () => {
+    pintar();
+    await screen.findByText('Patrimonio a 19/10/2026');
+    expect(screen.getByRole('combobox', { name: 'Mes' })).toHaveDisplayValue('Octubre de 2026 · hasta hoy');
+    expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Mes anterior' })).toBeEnabled();
+    // Rango: de enero (primera cuenta) a octubre.
+    const opciones = within(screen.getByRole('combobox', { name: 'Mes' })).getAllByRole('option');
+    expect(opciones).toHaveLength(10);
+    expect(opciones.at(-1)).toHaveTextContent('Enero de 2026');
+  });
+
+  it('«Mes anterior» pone ?mes=2026-09 y pide mes completo vs mes anterior completo', async () => {
+    pintarEn('/');
+    await screen.findByText('Patrimonio a 19/10/2026');
+    await userEvent.click(screen.getByRole('button', { name: 'Mes anterior' }));
+    expect(await screen.findByText('Patrimonio a 30/09/2026')).toBeInTheDocument();
+    expect(screen.getByTestId('ubicacion')).toHaveTextContent('?mes=2026-09');
+    const args = argsRpc();
+    expect(args).toContainEqual(['rpc:resumen_periodo', { p_desde: '2026-09-01', p_hasta: '2026-09-30' }]);
+    expect(args).toContainEqual(['rpc:resumen_periodo', { p_desde: '2026-08-01', p_hasta: '2026-08-31' }]);
+    expect(args).toContainEqual([
+      'rpc:serie_patrimonio',
+      { p_desde: '2026-09-01', p_hasta: '2026-09-30', p_hoy: '2026-10-19' },
+    ]);
+    expect(args).toContainEqual([
+      'rpc:serie_patrimonio',
+      { p_desde: '2026-08-01', p_hasta: '2026-08-31', p_hoy: '2026-10-19' },
+    ]);
+    expect(args).toContainEqual(['rpc:gasto_por_categoria', { p_desde: '2026-09-01', p_hasta: '2026-09-30' }]);
+    // Volver al mes en curso quita el parámetro.
+    await userEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }));
+    expect(await screen.findByText('Patrimonio a 19/10/2026')).toBeInTheDocument();
+    expect(screen.getByTestId('ubicacion')).toBeEmptyDOMElement();
+  });
+
+  it('mes cerrado: etiquetas del mes completo, sin «provisional» ni «hoy»', async () => {
+    pintarEn('/?mes=2026-09');
+    const patrimonio = (await screen.findByRole('heading', { name: 'Patrimonio a 30/09/2026' })).closest('article');
+    if (!patrimonio) throw new Error('sin tarjeta');
+    // 30 sept = 2.029,00 €; d′ = 30 ago (sección 7) = 2.029,00 €.
+    expect(within(patrimonio).getByText(/2\.029,00/)).toBeInTheDocument();
+    expect(within(patrimonio).getByText('vs 30/08/2026')).toBeInTheDocument();
+    const ingresos = screen.getByRole('heading', { name: 'Ingresos · 1–30 sept' }).closest('article');
+    const gastos = screen.getByRole('heading', { name: 'Gastos netos · 1–30 sept' }).closest('article');
+    if (!ingresos || !gastos) throw new Error('sin tarjeta');
+    // 1.400,00 → 1.508,00: +7,7 %; 1.000,00 → 1.168,28: +16,8 %, contra agosto completo.
+    expect(within(ingresos).getByText('+7,7 %')).toBeInTheDocument();
+    expect(within(gastos).getByText('+16,8 %')).toBeInTheDocument();
+    expect(within(ingresos).getByText('vs 1–31 ago')).toBeInTheDocument();
+
+    expect(screen.getByRole('combobox', { name: 'Mes' })).toHaveDisplayValue('Septiembre de 2026');
+    expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeEnabled();
+    expect(await screen.findByTestId('punto-cierre')).toBeInTheDocument();
+    expect(screen.queryByTestId('punto-hoy')).not.toBeInTheDocument();
+    expect(screen.getByText('30 sept')).toBeInTheDocument();
+    expect(screen.queryByText(/provisional/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\(hoy\)/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['inválido', '/?mes=2026-13'],
+    ['sin formato', '/?mes=septiembre'],
+    ['futuro', '/?mes=2026-11'],
+    ['antes de la primera cuenta', '/?mes=2025-12'],
+  ])('un ?mes %s cae al mes en curso', async (_caso, ruta) => {
+    pintarEn(ruta);
+    expect(await screen.findByText('Patrimonio a 19/10/2026')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Mes' })).toHaveDisplayValue('Octubre de 2026 · hasta hoy');
+    // Nunca se piden datos del mes pedido.
+    expect(sb.llamadas.some((l) => String(l.args?.p_desde ?? '').startsWith(ruta.slice(-7)))).toBe(false);
+  });
+
+  it('en el mes de la primera cuenta «anterior» está desactivado y no hay comparación', async () => {
+    escenario({ inicioDatos: '2026-01-01' });
+    pintarEn('/?mes=2026-01');
+    const ingresos = (await screen.findByRole('heading', { name: 'Ingresos · 1–31 ene' })).closest('article');
+    if (!ingresos) throw new Error('sin tarjeta');
+    expect(within(ingresos).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mes anterior' })).toBeDisabled();
+    // Diciembre de 2025 es anterior a los datos: ni se pide su resumen.
+    expect(argsRpc()).not.toContainEqual(['rpc:resumen_periodo', { p_desde: '2025-12-01', p_hasta: '2025-12-31' }]);
+  });
+
+  it('mes cerrado con análisis listo: destacados de ESE mes', async () => {
+    escenario({
+      analisis: {
+        mes: '2026-09-01',
+        contenido: { resumen: 'Bien.', destacados: ['Uno.', 'Dos.'], recomendaciones: ['A.', 'B.'] },
+      },
+    });
+    pintarEn('/?mes=2026-09');
+    expect(await screen.findByText('De tu análisis de septiembre')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ver el análisis completo →' })).toHaveAttribute('href', '/analisis/2026-09');
+  });
+
+  it('mes cerrado sin análisis: lo dice y enlaza a su página de Análisis', async () => {
+    pintarEn('/?mes=2026-08');
+    expect(await screen.findByText('Todavía no hay análisis de agosto.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Ir al análisis →' })).toHaveAttribute('href', '/analisis/2026-08');
+    expect(screen.queryByText('Tu primer análisis con IA llegará el día 1 del mes que viene.')).not.toBeInTheDocument();
+  });
+
+  it('los objetivos siguen siendo del mes en curso aunque se mire un mes cerrado', async () => {
+    escenario({ objetivos: [{ id: 'o1', tipo: 'ahorro_mensual', categoria_id: null, importe: '500.00' }] });
+    pintarEn('/?mes=2026-09');
+    expect(await screen.findByText('Objetivos · octubre')).toBeInTheDocument();
+    const ahorro = await screen.findByRole('progressbar', { name: /^Ahorrar 500,00\s€ al mes$/ });
+    // Balance de 1–19 oct (342,00 €), no el de septiembre.
+    expect((ahorro.getAttribute('aria-valuetext') ?? '').replace(/\s+/g, ' ')).toBe('342,00 € / 500,00 €');
   });
 });
 
