@@ -16,6 +16,7 @@ export function Logo({ className, conTexto = true }: { className?: string; conTe
         width={32}
         height={32}
         className="size-8"
+        draggable={false}
       />
       {conTexto && <span className="text-lg tracking-tight">{t('app.nombre')}</span>}
     </span>

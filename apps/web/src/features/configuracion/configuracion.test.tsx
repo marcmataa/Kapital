@@ -459,6 +459,8 @@ describe('Atajo del iPhone', () => {
     const dialogo = await screen.findByRole('dialog', { name: 'Tu token' });
     expect(db.rpc).toHaveBeenCalledWith('crear_token', { p_nombre: 'iPad' });
     expect(within(dialogo).getByText(TOKEN)).toBeInTheDocument();
+    // La interfaz no es seleccionable (index.css), pero el token sí: hay que poder copiarlo a mano.
+    expect(within(dialogo).getByText(TOKEN)).toHaveClass('select-all');
     expect(within(dialogo).getByText(/no se puede volver a mostrar/)).toBeInTheDocument();
 
     await userEvent.click(within(dialogo).getByRole('button', { name: 'Ya lo he copiado' }));

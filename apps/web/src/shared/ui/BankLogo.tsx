@@ -47,6 +47,7 @@ export function BankLogo({ entidad, nombre, color, tamano = 'md', className }: P
         className={cx(clases, 'bg-white object-contain p-1')}
         loading="lazy"
         decoding="async"
+        draggable={false}
         onError={() => setFallo(true)}
       />
     );
