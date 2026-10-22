@@ -205,6 +205,29 @@ describe('PaginaInicio · periodo anterior parcial (sección 8)', () => {
   });
 });
 
+describe('PaginaInicio · saludo', () => {
+  it('sin nombre en user_metadata saluda solo con «Hola»', async () => {
+    pintar();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Hola' })).toBeInTheDocument();
+  });
+
+  it('con Google saluda con el nombre de pila y la pestaña sigue en «Hola · Kapital»', async () => {
+    renderConApp(<PaginaInicio />, {
+      sesion: sesionFalsa('u1', { user_metadata: { given_name: 'Lucía', full_name: 'Lucía Prueba Gómez' } }),
+    });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Hola, Lucía' })).toBeInTheDocument();
+    expect(document.title).toBe('Hola · Kapital');
+  });
+
+  it('sin given_name usa la primera palabra de full_name, también en inglés', async () => {
+    renderConApp(<PaginaInicio />, {
+      sesion: sesionFalsa('u1', { user_metadata: { full_name: 'Pau Ejemplo Ruiz' } }),
+      idioma: 'en',
+    });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Hello, Pau' })).toBeInTheDocument();
+  });
+});
+
 describe('PaginaInicio · análisis bajo el donut', () => {
   it('sin análisis listo muestra el aviso del primer análisis', async () => {
     pintar();

@@ -19,12 +19,14 @@ interface Props {
   acciones?: ReactNode;
   /** Ruta del botón «Volver». */
   volverA?: string;
+  /** Título de la pestaña si debe ser distinto del h1 (por defecto, `titulo`). */
+  tituloDocumento?: string;
 }
 
 /** Cabecera estándar de página: h1 + descripción + acciones. También fija document.title. */
-export function CabeceraPagina({ titulo, descripcion, acciones, volverA }: Props) {
+export function CabeceraPagina({ titulo, descripcion, acciones, volverA, tituloDocumento }: Props) {
   const t = useT('common');
-  useTituloDocumento(titulo);
+  useTituloDocumento(tituloDocumento ?? titulo);
   return (
     <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
       <div className="flex min-w-0 items-start gap-2">

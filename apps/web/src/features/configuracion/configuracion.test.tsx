@@ -1,3 +1,4 @@
+import { Route, Routes } from 'react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -508,9 +509,24 @@ describe('Apariencia y cuenta', () => {
     const sesion = sesionFalsa(USER);
     sesion.user.email = 'ana@ejemplo.com';
     sesion.user.app_metadata = { provider: 'google' };
+    sesion.user.user_metadata = { full_name: 'Ana Inventada' };
     renderConApp(<PaginaConfiguracion />, { sesion, auth: { cerrarSesion } });
+    expect(screen.getByText('Ana Inventada')).toBeInTheDocument();
     expect(screen.getByText('ana@ejemplo.com · Google')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
     expect(cerrarSesion).toHaveBeenCalledOnce();
+  });
+
+  it('cerrar sesión desde Configuración (móvil) deja la app en /login', async () => {
+    const cerrarSesion = vi.fn(() => Promise.resolve());
+    renderConApp(
+      <Routes>
+        <Route path="/login" element={<h1>Pantalla de login</h1>} />
+        <Route path="*" element={<PaginaConfiguracion />} />
+      </Routes>,
+      { sesion: sesionFalsa(USER), auth: { cerrarSesion }, ruta: '/configuracion' },
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    expect(await screen.findByRole('heading', { name: 'Pantalla de login' })).toBeInTheDocument();
   });
 });

@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router';
 import { render, type RenderResult } from '@testing-library/react';
-import type { Session } from '@supabase/supabase-js';
+import type { Session, User } from '@supabase/supabase-js';
 import { AuthContext, type ValorAuth } from '@/app/auth/contexto';
 import { crearStore } from '@/app/store';
 import { I18nProvider, type Idioma } from '@/shared/i18n';
@@ -16,8 +16,11 @@ export interface OpcionesRender {
   auth?: Partial<ValorAuth>;
 }
 
-/** Sesión falsa para tests. */
-export function sesionFalsa(userId = '00000000-0000-0000-0000-000000000001'): Session {
+/**
+ * Sesión falsa para tests. `usuario` sobrescribe campos del usuario (email, user_metadata…):
+ *   sesionFalsa(undefined, { user_metadata: { given_name: 'Nombre inventado' } })
+ */
+export function sesionFalsa(userId = '00000000-0000-0000-0000-000000000001', usuario: Partial<User> = {}): Session {
   return {
     access_token: 'token-de-prueba',
     refresh_token: 'refresh-de-prueba',
@@ -29,6 +32,7 @@ export function sesionFalsa(userId = '00000000-0000-0000-0000-000000000001'): Se
       app_metadata: {},
       user_metadata: {},
       created_at: '2026-10-01T00:00:00Z',
+      ...usuario,
     },
   };
 }

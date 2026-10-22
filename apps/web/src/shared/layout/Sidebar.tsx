@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router';
 import { useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
-import { BotonTema } from './BotonTema';
+import { BloqueCuenta } from './BloqueCuenta';
 import { Logo } from './Logo';
 import { NAV_ESCRITORIO } from './navegacion';
 
@@ -41,9 +41,7 @@ export function Sidebar({ className }: { className?: string }) {
           ))}
         </ul>
       </nav>
-      <div className="flex items-center justify-end px-2">
-        <BotonTema />
-      </div>
+      <BloqueCuenta />
     </aside>
   );
 }

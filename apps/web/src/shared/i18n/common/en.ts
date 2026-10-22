@@ -41,6 +41,8 @@ export default {
   'tema.oscuro': 'Dark',
   'tema.sistema': 'System',
   'tema.cambiar': 'Change theme',
+  'cuenta.region': 'Your account',
+  'cuenta.cerrarSesion': 'Sign out',
   'idioma.titulo': 'Language',
   'idioma.es': 'Español',
   'idioma.en': 'English',

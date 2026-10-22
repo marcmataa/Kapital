@@ -40,6 +40,8 @@ export default {
   'tema.oscuro': 'Oscuro',
   'tema.sistema': 'Sistema',
   'tema.cambiar': 'Cambiar tema',
+  'cuenta.region': 'Tu cuenta',
+  'cuenta.cerrarSesion': 'Cerrar sesión',
   'idioma.titulo': 'Idioma',
   'idioma.es': 'Español',
   'idioma.en': 'English',
