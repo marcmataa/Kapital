@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# Secretos: nunca se commitean
+.env
+.env.*
+!.env.example
+*.secret
+*credentials*
+*private_key*
+
+# Backups locales: contienen datos financieros reales
+backups/
+supabase/.temp/

@@ -1,0 +1,185 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens de diseño — paleta de la marca Kapital (verde menta sobre verde muy oscuro).
+ * El layout sigue docs/diseno/estructura-kapital.png; los colores, el logo de marca.
+ * - Tema oscuro por defecto. [data-theme='light'] en <html> fuerza el claro; [data-theme='dark'] el oscuro.
+ * - Sin data-theme, se sigue prefers-color-scheme del sistema.
+ * Utilidades Tailwind generadas desde @theme: bg-fondo, bg-nav, bg-superficie, text-texto, text-apagado,
+ * border-borde, border-borde-input, bg-acento, text-sobre-acento, text-enlace, text-positivo, text-negativo…
+ * Los colores de categorías en gráficos son datos (multicolor), no tokens de marca.
+ */
+:root {
+  color-scheme: dark;
+  --k-fondo: #07110e;
+  --k-nav: #0a1713;
+  --k-nav-activo: #163a2c;
+  --k-superficie: #0e1c18;
+  --k-superficie-2: #132620;
+  --k-superficie-3: #183028;
+  --k-borde: #1c322b;
+  --k-borde-input: #27443a;
+  --k-borde-fuerte: #27443a;
+  --k-texto: #eef3ec;
+  --k-apagado: #9db5ab;
+  --k-tenue: #7f978d;
+  --k-acento: #5fd3a0;
+  --k-acento-hover: #7ee0b4;
+  --k-acento-suave: #10291f;
+  --k-acento-borde: #2a5a46;
+  --k-sobre-acento: #04140e;
+  --k-enlace: #8fe3bd;
+  --k-positivo: #5fd3a0;
+  --k-positivo-suave: #10291f;
+  --k-negativo: #ff8a7a;
+  --k-negativo-suave: rgb(255 138 122 / 0.12);
+  --k-sobre-negativo: #2a0b06;
+  --k-aviso: #f2c46d;
+  --k-aviso-suave: #2a2210;
+  --k-aviso-borde: #6b5418;
+  --k-morado: #a78bfa;
+  --k-morado-suave: rgb(167 139 250 / 0.14);
+  --k-sombra: 0 1px 2px rgb(0 0 0 / 0.45), 0 8px 24px rgb(0 0 0 / 0.25);
+  --k-overlay: rgb(2 8 6 / 0.72);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --k-fondo: #f4f8f6;
+    --k-nav: #ffffff;
+    --k-nav-activo: #e3f2eb;
+    --k-superficie: #ffffff;
+    --k-superficie-2: #eef4f1;
+    --k-superficie-3: #e3ede8;
+    --k-borde: #d6e4dd;
+    --k-borde-input: #c3d6cc;
+    --k-borde-fuerte: #c3d6cc;
+    --k-texto: #0d1f19;
+    --k-apagado: #4d6359;
+    --k-tenue: #6b8278;
+    --k-acento: #0f8a5f;
+    --k-acento-hover: #0c744f;
+    --k-acento-suave: #e3f2eb;
+    --k-acento-borde: #a9d6c2;
+    --k-sobre-acento: #ffffff;
+    --k-enlace: #0f8a5f;
+    --k-positivo: #0f8a5f;
+    --k-positivo-suave: #e3f2eb;
+    --k-negativo: #c4362a;
+    --k-negativo-suave: rgb(196 54 42 / 0.1);
+    --k-sobre-negativo: #ffffff;
+    --k-aviso: #8a5a00;
+    --k-aviso-suave: #fbf1dc;
+    --k-aviso-borde: #e4c27a;
+    --k-morado: #6d3fe0;
+    --k-morado-suave: rgb(109 63 224 / 0.1);
+    --k-sombra: 0 1px 2px rgb(13 31 25 / 0.06), 0 8px 24px rgb(13 31 25 / 0.06);
+    --k-overlay: rgb(13 31 25 / 0.45);
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --k-fondo: #f4f8f6;
+  --k-nav: #ffffff;
+  --k-nav-activo: #e3f2eb;
+  --k-superficie: #ffffff;
+  --k-superficie-2: #eef4f1;
+  --k-superficie-3: #e3ede8;
+  --k-borde: #d6e4dd;
+  --k-borde-input: #c3d6cc;
+  --k-borde-fuerte: #c3d6cc;
+  --k-texto: #0d1f19;
+  --k-apagado: #4d6359;
+  --k-tenue: #6b8278;
+  --k-acento: #0f8a5f;
+  --k-acento-hover: #0c744f;
+  --k-acento-suave: #e3f2eb;
+  --k-acento-borde: #a9d6c2;
+  --k-sobre-acento: #ffffff;
+  --k-enlace: #0f8a5f;
+  --k-positivo: #0f8a5f;
+  --k-positivo-suave: #e3f2eb;
+  --k-negativo: #c4362a;
+  --k-negativo-suave: rgb(196 54 42 / 0.1);
+  --k-sobre-negativo: #ffffff;
+  --k-aviso: #8a5a00;
+  --k-aviso-suave: #fbf1dc;
+  --k-aviso-borde: #e4c27a;
+  --k-morado: #6d3fe0;
+  --k-morado-suave: rgb(109 63 224 / 0.1);
+  --k-sombra: 0 1px 2px rgb(13 31 25 / 0.06), 0 8px 24px rgb(13 31 25 / 0.06);
+  --k-overlay: rgb(13 31 25 / 0.45);
+}
+
+@theme inline {
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --color-fondo: var(--k-fondo);
+  --color-nav: var(--k-nav);
+  --color-nav-activo: var(--k-nav-activo);
+  --color-superficie: var(--k-superficie);
+  --color-superficie-2: var(--k-superficie-2);
+  --color-superficie-3: var(--k-superficie-3);
+  --color-borde: var(--k-borde);
+  --color-borde-input: var(--k-borde-input);
+  --color-borde-fuerte: var(--k-borde-fuerte);
+  --color-texto: var(--k-texto);
+  --color-apagado: var(--k-apagado);
+  --color-tenue: var(--k-tenue);
+  --color-acento: var(--k-acento);
+  --color-acento-hover: var(--k-acento-hover);
+  --color-acento-suave: var(--k-acento-suave);
+  --color-acento-borde: var(--k-acento-borde);
+  --color-sobre-acento: var(--k-sobre-acento);
+  --color-enlace: var(--k-enlace);
+  --color-positivo: var(--k-positivo);
+  --color-positivo-suave: var(--k-positivo-suave);
+  --color-negativo: var(--k-negativo);
+  --color-negativo-suave: var(--k-negativo-suave);
+  --color-sobre-negativo: var(--k-sobre-negativo);
+  --color-aviso: var(--k-aviso);
+  --color-aviso-suave: var(--k-aviso-suave);
+  --color-aviso-borde: var(--k-aviso-borde);
+  --color-morado: var(--k-morado);
+  --color-morado-suave: var(--k-morado-suave);
+  --color-overlay: var(--k-overlay);
+  --shadow-tarjeta: var(--k-sombra);
+}
+
+/* Capas (z-index). Todas definidas: nada de variables sin declarar. */
+:root {
+  --z-nav: 40;
+  --z-sheet: 50;
+  --z-toast: 60;
+  --alto-header-movil: 3.5rem;
+  --alto-bottom-nav: 4rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-fondo text-texto font-sans antialiased;
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 2px solid var(--k-acento);
+    outline-offset: 2px;
+  }
+  .cifras {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,10 @@
+# Cabeceras de seguridad para el hosting (formato Netlify / Cloudflare Pages).
+# La CSP completa va como <meta> en index.html (la inyecta vite.config.ts en el build);
+# frame-ancestors no funciona en <meta>, así que va aquí como cabecera HTTP.
+/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
