@@ -1,6 +1,7 @@
 import { skipToken } from '@reduxjs/toolkit/query';
 import { useListarCuentasQuery } from '@/shared/api/catalogos';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
+import { useNombreUsuario } from '@/shared/hooks/useNombreUsuario';
 import { useT } from '@/shared/i18n';
 import { finDeMes, inicioDeMes, mismoDiaMesAnterior } from '@/shared/lib/fechas';
 import { inicioDeDatos, tramoConDatos } from '@/shared/lib/periodos';
@@ -28,6 +29,7 @@ import { UltimosMovimientos } from '../components/UltimosMovimientos';
 export default function PaginaInicio() {
   const t = useT('inicio');
   const { hoy } = useHoyUsuario();
+  const { dePila } = useNombreUsuario();
   const dPrima = mismoDiaMesAnterior(hoy);
   const mes = { desde: inicioDeMes(hoy), hasta: hoy };
 
@@ -56,7 +58,12 @@ export default function PaginaInicio() {
 
   return (
     <>
-      <CabeceraPagina titulo={t('titulo')} descripcion={t('descripcion')} />
+      {/* La pestaña se queda en «Hola · Kapital»: el nombre no sale en el historial ni en el selector de apps. */}
+      <CabeceraPagina
+        titulo={dePila === null ? t('titulo') : t('tituloConNombre', { nombre: dePila })}
+        tituloDocumento={t('titulo')}
+        descripcion={t('descripcion')}
+      />
 
       <div className="flex flex-col gap-4 sm:gap-5">
         {kpiCargando ? (

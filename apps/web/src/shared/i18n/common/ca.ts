@@ -41,6 +41,8 @@ export default {
   'tema.oscuro': 'Fosc',
   'tema.sistema': 'Sistema',
   'tema.cambiar': 'Canvia el tema',
+  'cuenta.region': 'El teu compte',
+  'cuenta.cerrarSesion': 'Tancar la sessió',
   'idioma.titulo': 'Idioma',
   'idioma.es': 'Español',
   'idioma.en': 'English',

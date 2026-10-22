@@ -2,6 +2,7 @@ import type { Mensajes } from '@/shared/i18n/tipos';
 
 export default {
   'titulo': 'Hola',
+  'tituloConNombre': 'Hola, {nombre}',
   'descripcion': 'Aquí tienes el resumen de tus finanzas.',
 
   'error.cargar': 'No se han podido cargar estos datos.',

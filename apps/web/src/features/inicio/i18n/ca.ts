@@ -3,6 +3,7 @@ import type es from './es';
 
 export default {
   'titulo': 'Hola',
+  'tituloConNombre': 'Hola, {nombre}',
   'descripcion': 'Aquí tens el resum de les teves finances.',
 
   'error.cargar': "No s'han pogut carregar aquestes dades.",
