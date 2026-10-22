@@ -53,4 +53,6 @@ export default {
   'error.mismaPassword': 'The new password must be different from the old one.',
   'error.red': 'No connection. Check your network and try again.',
   'error.generico': 'The operation could not be completed. Please try again.',
+  'error.google': 'Could not sign in with Google. Please try again.',
+  'error.sinAcceso': 'This email does not have access to Kapital yet.',
 } satisfies Traduccion<typeof es>;
