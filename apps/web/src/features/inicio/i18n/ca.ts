@@ -21,7 +21,6 @@ export default {
   'kpi.sinAnterior': 'Sense dades del mes anterior',
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Patrimoni per compte',
-  'kpi.cuentasSoloHoy': 'El desglossament per compte només està disponible al mes en curs.',
 
   'grafico.titulo': 'Evolució del teu capital',
   'grafico.ejeX': 'Dia del mes',

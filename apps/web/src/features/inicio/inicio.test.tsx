@@ -72,6 +72,8 @@ interface Escenario {
   /** Filas de `cuentas` y de `v_saldos` (valor de hoy) para el desglose por cuenta. */
   cuentas?: unknown[];
   saldos?: unknown[];
+  /** Respuesta de valores_cuentas por p_fecha. */
+  valoresCierre?: Record<string, unknown[]>;
 }
 
 function escenario({
@@ -82,6 +84,7 @@ function escenario({
   inicioDatos = '2026-01-01',
   cuentas,
   saldos = [],
+  valoresCierre = {},
 }: Escenario = {}) {
   sb.responder = (l) => {
     switch (l.origen) {
@@ -91,6 +94,8 @@ function escenario({
         );
       case 'v_saldos':
         return ok(saldos);
+      case 'rpc:valores_cuentas':
+        return ok(valoresCierre[String(l.args?.p_fecha)] ?? []);
       case 'perfiles':
         return ok(PERFIL);
       case 'categorias':
@@ -489,17 +494,40 @@ describe('PaginaInicio · patrimonio por cuenta', () => {
     expect(sb.llamadas.some((l) => l.origen === 'rpc:valor_cuenta')).toBe(false);
   });
 
-  it('mes cerrado: no enseña los valores de hoy como si fueran del cierre; avisa de que no está disponible', async () => {
+  it('mes en curso: no pide valores_cuentas', async () => {
     escenario({ cuentas: CUENTAS, saldos: SALDOS });
+    pintar();
+    await screen.findByRole('list', { name: 'Patrimonio por cuenta' });
+    expect(sb.llamadas.some((l) => l.origen === 'rpc:valores_cuentas')).toBe(false);
+  });
+
+  it('mes cerrado: valores al cierre del último día (valores_cuentas, como texto), no los de hoy', async () => {
+    // valores_cuentas(30/09) ya deja fuera la cerrada en junio y la que se abre en octubre.
+    const cierre = [
+      { cuenta_id: 'c2', valor: '2900.00' },
+      { cuenta_id: 'c1', valor: '980.25' },
+      { cuenta_id: 'c3', valor: '30.00' },
+      { cuenta_id: 'c4', valor: '-120.00' },
+    ];
+    escenario({ cuentas: CUENTAS, saldos: SALDOS, valoresCierre: { '2026-09-30': cierre } });
     pintarEn('/?mes=2026-09');
     const titulo = await screen.findByRole('heading', { name: 'Patrimonio a 30/09/2026' });
     const tarjeta = titulo.closest('article');
     if (!tarjeta) throw new Error('sin tarjeta');
-    expect(within(tarjeta).queryByRole('list')).not.toBeInTheDocument();
+    const lista = await within(tarjeta).findByRole('list', { name: 'Patrimonio por cuenta' });
+    const filas = within(lista).getAllByRole('listitem');
+    expect(filas).toHaveLength(4);
+    expect(filas[0]).toHaveTextContent('Banco Uno');
+    expect(filas[0]).toHaveTextContent(/980,25\s€/);
+    expect(within(filas[3] as HTMLElement).getByText(/^-120,00\s€$/)).toHaveClass('text-negativo');
     expect(within(tarjeta).queryByText(/1\.200,50/)).not.toBeInTheDocument();
-    expect(
-      within(tarjeta).getByText('El desglose por cuenta solo está disponible en el mes en curso.'),
-    ).toBeInTheDocument();
+    expect(within(lista).queryByText('Banco Futuro')).not.toBeInTheDocument();
+    expect(within(lista).queryByText('Banco Cerrado')).not.toBeInTheDocument();
+    expect(screen.queryByText(/solo está disponible/)).not.toBeInTheDocument();
+
+    const llamadas = sb.llamadas.filter((l) => l.origen === 'rpc:valores_cuentas');
+    expect(llamadas.map((l) => l.args)).toEqual([{ p_fecha: '2026-09-30' }]);
+    expect(llamadas[0]?.select).toBe('cuenta_id, valor::text');
   });
 });
 

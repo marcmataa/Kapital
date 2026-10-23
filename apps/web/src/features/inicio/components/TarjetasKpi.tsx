@@ -28,7 +28,7 @@ interface Props {
   resumenAnterior: ResumenPeriodo | null;
   /**
    * Cuentas con su valor (SQL) al cierre de la fecha de referencia, para el desglose bajo el
-   * patrimonio. Sin él no hay desglose; en un mes cerrado se avisa de que aún no está disponible.
+   * patrimonio (mientras cargan, o si fallan, no hay desglose).
    */
   cuentas?: readonly CuentaDesglose[] | undefined;
 }
@@ -109,11 +109,7 @@ export function TarjetasKpi({
         {...(variacionPatrimonio ? { variacion: variacionPatrimonio } : { pie: sinAnterior })}
         destacado
       >
-        {cuentas !== undefined ? (
-          <DesgloseCuentas cuentas={cuentas} fecha={fecha} />
-        ) : (
-          !enCurso && <p className="mt-3 border-t border-borde pt-2 text-xs text-apagado">{t('kpi.cuentasSoloHoy')}</p>
-        )}
+        {cuentas !== undefined && <DesgloseCuentas cuentas={cuentas} fecha={fecha} />}
       </StatCard>
       <StatCard
         titulo={t('kpi.ingresos', { dia, mes })}

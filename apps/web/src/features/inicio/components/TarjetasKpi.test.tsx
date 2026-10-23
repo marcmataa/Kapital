@@ -187,13 +187,13 @@ describe('TarjetasKpi · desglose por cuenta', () => {
     expect(within(tarjetaCredito as HTMLElement).getByText(/^-250,40\s€$/)).toHaveClass('text-negativo');
   });
 
-  it('sin cuentas, en un mes cerrado avisa de que el desglose no está disponible; en curso no dice nada', () => {
+  it('sin cuentas (cargando o con error) no hay desglose ni aviso, ni en curso ni en un mes cerrado', () => {
     const props = { hoy: '2026-10-19', patrimonioHoy: '1.00', patrimonioAnterior: null, resumenActual: RESUMEN };
     const { unmount } = renderConApp(<TarjetasKpi {...props} mes="2026-09-01" resumenAnterior={null} />);
-    expect(screen.getByText('El desglose por cuenta solo está disponible en el mes en curso.')).toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.queryByText(/desglose/)).not.toBeInTheDocument();
     unmount();
     renderConApp(<TarjetasKpi {...props} resumenAnterior={null} />);
-    expect(screen.queryByText(/desglose/)).not.toBeInTheDocument();
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 });

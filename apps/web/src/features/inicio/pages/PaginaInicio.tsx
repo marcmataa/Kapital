@@ -11,6 +11,7 @@ import {
   useInicioGastoCategoriasQuery,
   useInicioResumenQuery,
   useInicioSeriePatrimonioQuery,
+  useInicioValoresCuentasQuery,
 } from '../api/inicioApi';
 import { AnalisisDestacado } from '../components/AnalisisDestacado';
 import { DonutCategorias } from '../components/DonutCategorias';
@@ -22,6 +23,7 @@ import { TarjetasKpi } from '../components/TarjetasKpi';
 import { UltimosMovimientos } from '../components/UltimosMovimientos';
 import { useMesSeleccionado } from '../hooks/useMesSeleccionado';
 import { mesLargo } from '../lib/calculos';
+import type { CuentaDesglose } from '../lib/desglose';
 
 interface EstadoConsulta {
   isUninitialized: boolean;
@@ -78,6 +80,17 @@ export default function PaginaInicio() {
   const patrimonioRef = datosSerie?.find((p) => p.fecha === referencia)?.patrimonio ?? null;
   const patrimonioAnterior = datosSerieAnterior?.find((p) => p.fecha === dPrima)?.patrimonio ?? null;
 
+  // Desglose por cuenta a la fecha de referencia. En curso: valor de hoy (v_saldos, ya en
+  // listarCuentas). Mes cerrado: valores_cuentas(último día), ambos pedidos como texto.
+  const valoresCierre = useInicioValoresCuentasQuery(resuelto && !enCurso ? referencia : skipToken);
+  let cuentasDesglose: CuentaDesglose[] | undefined;
+  if (enCurso) {
+    cuentasDesglose = cuentas.data;
+  } else if (cuentas.data && valoresCierre.currentData) {
+    const valores = new Map(valoresCierre.currentData.map((v) => [v.cuenta_id, v.valor]));
+    cuentasDesglose = cuentas.data.map((c) => ({ ...c, valor: valores.get(c.id) ?? null }));
+  }
+
   const kpiCargando =
     !resuelto ||
     cuentas.isLoading ||
@@ -125,9 +138,7 @@ export default function PaginaInicio() {
             resumenActual={datosResumen}
             // Sin el resumen anterior (o si su tramo es parcial), las tarjetas dicen «Sin datos del mes anterior».
             resumenAnterior={periodos.anterior ? (resumenAnterior.currentData ?? null) : null}
-            // Desglose por cuenta: valor de hoy de cada cuenta (v_saldos, como texto). Para un mes
-            // cerrado aún no hay consulta del valor por cuenta a otra fecha que devuelva texto.
-            cuentas={enCurso ? cuentas.data : undefined}
+            cuentas={cuentasDesglose}
           />
         )}
 

@@ -325,6 +325,11 @@ isOneToOne: false
 "valor_cuenta":
 { Args: { "p_cuenta": string,"p_fecha": string }; Returns: number
                            },
+"valores_cuentas":
+{ Args: { "p_fecha": string }; Returns: {
+              "cuenta_id": string,"valor": number
+            }[]
+                           },
 "variacion_patrimonial":
 { Args: { "p_d1": string,"p_d2": string }; Returns: {
               "ajustes": number,"balance": number,"patrimonio_final": number,"patrimonio_inicial": number,"revalorizacion": number,"saldos_iniciales": number,"variacion": number

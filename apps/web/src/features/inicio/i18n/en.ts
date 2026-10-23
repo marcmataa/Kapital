@@ -21,7 +21,6 @@ export default {
   'kpi.sinAnterior': 'No data for the previous month',
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Net worth by account',
-  'kpi.cuentasSoloHoy': 'The breakdown by account is only available for the current month.',
 
   'grafico.titulo': 'How your wealth is evolving',
   'grafico.ejeX': 'Day of the month',
