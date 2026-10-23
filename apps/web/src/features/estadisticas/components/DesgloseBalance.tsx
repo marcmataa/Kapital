@@ -1,4 +1,5 @@
 import { Card } from '@/shared/ui';
+import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
 import { cx } from '@/shared/lib/cx';
@@ -22,9 +23,6 @@ interface Props {
   fueraAnterior: readonly FilaFueraBalance[];
 }
 
-const deIngreso = (f: FilaIngresoCategoria) => ({ id: `i-${f.categoria_id}`, nombre: f.nombre, color: f.color, importe: f.ingreso });
-const deGasto = (f: GastoCategoria) => ({ id: `g-${f.categoria_id}`, nombre: f.nombre, color: f.color, importe: f.gasto });
-
 /**
  * «Este mes vs anterior»: lo que cuenta en el balance (ingresos y gastos netos por categoría y el
  * balance, sección 3) y, aparte, lo que no cuenta (traspasos y ajustes, secciones 2 y 3). Todos
@@ -37,6 +35,19 @@ export function DesgloseBalance(props: Props) {
   const locale = LOCALE_DE[idioma];
   const titulo = useTituloComparativa(periodos, 'desglose.titulo');
   const hayAnterior = periodos.anterior !== null;
+  const nombreCategoria = useNombreCategoriaCatalogo();
+  const deIngreso = (f: FilaIngresoCategoria) => ({
+    id: `i-${f.categoria_id}`,
+    nombre: nombreCategoria({ id: f.categoria_id, nombre: f.nombre }),
+    color: f.color,
+    importe: f.ingreso,
+  });
+  const deGasto = (f: GastoCategoria) => ({
+    id: `g-${f.categoria_id}`,
+    nombre: nombreCategoria({ id: f.categoria_id, nombre: f.nombre }),
+    color: f.color,
+    importe: f.gasto,
+  });
 
   const grupoA: FilaVista[] = [
     { id: 'total-ingresos', nombre: t('desglose.ingresos'), actual: c.ingresos, anterior: c.ingresos_anterior, total: true },
