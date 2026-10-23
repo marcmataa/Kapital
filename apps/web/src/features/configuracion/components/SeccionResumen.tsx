@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import type { Categoria, Cuenta, Objetivo } from '@/shared/api/catalogos';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
 import { Card } from '@/shared/ui';
@@ -21,6 +22,7 @@ const CLASE_ENLACE = 'self-start text-sm font-medium text-enlace hover:underline
 export function SeccionResumen({ cuentas, categorias, objetivos }: Props) {
   const t = useT('configuracion');
   const { locale } = useIdioma();
+  const nombreCategoria = useNombreCategoria();
   const [hoja, setHoja] = useState<'categorias' | 'objetivos' | null>(null);
 
   const efectivo = cuentas.find((c) => c.tipo === 'efectivo' && c.fecha_cierre === null) ?? null;
@@ -30,7 +32,7 @@ export function SeccionResumen({ cuentas, categorias, objetivos }: Props) {
   const resumenObjetivos =
     objetivos.length === 0
       ? t('objetivos.ninguno')
-      : objetivos.map((o) => resumenObjetivo(o, formatearEuros(o.importe, locale), categorias, t)).join(' · ');
+      : objetivos.map((o) => resumenObjetivo(o, formatearEuros(o.importe, locale), categorias, t, nombreCategoria)).join(' · ');
 
   return (
     <div className="grid gap-4 md:grid-cols-3">

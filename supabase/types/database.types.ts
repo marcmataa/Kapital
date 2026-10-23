@@ -38,13 +38,13 @@ export type Database = {
                   ]
                 },"categorias": {
                   Row: {
-                    "archivada": boolean,"color": string,"created_at": string,"icono": string | null,"id": string,"nombre": string,"orden": number,"tipo": Database["public"]['Enums']["tipo_categoria"],"user_id": string
+                    "archivada": boolean,"clave": string | null,"color": string,"created_at": string,"icono": string | null,"id": string,"nombre": string,"orden": number,"tipo": Database["public"]['Enums']["tipo_categoria"],"user_id": string
                   }
                   Insert: {
-                    "archivada"?: boolean,"color"?: string,"created_at"?: string,"icono"?: string | null,"id"?: string,"nombre": string,"orden"?: number,"tipo": Database["public"]['Enums']["tipo_categoria"],"user_id"?: string
+                    "archivada"?: boolean,"clave"?: string | null,"color"?: string,"created_at"?: string,"icono"?: string | null,"id"?: string,"nombre": string,"orden"?: number,"tipo": Database["public"]['Enums']["tipo_categoria"],"user_id"?: string
                   }
                   Update: {
-                    "archivada"?: boolean,"color"?: string,"created_at"?: string,"icono"?: string | null,"id"?: string,"nombre"?: string,"orden"?: number,"tipo"?: Database["public"]['Enums']["tipo_categoria"],"user_id"?: string
+                    "archivada"?: boolean,"clave"?: string | null,"color"?: string,"created_at"?: string,"icono"?: string | null,"id"?: string,"nombre"?: string,"orden"?: number,"tipo"?: Database["public"]['Enums']["tipo_categoria"],"user_id"?: string
                   }
                   Relationships: [
                     

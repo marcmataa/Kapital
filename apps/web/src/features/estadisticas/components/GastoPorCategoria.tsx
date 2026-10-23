@@ -1,4 +1,5 @@
 import { Card, EmptyState } from '@/shared/ui';
+import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
 import type { GastoCategoria } from '../api/estadisticasApi';
@@ -15,6 +16,7 @@ interface Props {
  */
 export function GastoPorCategoria({ categorias }: Props) {
   const t = useT('estadisticas');
+  const nombreCategoria = useNombreCategoriaCatalogo();
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   const { positivas, negativas } = repartirCategorias(categorias);
@@ -29,7 +31,7 @@ export function GastoPorCategoria({ categorias }: Props) {
             etiqueta={t('categorias.titulo')}
             filas={positivas.map((c) => ({
               id: c.categoria_id,
-              nombre: c.nombre,
+              nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),
               color: c.color,
               importe: c.gasto,
               porcentaje: c.porcentaje,
@@ -40,7 +42,7 @@ export function GastoPorCategoria({ categorias }: Props) {
               {negativas.map((c) => (
                 <li key={c.categoria_id} className="flex justify-between gap-3 text-apagado">
                   <span>
-                    {c.nombre} <span className="text-xs">({t('categorias.negativaNota')})</span>
+                    {nombreCategoria({ id: c.categoria_id, nombre: c.nombre })} <span className="text-xs">({t('categorias.negativaNota')})</span>
                   </span>
                   <span className="cifras shrink-0 text-negativo">{formatearEuros(c.gasto, locale)}</span>
                 </li>

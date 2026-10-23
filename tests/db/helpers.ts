@@ -14,10 +14,24 @@ export const MIGRACION_CORRECCIONES = leer('supabase/migrations/20261020000000_c
 export const ROLLBACK_CORRECCIONES = leer('supabase/rollback/20261020000000_correcciones.down.sql');
 export const MIGRACION_VALORES_CUENTAS = leer('supabase/migrations/20261023000000_valores_cuentas.sql');
 export const ROLLBACK_VALORES_CUENTAS = leer('supabase/rollback/20261023000000_valores_cuentas.down.sql');
+export const MIGRACION_CATEGORIAS_CLAVE = leer('supabase/migrations/20261023000001_categorias_clave.sql');
+export const ROLLBACK_CATEGORIAS_CLAVE = leer('supabase/rollback/20261023000001_categorias_clave.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
-export const MIGRACIONES = [MIGRACION, MIGRACION_ONBOARDING, MIGRACION_CORRECCIONES, MIGRACION_VALORES_CUENTAS];
+export const MIGRACIONES = [
+  MIGRACION,
+  MIGRACION_ONBOARDING,
+  MIGRACION_CORRECCIONES,
+  MIGRACION_VALORES_CUENTAS,
+  MIGRACION_CATEGORIAS_CLAVE,
+];
 /** Todos los rollbacks, en orden inverso. */
-export const ROLLBACKS = [ROLLBACK_VALORES_CUENTAS, ROLLBACK_CORRECCIONES, ROLLBACK_ONBOARDING, ROLLBACK];
+export const ROLLBACKS = [
+  ROLLBACK_CATEGORIAS_CLAVE,
+  ROLLBACK_VALORES_CUENTAS,
+  ROLLBACK_CORRECCIONES,
+  ROLLBACK_ONBOARDING,
+  ROLLBACK,
+];
 
 export type TipoMovimiento = 'gasto' | 'ingreso' | 'devolucion' | 'traspaso' | 'ajuste';
 export type TipoCuenta = 'banco' | 'efectivo' | 'inversion' | 'pasivo' | 'por_cobrar';

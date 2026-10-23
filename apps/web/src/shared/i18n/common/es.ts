@@ -51,4 +51,12 @@ export default {
   'campo.opcional': 'opcional',
   'banco.logo': 'Logo de {nombre}',
   'porcentaje.sinDatos': '—',
+  'categoria.restaurantes': 'Restaurantes',
+  'categoria.ocio': 'Ocio',
+  'categoria.transporte': 'Transporte',
+  'categoria.suscripciones': 'Suscripciones',
+  'categoria.otros_gastos': 'Otros gastos',
+  'categoria.nomina': 'Nómina',
+  'categoria.otros_ingresos': 'Otros ingresos',
+  'categoria.rendimientos': 'Rendimientos',
 } as const satisfies Mensajes;

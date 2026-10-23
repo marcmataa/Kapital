@@ -52,4 +52,12 @@ export default {
   'campo.opcional': 'opcional',
   'banco.logo': 'Logo de {nombre}',
   'porcentaje.sinDatos': '—',
+  'categoria.restaurantes': 'Restaurants',
+  'categoria.ocio': 'Oci',
+  'categoria.transporte': 'Transport',
+  'categoria.suscripciones': 'Subscripcions',
+  'categoria.otros_gastos': 'Altres despeses',
+  'categoria.nomina': 'Nòmina',
+  'categoria.otros_ingresos': 'Altres ingressos',
+  'categoria.rendimientos': 'Rendiments',
 } satisfies Traduccion<typeof es>;

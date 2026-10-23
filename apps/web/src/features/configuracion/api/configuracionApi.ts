@@ -44,6 +44,8 @@ export interface NuevaCategoria {
 
 export interface CambiosCategoria {
   nombre?: string;
+  /** Solo se puede quitar (la base rechaza asignarla): al renombrar, el nombre del usuario manda. */
+  clave?: null;
   color?: string;
   icono?: string | null;
   archivada?: boolean;

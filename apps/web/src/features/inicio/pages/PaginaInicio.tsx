@@ -1,6 +1,7 @@
 import { skipToken } from '@reduxjs/toolkit/query';
 import { useListarCuentasQuery } from '@/shared/api/catalogos';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
+import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { useNombreUsuario } from '@/shared/hooks/useNombreUsuario';
 import { useIdioma, useT } from '@/shared/i18n';
 import { finDeMes, inicioDeMes, mismoDiaMesAnterior, sumarMeses } from '@/shared/lib/fechas';
@@ -49,6 +50,7 @@ export default function PaginaInicio() {
   const { locale } = useIdioma();
   const { hoy } = useHoyUsuario();
   const { dePila } = useNombreUsuario();
+  const nombreCategoria = useNombreCategoriaCatalogo();
 
   const cuentas = useListarCuentasQuery();
   const inicioDatos = cuentas.data ? inicioDeDatos(cuentas.data) : null;
@@ -162,7 +164,7 @@ export default function PaginaInicio() {
               <DonutCategorias
                 categorias={datosCategorias.map((c) => ({
                   id: c.categoria_id,
-                  nombre: c.nombre,
+                  nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),
                   color: c.color,
                   gasto: c.gasto,
                 }))}

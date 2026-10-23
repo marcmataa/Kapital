@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
 import { Link } from 'react-router';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import type { Catalogos } from '../hooks/useCatalogos';
@@ -30,6 +31,7 @@ function esEscritorio(): boolean {
 export function useMetaMovimiento() {
   const t = useT('movimientos');
   const { locale } = useIdioma();
+  const nombreCategoria = useNombreCategoria();
   return (m: Movimiento, catalogos: Pick<Catalogos, 'cuentaPorId' | 'categoriaPorId'>): string => {
     const dia = diaCorto(m.fecha, locale);
     const cuenta = (id: string | null) => (id === null ? '—' : (catalogos.cuentaPorId.get(id)?.nombre ?? '—'));
@@ -37,7 +39,8 @@ export function useMetaMovimiento() {
       return `${dia} · ${t('meta.traspaso', { origen: cuenta(m.cuenta_id), destino: cuenta(m.cuenta_destino_id) })}`;
     }
     if (m.tipo === 'ajuste') return `${dia} · ${t('meta.ajuste', { cuenta: cuenta(m.cuenta_id) })}`;
-    const partes = [dia, catalogos.categoriaPorId.get(m.categoria_id ?? '')?.nombre ?? t('meta.sinCategoria')];
+    const categoria = catalogos.categoriaPorId.get(m.categoria_id ?? '');
+    const partes = [dia, categoria ? nombreCategoria(categoria) : t('meta.sinCategoria')];
     if (m.metodo !== null) partes.push(t(`metodo.${m.metodo}`));
     return partes.join(' · ');
   };

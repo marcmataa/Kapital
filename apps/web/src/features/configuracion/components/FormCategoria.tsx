@@ -1,10 +1,15 @@
 import { useId, useState, type FormEvent } from 'react';
 import { Check } from 'lucide-react';
 import type { Categoria } from '@/shared/api/catalogos';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { Button, Input } from '@/shared/ui';
-import { useConfigActualizarCategoriaMutation, useConfigCrearCategoriaMutation } from '../api/configuracionApi';
+import {
+  useConfigActualizarCategoriaMutation,
+  useConfigCrearCategoriaMutation,
+  type CambiosCategoria,
+} from '../api/configuracionApi';
 import { claveError } from '../api/errores';
 import { COLORES_CATEGORIA, NOMBRE_MAXIMO, esquemaCategoria } from '../schemas/categoria';
 import { AlertaError } from './AlertaError';
@@ -25,8 +30,11 @@ type Errores = Partial<Record<'nombre' | 'icono', string>>;
 /** Alta o edición de una categoría: nombre, color (muestras accesibles) e icono opcional. */
 export function FormCategoria({ tipo, categoria, ordenNueva, onHecho, onCancelar }: Props) {
   const t = useT('configuracion');
+  const nombreCategoria = useNombreCategoria();
   const idColor = useId();
-  const [nombre, setNombre] = useState(categoria?.nombre ?? '');
+  // Las categorías por defecto se editan con el nombre que el usuario ve (traducido).
+  const [nombreInicial] = useState(() => (categoria === undefined ? '' : nombreCategoria(categoria)));
+  const [nombre, setNombre] = useState(nombreInicial);
   const [color, setColor] = useState<string>(categoria?.color ?? COLORES_CATEGORIA[0]);
   const [icono, setIcono] = useState(categoria?.icono ?? '');
   const [errores, setErrores] = useState<Errores>({});
@@ -63,7 +71,13 @@ export function FormCategoria({ tipo, categoria, ordenNueva, onHecho, onCancelar
         await crear({ ...datos, tipo, orden: ordenNueva }).unwrap();
       } else {
         // La protegida (Rendimientos) conserva su nombre: el atajo la busca así.
-        const cambios = protegida ? { color: datos.color, icono: datos.icono } : datos;
+        // Si el nombre que ve no cambia, se conserva (y con él la traducción); si lo cambia,
+        // pasa a ser una categoría propia: se guarda tal cual y sin clave.
+        const mismoNombre = datos.nombre === nombreInicial.trim();
+        const cambios: CambiosCategoria =
+          protegida || mismoNombre
+            ? { color: datos.color, icono: datos.icono }
+            : { ...datos, ...(categoria.clave === null ? {} : { clave: null }) };
         await actualizar({ id: categoria.id, cambios }).unwrap();
       }
       onHecho();
