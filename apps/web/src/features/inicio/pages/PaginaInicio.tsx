@@ -100,8 +100,6 @@ export default function PaginaInicio() {
         acciones={
           <SelectorMes
             mes={mes}
-            meses={seleccion.meses}
-            mesActual={inicioDeMes(hoy)}
             anterior={seleccion.anterior}
             siguiente={seleccion.siguiente}
             onElegir={seleccion.elegir}
@@ -127,6 +125,9 @@ export default function PaginaInicio() {
             resumenActual={datosResumen}
             // Sin el resumen anterior (o si su tramo es parcial), las tarjetas dicen «Sin datos del mes anterior».
             resumenAnterior={periodos.anterior ? (resumenAnterior.currentData ?? null) : null}
+            // Desglose por cuenta: valor de hoy de cada cuenta (v_saldos, como texto). Para un mes
+            // cerrado aún no hay consulta del valor por cuenta a otra fecha que devuelva texto.
+            cuentas={enCurso ? cuentas.data : undefined}
           />
         )}
 

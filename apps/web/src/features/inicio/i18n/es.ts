@@ -8,7 +8,6 @@ export default {
   'error.cargar': 'No se han podido cargar estos datos.',
 
   'selector.etiqueta': 'Mes',
-  'selector.enCurso': '{mes} · hasta hoy',
   'selector.anterior': 'Mes anterior',
   'selector.siguiente': 'Mes siguiente',
 
@@ -20,6 +19,8 @@ export default {
   'kpi.vsTramo': 'vs 1–{dia} {mes}',
   'kpi.sinAnterior': 'Sin datos del mes anterior',
   'kpi.sinValor': '—',
+  'kpi.cuentas': 'Patrimonio por cuenta',
+  'kpi.cuentasSoloHoy': 'El desglose por cuenta solo está disponible en el mes en curso.',
 
   'grafico.titulo': 'Evolución de tu capital',
   'grafico.ejeX': 'Día del mes',

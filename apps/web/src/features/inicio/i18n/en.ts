@@ -9,7 +9,6 @@ export default {
   'error.cargar': "We couldn't load this data.",
 
   'selector.etiqueta': 'Month',
-  'selector.enCurso': '{mes} · so far',
   'selector.anterior': 'Previous month',
   'selector.siguiente': 'Next month',
 
@@ -21,6 +20,8 @@ export default {
   'kpi.vsTramo': 'vs 1–{dia} {mes}',
   'kpi.sinAnterior': 'No data for the previous month',
   'kpi.sinValor': '—',
+  'kpi.cuentas': 'Net worth by account',
+  'kpi.cuentasSoloHoy': 'The breakdown by account is only available for the current month.',
 
   'grafico.titulo': 'How your wealth is evolving',
   'grafico.ejeX': 'Day of the month',

@@ -69,6 +69,9 @@ interface Escenario {
   insertError?: unknown;
   /** fecha_inicial de la cuenta más antigua (primer día con datos). */
   inicioDatos?: string;
+  /** Filas de `cuentas` y de `v_saldos` (valor de hoy) para el desglose por cuenta. */
+  cuentas?: unknown[];
+  saldos?: unknown[];
 }
 
 function escenario({
@@ -77,13 +80,17 @@ function escenario({
   movimientos = [],
   insertError = null,
   inicioDatos = '2026-01-01',
+  cuentas,
+  saldos = [],
 }: Escenario = {}) {
   sb.responder = (l) => {
     switch (l.origen) {
       case 'cuentas':
-        return ok([{ id: 'c1', nombre: 'BBVA', tipo: 'banco', fecha_inicial: inicioDatos, saldo_inicial: '1000.00' }]);
+        return ok(
+          cuentas ?? [{ id: 'c1', nombre: 'BBVA', tipo: 'banco', fecha_inicial: inicioDatos, saldo_inicial: '1000.00' }],
+        );
       case 'v_saldos':
-        return ok([]);
+        return ok(saldos);
       case 'perfiles':
         return ok(PERFIL);
       case 'categorias':
@@ -291,13 +298,40 @@ describe('PaginaInicio · selector de mes', () => {
   it('sin ?mes muestra el mes en curso; «siguiente» desactivado (no hay futuro)', async () => {
     pintar();
     await screen.findByText('Patrimonio a 19/10/2026');
-    expect(screen.getByRole('combobox', { name: 'Mes' })).toHaveDisplayValue('Octubre de 2026 · hasta hoy');
+    expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent(/^Octubre de 2026$/);
     expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Mes anterior' })).toBeEnabled();
-    // Rango: de enero (primera cuenta) a octubre.
-    const opciones = within(screen.getByRole('combobox', { name: 'Mes' })).getAllByRole('option');
-    expect(opciones).toHaveLength(10);
-    expect(opciones.at(-1)).toHaveTextContent('Enero de 2026');
+  });
+
+  it('solo flechas: el mes es texto anunciado (aria-live), sin desplegable ni lista de meses', async () => {
+    pintar();
+    await screen.findByText('Patrimonio a 19/10/2026');
+    const grupo = screen.getByRole('group', { name: 'Mes' });
+    expect(within(grupo).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
+    const mes = within(grupo).getByTestId('mes-seleccionado');
+    expect(mes).toHaveAttribute('aria-live', 'polite');
+    expect(mes.tagName).toBe('SPAN');
+    // Dentro del grupo solo hay dos controles: las flechas.
+    expect(within(grupo).getAllByRole('button')).toHaveLength(2);
+  });
+
+  it('las flechas recorren los meses hasta el de la primera cuenta, que desactiva «anterior»', async () => {
+    escenario({ inicioDatos: '2026-08-10' });
+    pintarEn('/');
+    await screen.findByText('Patrimonio a 19/10/2026');
+    const anterior = screen.getByRole('button', { name: 'Mes anterior' });
+    await userEvent.click(anterior);
+    expect(await screen.findByText('Patrimonio a 30/09/2026')).toBeInTheDocument();
+    expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent('Septiembre de 2026');
+    expect(screen.getByTestId('ubicacion')).toHaveTextContent('?mes=2026-09');
+    await userEvent.click(anterior);
+    expect(await screen.findByText('Patrimonio a 31/08/2026')).toBeInTheDocument();
+    expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent('Agosto de 2026');
+    expect(screen.getByTestId('ubicacion')).toHaveTextContent('?mes=2026-08');
+    expect(screen.getByRole('button', { name: 'Mes anterior' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeEnabled();
   });
 
   it('«Mes anterior» pone ?mes=2026-09 y pide mes completo vs mes anterior completo', async () => {
@@ -339,7 +373,7 @@ describe('PaginaInicio · selector de mes', () => {
     expect(within(gastos).getByText('+16,8 %')).toBeInTheDocument();
     expect(within(ingresos).getByText('vs 1–31 ago')).toBeInTheDocument();
 
-    expect(screen.getByRole('combobox', { name: 'Mes' })).toHaveDisplayValue('Septiembre de 2026');
+    expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent(/^Septiembre de 2026$/);
     expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeEnabled();
     expect(await screen.findByTestId('punto-cierre')).toBeInTheDocument();
     expect(screen.queryByTestId('punto-hoy')).not.toBeInTheDocument();
@@ -356,7 +390,7 @@ describe('PaginaInicio · selector de mes', () => {
   ])('un ?mes %s cae al mes en curso', async (_caso, ruta) => {
     pintarEn(ruta);
     expect(await screen.findByText('Patrimonio a 19/10/2026')).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Mes' })).toHaveDisplayValue('Octubre de 2026 · hasta hoy');
+    expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent(/^Octubre de 2026$/);
     // Nunca se piden datos del mes pedido.
     expect(sb.llamadas.some((l) => String(l.args?.p_desde ?? '').startsWith(ruta.slice(-7)))).toBe(false);
   });
@@ -398,6 +432,74 @@ describe('PaginaInicio · selector de mes', () => {
     const ahorro = await screen.findByRole('progressbar', { name: /^Ahorrar 500,00\s€ al mes$/ });
     // Balance de 1–19 oct (342,00 €), no el de septiembre.
     expect((ahorro.getAttribute('aria-valuetext') ?? '').replace(/\s+/g, ' ')).toBe('342,00 € / 500,00 €');
+  });
+});
+
+describe('PaginaInicio · patrimonio por cuenta', () => {
+  const base = {
+    entidad: null,
+    color: '#3366aa',
+    emoji: null,
+    es_principal: false,
+    fecha_cierre: null,
+    saldo_inicial: '0.00',
+  };
+  const CUENTAS = [
+    { ...base, id: 'c3', nombre: 'Efectivo', tipo: 'efectivo', emoji: '💵', orden: 2, fecha_inicial: '2026-01-01' },
+    { ...base, id: 'c2', nombre: 'Bróker Prueba', tipo: 'inversion', orden: 1, fecha_inicial: '2026-02-01' },
+    { ...base, id: 'c1', nombre: 'Banco Uno', tipo: 'banco', es_principal: true, orden: 3, fecha_inicial: '2026-01-01' },
+    { ...base, id: 'c4', nombre: 'Tarjeta Prueba', tipo: 'pasivo', orden: 4, fecha_inicial: '2026-03-01' },
+    { ...base, id: 'c5', nombre: 'Banco Futuro', tipo: 'banco', orden: 5, fecha_inicial: '2026-10-25' },
+    {
+      ...base,
+      id: 'c6',
+      nombre: 'Banco Cerrado',
+      tipo: 'banco',
+      orden: 6,
+      fecha_inicial: '2026-01-01',
+      fecha_cierre: '2026-06-30',
+    },
+  ];
+  // v_saldos: solo cuentas abiertas; la que aún no existe hoy tiene valor NULL.
+  const SALDOS = [
+    { id: 'c1', valor: '1200.50' },
+    { id: 'c2', valor: '3000.00' },
+    { id: 'c3', valor: '45.00' },
+    { id: 'c4', valor: '-250.40' },
+    { id: 'c5', valor: null },
+  ];
+
+  it('mes en curso: cada cuenta con su valor de hoy, principal primero y luego por orden', async () => {
+    escenario({ cuentas: CUENTAS, saldos: SALDOS });
+    pintar();
+    const lista = await screen.findByRole('list', { name: 'Patrimonio por cuenta' });
+    expect(lista.closest('article')).toHaveTextContent('Patrimonio a 19/10/2026');
+    const filas = within(lista).getAllByRole('listitem');
+    const nombres = ['Banco Uno', 'Bróker Prueba', 'Efectivo', 'Tarjeta Prueba'];
+    expect(filas).toHaveLength(nombres.length);
+    nombres.forEach((nombre, i) => expect(within(filas[i] as HTMLElement).getByText(nombre)).toBeInTheDocument());
+    expect(filas[0]).toHaveTextContent(/1\.200,50\s€/);
+    // El pasivo se muestra con su signo.
+    expect(within(filas[3] as HTMLElement).getByText(/^-250,40\s€$/)).toHaveClass('text-negativo');
+    // Ni la que aún no existe ni la cerrada.
+    expect(within(lista).queryByText('Banco Futuro')).not.toBeInTheDocument();
+    expect(within(lista).queryByText('Banco Cerrado')).not.toBeInTheDocument();
+    // El valor viene como texto de v_saldos: nada de valor_cuenta escalar (número JSON).
+    expect(sb.llamadas.find((l) => l.origen === 'v_saldos')?.select).toBe('id, valor::text');
+    expect(sb.llamadas.some((l) => l.origen === 'rpc:valor_cuenta')).toBe(false);
+  });
+
+  it('mes cerrado: no enseña los valores de hoy como si fueran del cierre; avisa de que no está disponible', async () => {
+    escenario({ cuentas: CUENTAS, saldos: SALDOS });
+    pintarEn('/?mes=2026-09');
+    const titulo = await screen.findByRole('heading', { name: 'Patrimonio a 30/09/2026' });
+    const tarjeta = titulo.closest('article');
+    if (!tarjeta) throw new Error('sin tarjeta');
+    expect(within(tarjeta).queryByRole('list')).not.toBeInTheDocument();
+    expect(within(tarjeta).queryByText(/1\.200,50/)).not.toBeInTheDocument();
+    expect(
+      within(tarjeta).getByText('El desglose por cuenta solo está disponible en el mes en curso.'),
+    ).toBeInTheDocument();
   });
 });
 

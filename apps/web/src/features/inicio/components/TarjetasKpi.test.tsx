@@ -127,3 +127,73 @@ describe('TarjetasKpi', () => {
     expect(within(tarjeta('Patrimonio a 19/10/2026')).getByText('Sin datos del mes anterior')).toBeInTheDocument();
   });
 });
+
+describe('TarjetasKpi · desglose por cuenta', () => {
+  const RESUMEN = { ingresos: '0.00', gastos_netos: '0.00', balance: '0.00' };
+  const base = {
+    tipo: 'banco' as const,
+    entidad: null,
+    color: '#3366aa',
+    emoji: null,
+    es_principal: false,
+    fecha_cierre: null,
+    fecha_inicial: '2026-01-01',
+  };
+
+  it('mes cerrado: filtra a la fecha de cierre (30/09), no a hoy', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-10-19"
+        mes="2026-09-01"
+        patrimonioHoy="1500.00"
+        patrimonioAnterior={null}
+        resumenActual={RESUMEN}
+        resumenAnterior={null}
+        cuentas={[
+          { ...base, id: 'a', nombre: 'Banco Uno', orden: 0, valor: '1500.00' },
+          // Abierta el 05/10: el 30/09 aún no existía.
+          { ...base, id: 'b', nombre: 'Banco Octubre', orden: 1, fecha_inicial: '2026-10-05', valor: null },
+          // Cerrada el 10/10: el 30/09 seguía abierta.
+          { ...base, id: 'c', nombre: 'Banco Cerrado', orden: 2, fecha_cierre: '2026-10-10', valor: '0.00' },
+        ]}
+      />,
+    );
+    const lista = within(tarjeta('Patrimonio a 30/09/2026')).getByRole('list', { name: 'Patrimonio por cuenta' });
+    const filas = within(lista).getAllByRole('listitem');
+    expect(filas).toHaveLength(2);
+    expect(filas[0]).toHaveTextContent('Banco Uno');
+    expect(filas[1]).toHaveTextContent('Banco Cerrado');
+    expect(within(lista).queryByText('Banco Octubre')).not.toBeInTheDocument();
+  });
+
+  it('negativos con signo y en rojo; emoji para las cuentas que no son banco', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-10-19"
+        patrimonioHoy="-205.40"
+        patrimonioAnterior={null}
+        resumenActual={RESUMEN}
+        resumenAnterior={null}
+        cuentas={[
+          { ...base, id: 't', nombre: 'Tarjeta Prueba', tipo: 'pasivo', orden: 1, valor: '-250.40' },
+          { ...base, id: 'e', nombre: 'Efectivo', tipo: 'efectivo', emoji: '💵', orden: 0, valor: '45.00' },
+        ]}
+      />,
+    );
+    const lista = screen.getByRole('list', { name: 'Patrimonio por cuenta' });
+    const [efectivo, tarjetaCredito] = within(lista).getAllByRole('listitem');
+    expect(efectivo).toHaveTextContent('💵');
+    expect(within(efectivo as HTMLElement).getByText(/^45,00\s€$/)).toHaveClass('text-texto');
+    expect(within(tarjetaCredito as HTMLElement).getByText(/^-250,40\s€$/)).toHaveClass('text-negativo');
+  });
+
+  it('sin cuentas, en un mes cerrado avisa de que el desglose no está disponible; en curso no dice nada', () => {
+    const props = { hoy: '2026-10-19', patrimonioHoy: '1.00', patrimonioAnterior: null, resumenActual: RESUMEN };
+    const { unmount } = renderConApp(<TarjetasKpi {...props} mes="2026-09-01" resumenAnterior={null} />);
+    expect(screen.getByText('El desglose por cuenta solo está disponible en el mes en curso.')).toBeInTheDocument();
+    unmount();
+    renderConApp(<TarjetasKpi {...props} resumenAnterior={null} />);
+    expect(screen.queryByText(/desglose/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  });
+});

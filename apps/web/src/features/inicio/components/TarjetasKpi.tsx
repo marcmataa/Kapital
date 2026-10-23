@@ -10,6 +10,8 @@ import { finDeMes, formatearFecha, inicioDeMes, mismoDiaMesAnterior, partesDe, s
 import { StatCard, type Tendencia, type VariacionStat } from '@/shared/ui';
 import type { ResumenPeriodo } from '../api/inicioApi';
 import { mesCorto, restarImportes } from '../lib/calculos';
+import type { CuentaDesglose } from '../lib/desglose';
+import { DesgloseCuentas } from './DesgloseCuentas';
 
 interface Props {
   hoy: string;
@@ -24,6 +26,11 @@ interface Props {
   /** Mes en curso: 1..hoy y 1..d'. Mes cerrado: mes completo y mes anterior completo (sección 7). */
   resumenActual: ResumenPeriodo;
   resumenAnterior: ResumenPeriodo | null;
+  /**
+   * Cuentas con su valor (SQL) al cierre de la fecha de referencia, para el desglose bajo el
+   * patrimonio. Sin él no hay desglose; en un mes cerrado se avisa de que aún no está disponible.
+   */
+  cuentas?: readonly CuentaDesglose[] | undefined;
 }
 
 const TENDENCIA: Record<-1 | 0 | 1, Tendencia> = { [-1]: 'baja', 0: 'igual', 1: 'sube' };
@@ -35,7 +42,15 @@ const TENDENCIA: Record<-1 | 0 | 1, Tendencia> = { [-1]: 'baja', 0: 'igual', 1: 
  * Color por significado (sección 8): que suban los gastos es rojo. Base 0 o sin datos →
  * «Sin datos del mes anterior». El balance no se mezcla con el patrimonio.
  */
-export function TarjetasKpi({ hoy, mes: mesMostrado, patrimonioHoy, patrimonioAnterior, resumenActual, resumenAnterior }: Props) {
+export function TarjetasKpi({
+  hoy,
+  mes: mesMostrado,
+  patrimonioHoy,
+  patrimonioAnterior,
+  resumenActual,
+  resumenAnterior,
+  cuentas,
+}: Props) {
   const t = useT('inicio');
   const { locale } = useIdioma();
   const enCurso = mesMostrado === undefined || inicioDeMes(mesMostrado) === inicioDeMes(hoy);
@@ -92,7 +107,14 @@ export function TarjetasKpi({ hoy, mes: mesMostrado, patrimonioHoy, patrimonioAn
         titulo={t('kpi.patrimonio', { fecha: formatearFecha(fecha, locale, 'corta') })}
         valor={patrimonioHoy !== null ? formatearEuros(patrimonioHoy, locale) : t('kpi.sinValor')}
         {...(variacionPatrimonio ? { variacion: variacionPatrimonio } : { pie: sinAnterior })}
-      />
+        destacado
+      >
+        {cuentas !== undefined ? (
+          <DesgloseCuentas cuentas={cuentas} fecha={fecha} />
+        ) : (
+          !enCurso && <p className="mt-3 border-t border-borde pt-2 text-xs text-apagado">{t('kpi.cuentasSoloHoy')}</p>
+        )}
+      </StatCard>
       <StatCard
         titulo={t('kpi.ingresos', { dia, mes })}
         valor={formatearEuros(resumenActual.ingresos, locale)}
