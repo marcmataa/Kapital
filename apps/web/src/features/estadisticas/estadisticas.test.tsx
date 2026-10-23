@@ -69,26 +69,41 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('Estadísticas: comparativa', () => {
-  it('balance de septiembre (sección 11): 339,72 € y ahorro 22,5 %', async () => {
-    servir({ resumen_periodo: resumenPor({ '2026-09-01': SEPTIEMBRE, '2026-08-01': AGOSTO }) });
+const normal = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
+
+describe('Estadísticas: sin tarjetas de cifras, los gráficos primero', () => {
+  it('no pinta la fila de tarjetas KPI (gastos netos / ingresos / balance)', async () => {
+    servir({ resumen_periodo: () => SEPTIEMBRE });
     montar();
-    await elegirMes('Septiembre de 2026');
-    const comparativa = await screen.findByRole('region', { name: /Comparativa/ });
-    await within(comparativa).findByText('+339,72 €');
-    expect(within(comparativa).getByText('1.508,00 €')).toBeInTheDocument();
-    expect(within(comparativa).getByText('1.168,28 €')).toBeInTheDocument();
-    expect(within(comparativa).getByText('Ahorro 22,5 %')).toBeInTheDocument();
-    // Mes cerrado: mes completo contra mes completo.
+    await screen.findByRole('table', { name: 'Gasto neto por día' });
+    expect(screen.queryByRole('region', { name: /Comparativa/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Gastos netos ·/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Ingresos ·/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Balance ·/)).not.toBeInTheDocument();
+    // Las pestañas y el selector de mes siguen ahí.
+    expect(screen.getByRole('radio', { name: 'Gastos' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Mes' })).toBeInTheDocument();
+  });
+
+  it('mes en curso: el total del gráfico diario es 1–19 oct contra 1–19 sept', async () => {
+    servir({ resumen_periodo: resumenPor({ '2026-10-01': SEPTIEMBRE, '2026-09-01': AGOSTO }) });
+    montar();
+    const total = await screen.findByTestId('total-tramo');
+    expect(normal(total.textContent)).toContain('Total 1–19 oct: 1.168,28 € · provisional, hasta hoy');
+    expect(normal(total.textContent)).toContain('-1,9 %');
+    expect(normal(total.textContent)).toContain('vs 1.190,40 € (1–19 sept)');
     expect(estado.llamadas).toContainEqual(
-      expect.objectContaining({ nombre: 'resumen_periodo', args: { p_desde: '2026-08-01', p_hasta: '2026-08-31' } }),
+      expect.objectContaining({ nombre: 'resumen_periodo', args: { p_desde: '2026-10-01', p_hasta: '2026-10-19' } }),
+    );
+    expect(estado.llamadas).toContainEqual(
+      expect.objectContaining({ nombre: 'resumen_periodo', args: { p_desde: '2026-09-01', p_hasta: '2026-09-19' } }),
     );
   });
 
   it('pide los importes como texto, también en funciones que devuelven tabla', async () => {
     servir({ resumen_periodo: () => SEPTIEMBRE });
     montar();
-    await screen.findByText('Ahorro 22,5 % · provisional, hasta hoy');
+    await screen.findByTestId('total-tramo');
     await waitFor(() => expect(estado.llamadas.some((l) => l.nombre === 'gasto_por_dia')).toBe(true));
     const rpc = estado.llamadas.filter((l) => l.origen === 'rpc');
     expect(rpc.length).toBeGreaterThan(0);
@@ -99,57 +114,94 @@ describe('Estadísticas: comparativa', () => {
     expect(estado.llamadas.some((l) => l.nombre === 'movimientos')).toBe(false);
   });
 
-  it('mes en curso: 1–19 oct contra 1–19 sept', async () => {
-    servir({ resumen_periodo: () => SEPTIEMBRE });
-    montar();
-    expect(await screen.findByText('Gastos netos · 1–19 oct')).toBeInTheDocument();
-    expect(estado.llamadas).toContainEqual(
-      expect.objectContaining({ nombre: 'resumen_periodo', args: { p_desde: '2026-10-01', p_hasta: '2026-10-19' } }),
-    );
-    expect(estado.llamadas).toContainEqual(
-      expect.objectContaining({ nombre: 'resumen_periodo', args: { p_desde: '2026-09-01', p_hasta: '2026-09-19' } }),
-    );
-  });
-
-  it('mes sin ingresos: el ahorro muestra «—»', async () => {
-    servir({ resumen_periodo: () => ({ ...CEROS, gastos: '50.00', gastos_netos: '50.00', balance: '-50.00' }) });
-    montar();
-    expect(await screen.findByText(/^Ahorro —/)).toBeInTheDocument();
-    // Balance negativo con signo menos.
-    expect(screen.getByText('-50,00 €')).toHaveClass('text-negativo');
-  });
-
   it('base cero: «Sin datos del mes anterior» en lugar de porcentaje', async () => {
     servir({ resumen_periodo: resumenPor({ '2026-10-01': SEPTIEMBRE }) });
     montar();
-    const comparativa = await screen.findByRole('region', { name: /Comparativa/ });
-    await within(comparativa).findByText('+339,72 €');
-    // Septiembre (anterior) a 0 € en todo → las tres tarjetas sin porcentaje.
-    expect(within(comparativa).getAllByText('Sin datos del mes anterior')).toHaveLength(3);
-    expect(within(comparativa).queryByText(/%.*vs/)).not.toBeInTheDocument();
+    const total = await screen.findByTestId('total-tramo');
+    expect(within(total).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+    expect(normal(total.textContent)).not.toMatch(/%/);
   });
 
   it('datos desde el 25/09: el 27/10 no hay % (1–27 sept está incompleto y ni se pide)', async () => {
     vi.setSystemTime(new Date('2026-10-27T10:00:00Z'));
     servir({ resumen_periodo: resumenPor({ '2026-10-01': SEPTIEMBRE, '2026-09-01': AGOSTO }) }, {}, '2026-09-25');
     montar();
-    const comparativa = await screen.findByRole('region', { name: /Comparativa/ });
-    await within(comparativa).findByText('+339,72 €');
-    expect(within(comparativa).getAllByText('Sin datos del mes anterior')).toHaveLength(3);
-    expect(within(comparativa).queryByText(/%.*vs/)).not.toBeInTheDocument();
+    const total = await screen.findByTestId('total-tramo');
+    expect(within(total).getByText('Sin datos del mes anterior')).toBeInTheDocument();
     expect(estado.llamadas.some((l) => l.nombre === 'resumen_periodo' && l.args?.p_desde === '2026-09-01')).toBe(false);
   });
 
-  it('color por significado: suben los gastos → rojo; suben los ingresos → verde', async () => {
+  it('color por significado: bajan los gastos → verde; suben los ingresos → verde', async () => {
     servir({ resumen_periodo: resumenPor({ '2026-09-01': SEPTIEMBRE, '2026-08-01': AGOSTO }) });
     montar();
     await elegirMes('Septiembre de 2026');
-    const comparativa = await screen.findByRole('region', { name: /Comparativa/ });
-    await within(comparativa).findByText('+339,72 €');
-    // Ingresos 1.420 → 1.508: +6,2 %. Gastos netos 1.190,40 → 1.168,28: −1,9 %.
-    expect(within(comparativa).getByText('+6,2 %').parentElement).toHaveClass('text-positivo');
-    expect(within(comparativa).getByText('-1,9 %').parentElement).toHaveClass('text-positivo');
-    expect(within(comparativa).getByText('+48,0 %').parentElement).toHaveClass('text-positivo');
+    // Gastos netos 1.190,40 → 1.168,28: −1,9 %. Mes cerrado: mes completo contra mes completo.
+    const gastos = await screen.findByTestId('total-tramo');
+    await within(gastos).findByText('-1,9 %');
+    expect(normal(gastos.textContent)).toContain('Total septiembre de 2026: 1.168,28 €');
+    expect(within(gastos).getByText('-1,9 %').parentElement).toHaveClass('text-positivo');
+    expect(estado.llamadas).toContainEqual(
+      expect.objectContaining({ nombre: 'resumen_periodo', args: { p_desde: '2026-08-01', p_hasta: '2026-08-31' } }),
+    );
+    // Ingresos 1.420 → 1.508: +6,2 %.
+    await userEvent.click(screen.getByRole('radio', { name: 'Ingresos' }));
+    const ingresos = await screen.findByTestId('total-tramo');
+    await within(ingresos).findByText('+6,2 %');
+    expect(normal(ingresos.textContent)).toContain('Total septiembre de 2026: 1.508,00 €');
+    expect(within(ingresos).getByText('+6,2 %').parentElement).toHaveClass('text-positivo');
+  });
+});
+
+describe('Estadísticas: balance (sección 11)', () => {
+  const MENSUAL = [
+    { mes: '2026-08-01', ...AGOSTO },
+    { mes: '2026-09-01', ...SEPTIEMBRE },
+  ];
+
+  it('septiembre: 339,72 €, ahorro 22,5 % y +48,0 % frente a agosto', async () => {
+    servir({ resumen_periodo: resumenPor({ '2026-09-01': SEPTIEMBRE, '2026-08-01': AGOSTO }), resumen_mensual: () => MENSUAL });
+    montar();
+    await elegirMes('Septiembre de 2026');
+    await userEvent.click(screen.getByRole('radio', { name: 'Balance' }));
+    const lectura = await screen.findByTestId('lectura-balance');
+    const texto = normal(lectura.textContent);
+    expect(texto).toContain('Septiembre de 2026 · +339,72 €');
+    expect(texto).toContain('Ahorro 22,5 %');
+    // 229,60 → 339,72: +48,0 %, verde (sube el balance).
+    expect(texto).toContain('+48,0 %');
+    expect(texto).toContain('vs 229,60 € (agosto de 2026)');
+    expect(within(lectura).getByText('+48,0 %').parentElement).toHaveClass('text-positivo');
+    // Se pide un mes más (julio no tiene datos: empiezan en agosto).
+    expect(estado.llamadas).toContainEqual(
+      expect.objectContaining({ nombre: 'resumen_mensual', args: { p_desde: '2026-08-01', p_hasta: '2026-09-30' } }),
+    );
+  });
+
+  it('mes sin ingresos: el ahorro muestra «—» y el balance negativo lleva signo menos', async () => {
+    const NEGATIVO = { ...CEROS, gastos: '50.00', gastos_netos: '50.00', balance: '-50.00' };
+    servir({ resumen_periodo: () => NEGATIVO, resumen_mensual: () => [{ mes: '2026-09-01', ...NEGATIVO }] });
+    montar();
+    await elegirMes('Septiembre de 2026');
+    await userEvent.click(screen.getByRole('radio', { name: 'Balance' }));
+    const lectura = await screen.findByTestId('lectura-balance');
+    expect(normal(lectura.textContent)).toContain('Septiembre de 2026 · -50,00 €');
+    expect(normal(lectura.textContent)).toContain('Ahorro —');
+    // Etiqueta de la barra en rojo.
+    const barras = screen.getByTestId('superficie-balance');
+    expect(within(barras).getByText('-50,00 €')).toHaveClass('text-negativo');
+  });
+
+  it('mes en curso: se compara con el mismo tramo del mes anterior, no con el mes completo', async () => {
+    servir({
+      resumen_periodo: resumenPor({ '2026-09-01': { ...AGOSTO, balance: '200.00' } }),
+      resumen_mensual: () => [...MENSUAL, { mes: '2026-10-01', ...CEROS, ingresos: '300.00', balance: '300.00', ahorro_pct: '100' }],
+    });
+    montar();
+    await userEvent.click(await screen.findByRole('radio', { name: 'Balance' }));
+    const lectura = await screen.findByTestId('lectura-balance');
+    await waitFor(() => expect(normal(lectura.textContent)).toContain('vs 200,00 € (1–19 sept)'));
+    expect(normal(lectura.textContent)).toContain('Octubre de 2026 · hasta hoy (provisional) · +300,00 €');
+    expect(normal(lectura.textContent)).toContain('+50,0 %');
   });
 });
 

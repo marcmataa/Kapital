@@ -22,8 +22,8 @@ import { GraficoGastoDiario } from '../components/GraficoGastoDiario';
 import { IngresosPorCategoria } from '../components/IngresosPorCategoria';
 import { Interanual } from '../components/Interanual';
 import { MetodosPago } from '../components/MetodosPago';
-import { TarjetasComparativa } from '../components/TarjetasComparativa';
 import { TarjetaVariacion } from '../components/TarjetaVariacion';
+import { TotalTramo } from '../components/TotalTramo';
 import { repartirIngresos, serieGastoDiario } from '../lib/agregaciones';
 import { etiquetaMes } from '../lib/formato';
 import {
@@ -67,7 +67,8 @@ export default function PaginaEstadisticas() {
   const metodos = useEstadisticasGastoPorMetodoQuery(verGastos ? periodos.actual : skipToken);
 
   const mesesBalance = ultimosMeses(mes, MESES_GRAFICO_BALANCE, inicioDatos);
-  const primerMesBalance = mesesBalance[0];
+  // Se pide un mes más (si hay datos) para poder comparar el primer mes dibujado con su anterior.
+  const primerMesBalance = ultimosMeses(mes, MESES_GRAFICO_BALANCE + 1, inicioDatos)[0];
   const resumenMensual = useEstadisticasResumenMensualQuery(
     verBalance && primerMesBalance !== undefined ? { desde: primerMesBalance, hasta: finDeMes(mes) } : skipToken,
   );
@@ -80,6 +81,19 @@ export default function PaginaEstadisticas() {
   const conInteranual = hayInteranual(mes, hoy, inicioDatos);
   const rangoAnio = rangoInteranual(periodos.actual, periodos.enCurso);
   const resumenAnio = useEstadisticasResumenPeriodoQuery(verBalance && conInteranual ? rangoAnio : skipToken);
+
+  // Totales del tramo (SQL) contra el mismo tramo del mes anterior, bajo el título del gráfico.
+  const resumenListo = resumen.data !== undefined && (periodos.anterior === null || resumenAnterior.data !== undefined);
+  const anterior = periodos.anterior === null ? null : (resumenAnterior.data ?? null);
+  const total = (campo: 'gastos_netos' | 'ingresos', subirEsBueno: boolean) =>
+    resumenListo && resumen.data ? (
+      <TotalTramo
+        periodos={periodos}
+        actual={resumen.data[campo]}
+        anterior={anterior?.[campo] ?? null}
+        subirEsBueno={subirEsBueno}
+      />
+    ) : undefined;
 
   const reintentar = (...qs: { refetch: () => unknown; isUninitialized: boolean }[]) => () => {
     for (const q of qs) if (!q.isUninitialized) void q.refetch();
@@ -119,21 +133,6 @@ export default function PaginaEstadisticas() {
           className="self-start"
         />
 
-        <EstadoConsulta
-          datos={resumen.data !== undefined && (periodos.anterior === null || resumenAnterior.data !== undefined) ? resumen.data : undefined}
-          cargando={resumen.isFetching || resumenAnterior.isFetching}
-          error={resumen.error ?? resumenAnterior.error}
-          reintentar={reintentar(resumen, resumenAnterior)}
-        >
-          {(actual) => (
-            <TarjetasComparativa
-              periodos={periodos}
-              actual={actual}
-              anterior={periodos.anterior === null ? null : (resumenAnterior.data ?? null)}
-            />
-          )}
-        </EstadoConsulta>
-
         {verGastos && (
           <>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -143,7 +142,9 @@ export default function PaginaEstadisticas() {
                 error={gastoDiario.error}
                 reintentar={reintentar(gastoDiario)}
               >
-                {(filas) => <GraficoGastoDiario dias={serieGastoDiario(filas, mes, hoy)} />}
+                {(filas) => (
+                  <GraficoGastoDiario key={mes} dias={serieGastoDiario(filas, mes, hoy)} total={total('gastos_netos', false)} />
+                )}
               </EstadoConsulta>
               <EstadoConsulta
                 datos={categorias.data !== undefined && resumen.data !== undefined ? categorias.data : undefined}
@@ -151,7 +152,7 @@ export default function PaginaEstadisticas() {
                 error={categorias.error ?? resumen.error}
                 reintentar={reintentar(categorias, resumen)}
               >
-                {(cats) => <GastoPorCategoria categorias={cats} />}
+                {(cats) => <GastoPorCategoria key={mes} categorias={cats} />}
               </EstadoConsulta>
             </div>
             <EstadoConsulta
@@ -172,7 +173,9 @@ export default function PaginaEstadisticas() {
             error={ingresos.error}
             reintentar={reintentar(ingresos)}
           >
-            {(filas) => <IngresosPorCategoria ingresos={repartirIngresos(filas)} />}
+            {(filas) => (
+              <IngresosPorCategoria key={mes} ingresos={repartirIngresos(filas)} total={total('ingresos', true)} />
+            )}
           </EstadoConsulta>
         )}
 
@@ -185,7 +188,20 @@ export default function PaginaEstadisticas() {
                 error={resumenMensual.error}
                 reintentar={reintentar(resumenMensual)}
               >
-                {(ms) => <BalanceMensual meses={ms} hoy={hoy} inicioDatos={inicioDatos} />}
+                {(ms) => (
+                  <BalanceMensual
+                    key={mes}
+                    meses={ms}
+                    visibles={mesesBalance}
+                    hoy={hoy}
+                    inicioDatos={inicioDatos}
+                    anteriorEnCurso={
+                      periodos.enCurso && periodos.anterior !== null && resumenAnterior.data !== undefined
+                        ? { balance: resumenAnterior.data.balance, tramo: periodos.anterior }
+                        : null
+                    }
+                  />
+                )}
               </EstadoConsulta>
               {hayMesCerrado ? (
                 <EstadoConsulta
