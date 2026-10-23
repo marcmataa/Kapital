@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
@@ -27,6 +28,7 @@ function importeDe(m: MovimientoReciente, locale: string): { texto: string; clas
 
 export function UltimosMovimientos() {
   const t = useT('inicio');
+  const nombreCategoria = useNombreCategoria();
   const { locale } = useIdioma();
   const { data, isLoading, isError, refetch } = useInicioUltimosMovimientosQuery();
 
@@ -84,7 +86,7 @@ export function UltimosMovimientos() {
                             className="size-2 rounded-full"
                             style={{ backgroundColor: m.categoria.color }}
                           />
-                          {m.categoria.nombre}
+                          {nombreCategoria(m.categoria)}
                         </span>
                       ) : (
                         <span>{t('movimientos.sinCategoria')}</span>

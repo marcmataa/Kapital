@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import { Info, TriangleAlert } from 'lucide-react';
 import type { Categoria, Cuenta } from '@/shared/api/catalogos';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
@@ -58,6 +59,7 @@ export function FormularioMovimiento({
   onCancelar,
 }: Props) {
   const t = useT('movimientos');
+  const nombreCategoria = useNombreCategoria();
   const { locale } = useIdioma();
   const [crear] = useMovimientosCrearMutation();
   const [actualizar] = useMovimientosActualizarMutation();
@@ -254,7 +256,7 @@ export function FormularioMovimiento({
           <option value="">{t('form.elegirCategoria')}</option>
           {categoriasTipo.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.icono ? `${c.icono} ${c.nombre}` : c.nombre}
+              {c.icono ? `${c.icono} ${nombreCategoria(c)}` : nombreCategoria(c)}
             </option>
           ))}
         </Select>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowUp, Lock, Pencil } from 'lucide-react';
 import type { Categoria } from '@/shared/api/catalogos';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useT } from '@/shared/i18n';
 import { Button, SegmentedControl, Sheet } from '@/shared/ui';
 import { useConfigActualizarCategoriaMutation, useConfigReordenarCategoriasMutation } from '../api/configuracionApi';
@@ -36,6 +37,7 @@ function Muestra({ categoria }: { categoria: Categoria }) {
 /** Gestión de categorías: gasto e ingreso separados (reglas, sección 8), nunca mezclados. */
 export function SheetCategorias({ categorias, onCerrar }: Props) {
   const t = useT('configuracion');
+  const nombreCategoria = useNombreCategoria();
   const [tipo, setTipo] = useState<Tipo>('gasto');
   const [vista, setVista] = useState<Vista>({ modo: 'lista' });
   const [error, setError] = useState<string | null>(null);
@@ -129,12 +131,12 @@ export function SheetCategorias({ categorias, onCerrar }: Props) {
                   <li key={c.id} className="flex flex-col gap-1 border-t border-borde py-2 first:border-t-0">
                     <div className="flex items-center gap-2">
                       <Muestra categoria={c} />
-                      <span className="min-w-0 flex-1 truncate font-medium text-texto">{c.nombre}</span>
+                      <span className="min-w-0 flex-1 truncate font-medium text-texto">{nombreCategoria(c)}</span>
                       <button
                         type="button"
                         className={CLASE_ICONO}
                         disabled={i === 0 || estadoOrden.isLoading}
-                        aria-label={t('categorias.subir', { nombre: c.nombre })}
+                        aria-label={t('categorias.subir', { nombre: nombreCategoria(c) })}
                         onClick={() => void mover(i, -1)}
                       >
                         <ArrowUp aria-hidden="true" className="size-4" />
@@ -143,7 +145,7 @@ export function SheetCategorias({ categorias, onCerrar }: Props) {
                         type="button"
                         className={CLASE_ICONO}
                         disabled={i === activas.length - 1 || estadoOrden.isLoading}
-                        aria-label={t('categorias.bajar', { nombre: c.nombre })}
+                        aria-label={t('categorias.bajar', { nombre: nombreCategoria(c) })}
                         onClick={() => void mover(i, 1)}
                       >
                         <ArrowDown aria-hidden="true" className="size-4" />
@@ -151,7 +153,7 @@ export function SheetCategorias({ categorias, onCerrar }: Props) {
                       <button
                         type="button"
                         className={CLASE_ICONO}
-                        aria-label={t('categorias.editar', { nombre: c.nombre })}
+                        aria-label={t('categorias.editar', { nombre: nombreCategoria(c) })}
                         onClick={() => setVista({ modo: 'editar', categoria: c })}
                       >
                         <Pencil aria-hidden="true" className="size-4" />
@@ -164,7 +166,7 @@ export function SheetCategorias({ categorias, onCerrar }: Props) {
                         <button
                           type="button"
                           className={CLASE_ICONO}
-                          aria-label={t('categorias.archivar', { nombre: c.nombre })}
+                          aria-label={t('categorias.archivar', { nombre: nombreCategoria(c) })}
                           onClick={() => void archivar(c, true)}
                         >
                           <Archive aria-hidden="true" className="size-4" />
@@ -192,11 +194,11 @@ export function SheetCategorias({ categorias, onCerrar }: Props) {
                 {archivadas.map((c) => (
                   <li key={c.id} className="flex items-center gap-2 py-1.5">
                     <Muestra categoria={c} />
-                    <span className="min-w-0 flex-1 truncate text-sm text-apagado">{c.nombre}</span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-apagado">{nombreCategoria(c)}</span>
                     <button
                       type="button"
                       className={CLASE_ICONO}
-                      aria-label={t('categorias.desarchivar', { nombre: c.nombre })}
+                      aria-label={t('categorias.desarchivar', { nombre: nombreCategoria(c) })}
                       onClick={() => void archivar(c, false)}
                     >
                       <ArchiveRestore aria-hidden="true" className="size-4" />

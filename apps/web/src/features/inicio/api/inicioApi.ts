@@ -42,7 +42,7 @@ export interface MovimientoReciente {
   tipo: Enums['tipo_movimiento'];
   importe: string;
   sentido: Enums['sentido_ajuste'] | null;
-  categoria: { nombre: string; color: string } | null;
+  categoria: { nombre: string; clave: string | null; color: string } | null;
   cuenta: { nombre: string } | null;
   destino: { nombre: string } | null;
 }
@@ -63,7 +63,7 @@ export const SELECT_RESUMEN = 'ingresos::text, gastos_netos::text, balance::text
 export const SELECT_SERIE = 'fecha, patrimonio::text, provisional';
 export const SELECT_CATEGORIAS = 'categoria_id, nombre, color, gasto::text';
 export const SELECT_MOVIMIENTOS =
-  'id, fecha, concepto, tipo, importe::text, sentido, categoria:categorias!movimientos_categoria_id_user_id_fkey(nombre, color), cuenta:cuentas!movimientos_cuenta_id_user_id_fkey(nombre), destino:cuentas!movimientos_cuenta_destino_id_user_id_fkey(nombre)';
+  'id, fecha, concepto, tipo, importe::text, sentido, categoria:categorias!movimientos_categoria_id_user_id_fkey(nombre, clave, color), cuenta:cuentas!movimientos_cuenta_id_user_id_fkey(nombre), destino:cuentas!movimientos_cuenta_destino_id_user_id_fkey(nombre)';
 export const SELECT_ANALISIS = 'mes, contenido';
 
 const SIN_DATOS: ErrorApi = { codigo: 'sin_datos' };

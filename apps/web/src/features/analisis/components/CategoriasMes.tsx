@@ -1,5 +1,6 @@
 import { DonutCategorias, type CategoriaDonut } from '@/features/inicio/components/DonutCategorias';
 import { Card, EmptyState } from '@/shared/ui';
+import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { useT } from '@/shared/i18n';
 import { aCentimos } from '@/shared/lib/dinero';
 import type { DatosAnalisis } from '../schemas/esquemas';
@@ -13,10 +14,12 @@ const COLOR_POR_DEFECTO = '#8f9bbd';
  */
 export function CategoriasMes({ datos }: { datos: DatosAnalisis }) {
   const t = useT('analisis');
-  // `datos.categorias` no trae id: el nombre es único por usuario y sirve de id.
+  const nombreCategoria = useNombreCategoriaCatalogo();
+  // `datos.categorias` no trae id: el nombre es único por usuario y sirve de id (y para buscar
+  // la clave en el catálogo y mostrar traducidas las categorías por defecto).
   const categorias: CategoriaDonut[] = datos.categorias.map((c) => ({
     id: c.nombre,
-    nombre: c.nombre,
+    nombre: nombreCategoria({ nombre: c.nombre }),
     color: c.color ?? COLOR_POR_DEFECTO,
     gasto: c.gasto,
   }));

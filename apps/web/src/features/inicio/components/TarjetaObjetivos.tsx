@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useListarCategoriasQuery, useListarObjetivosQuery, type Objetivo } from '@/shared/api/catalogos';
 import { useIdioma, useT } from '@/shared/i18n';
+import { nombreCategoria as nombreVisible } from '@/shared/lib/categorias';
 import { cx } from '@/shared/lib/cx';
 import { aCentimos, formatearEuros } from '@/shared/lib/dinero';
 import { Button, Card } from '@/shared/ui';
@@ -40,13 +41,16 @@ const COLOR_BARRA: Record<FilaObjetivo['estado'], string> = {
  */
 export function TarjetaObjetivos({ hoy, balance, gastos }: Props) {
   const t = useT('inicio');
+  const tc = useT('common');
   const { locale } = useIdioma();
   const objetivos = useListarObjetivosQuery();
   const categorias = useListarCategoriasQuery();
   const [formAbierto, setFormAbierto] = useState(false);
 
-  const nombreCategoria = (id: string | null) =>
-    (categorias.data ?? []).find((c) => c.id === id)?.nombre ?? t('objetivos.categoriaDesconocida');
+  const nombreCategoria = (id: string | null) => {
+    const categoria = (categorias.data ?? []).find((c) => c.id === id);
+    return categoria ? nombreVisible(categoria, tc) : t('objetivos.categoriaDesconocida');
+  };
 
   const fila = (o: Objetivo, balanceMes: string, gastosMes: readonly GastoCategoria[]): FilaObjetivo => {
     const importe = formatearEuros(o.importe, locale);

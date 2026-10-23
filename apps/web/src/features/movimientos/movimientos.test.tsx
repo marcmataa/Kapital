@@ -216,6 +216,50 @@ describe('Lista de movimientos', () => {
   });
 });
 
+describe('Categorías por defecto traducidas', () => {
+  // Ocio y Nómina son las por defecto (con clave); «Comidas fuera» es una por defecto que el
+  // usuario renombró (ya sin clave) y se ve tal cual en cualquier idioma.
+  const CATEGORIAS_CON_CLAVE = CATEGORIAS.map((c) =>
+    c.id === ID.ocio
+      ? { ...c, clave: 'ocio' }
+      : c.id === ID.nomina
+        ? { ...c, clave: 'nomina' }
+        : { ...c, nombre: 'Comidas fuera', clave: null },
+  );
+  const responder = () =>
+    responderCon(LISTA, (l) => (l.tabla === 'categorias' ? { data: CATEGORIAS_CON_CLAVE, error: null } : undefined));
+  const renderConIdioma = (ruta: string, idioma: 'en' | 'ca') =>
+    renderConApp(
+      <Routes>
+        <Route path="/movimientos" element={<PaginaMovimientos />} />
+        <Route path="/movimientos/nuevo" element={<PaginaNuevoMovimiento />} />
+      </Routes>,
+      { ruta, sesion: sesionFalsa(), idioma },
+    );
+
+  it('en inglés, la lista y el panel de filtros muestran el nombre traducido; las propias, tal cual', async () => {
+    responder();
+    renderConIdioma('/movimientos', 'en');
+    expect(await screen.findByText(/· Leisure · /)).toBeInTheDocument();
+    expect(screen.getByText(/· Comidas fuera · /)).toBeInTheDocument();
+    expect(screen.getByText(/· Salary · /)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    const hoja = await screen.findByRole('dialog', { name: 'Filters' });
+    const opciones = within(within(hoja).getByLabelText('Category')).getAllByRole('option').map((o) => o.textContent);
+    expect(opciones).toEqual(expect.arrayContaining(['Leisure', 'Comidas fuera', 'Salary']));
+    expect(opciones).not.toContain('Ocio');
+  });
+
+  it('en catalán, el selector del formulario también', async () => {
+    responder();
+    renderConIdioma('/movimientos/nuevo', 'ca');
+    const selector = await screen.findByLabelText('Categoria');
+    await waitFor(() => expect(within(selector).getByRole('option', { name: '🎉 Oci' })).toBeInTheDocument());
+    expect(within(selector).getByRole('option', { name: 'Comidas fuera' })).toBeInTheDocument();
+  });
+});
+
 describe('Detalle y borrado', () => {
   it('muestra la fecha real, cuándo se apuntó y si cuenta en el balance', async () => {
     const m = movimiento({

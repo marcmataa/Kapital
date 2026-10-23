@@ -158,7 +158,7 @@ describe('completar_onboarding', () => {
     await db.query(`select preparar_usuario($1)`, [`${otro}@test.local`]);
 
     const categorias = (id: string) => todas(
-      db, `select nombre, tipo::text, color, icono, orden from categorias where user_id = $1 order by orden`, [id],
+      db, `select nombre, clave, tipo::text, color, icono, orden from categorias where user_id = $1 order by orden`, [id],
     );
     const mias = await categorias(u);
     expect(mias).toHaveLength(8);
