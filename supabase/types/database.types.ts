@@ -38,13 +38,13 @@ export type Database = {
                   ]
                 },"categorias": {
                   Row: {
-                    "archivada": boolean,"color": string,"created_at": string,"icono": string | null,"id": string,"nombre": string,"orden": number,"tipo": Database["public"]['Enums']["tipo_categoria"],"user_id": string
+                    "archivada": boolean,"clave": string | null,"color": string,"created_at": string,"icono": string | null,"id": string,"nombre": string,"orden": number,"tipo": Database["public"]['Enums']["tipo_categoria"],"user_id": string
                   }
                   Insert: {
-                    "archivada"?: boolean,"color"?: string,"created_at"?: string,"icono"?: string | null,"id"?: string,"nombre": string,"orden"?: number,"tipo": Database["public"]['Enums']["tipo_categoria"],"user_id"?: string
+                    "archivada"?: boolean,"clave"?: string | null,"color"?: string,"created_at"?: string,"icono"?: string | null,"id"?: string,"nombre": string,"orden"?: number,"tipo": Database["public"]['Enums']["tipo_categoria"],"user_id"?: string
                   }
                   Update: {
-                    "archivada"?: boolean,"color"?: string,"created_at"?: string,"icono"?: string | null,"id"?: string,"nombre"?: string,"orden"?: number,"tipo"?: Database["public"]['Enums']["tipo_categoria"],"user_id"?: string
+                    "archivada"?: boolean,"clave"?: string | null,"color"?: string,"created_at"?: string,"icono"?: string | null,"id"?: string,"nombre"?: string,"orden"?: number,"tipo"?: Database["public"]['Enums']["tipo_categoria"],"user_id"?: string
                   }
                   Relationships: [
                     
@@ -236,6 +236,11 @@ isOneToOne: false
             "completar_onboarding":
 { Args: { "p_bancos": Json,"p_efectivo": string,"p_idioma": string }; Returns: undefined
                            },
+"comparativa_estadisticas":
+{ Args: { "p_desde": string,"p_desde_ant"?: string,"p_hasta": string,"p_hasta_ant"?: string }; Returns: {
+              "balance": number,"balance_anterior": number,"dias": number,"gasto_medio_diario": number,"gastos_netos": number,"gastos_netos_anterior": number,"ingresos": number,"ingresos_anterior": number,"mayor_concepto": string,"mayor_importe": number,"variacion_balance": number,"variacion_gastos": number,"variacion_ingresos": number
+            }[]
+                           },
 "crear_banco":
 { Args: { "p_color": string | null,"p_entidad": string | null,"p_nombre": string | null,"p_saldo": string }; Returns: string
                            },
@@ -253,6 +258,11 @@ isOneToOne: false
                            },
 "fecha_local":
 { Args: { "p_instante": string,"p_zona"?: string }; Returns: string
+                           },
+"fuera_del_balance":
+{ Args: { "p_desde": string,"p_hasta": string }; Returns: {
+              "cuenta": string,"cuenta_destino": string,"importe": number,"sentido": Database["public"]['Enums']["sentido_ajuste"],"tipo": Database["public"]['Enums']["tipo_movimiento"]
+            }[]
                            },
 "gasto_por_categoria":
 { Args: { "p_desde": string,"p_hasta": string }; Returns: {
@@ -285,6 +295,11 @@ isOneToOne: false
                            },
 "leer_saldo":
 { Args: { "p": string }; Returns: number
+                           },
+"movimientos_por_dia":
+{ Args: { "p_desde": string,"p_hasta": string }; Returns: {
+              "devoluciones": number,"fecha": string,"gasto_neto": number,"gastos": number,"ingresos": number,"movimientos": Json
+            }[]
                            },
 "nombre_entidad":
 { Args: { "p_entidad": string }; Returns: string
@@ -324,6 +339,11 @@ isOneToOne: false
                            },
 "valor_cuenta":
 { Args: { "p_cuenta": string,"p_fecha": string }; Returns: number
+                           },
+"valores_cuentas":
+{ Args: { "p_fecha": string }; Returns: {
+              "cuenta_id": string,"valor": number
+            }[]
                            },
 "variacion_patrimonial":
 { Args: { "p_d1": string,"p_d2": string }; Returns: {

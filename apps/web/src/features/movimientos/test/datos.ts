@@ -45,6 +45,7 @@ function categoria(c: Pick<Categoria, 'id' | 'nombre' | 'tipo'> & Partial<Catego
     user_id: 'u',
     color: '#9b6bff',
     icono: null,
+    clave: null,
     orden: 0,
     archivada: false,
     created_at: '2026-01-01T00:00:00Z',

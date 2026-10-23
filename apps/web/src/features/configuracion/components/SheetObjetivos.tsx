@@ -8,6 +8,7 @@ import {
   type Categoria,
   type Objetivo,
 } from '@/shared/api/catalogos';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros, importePositivo } from '@/shared/lib/dinero';
 import { Button, MoneyInput, Sheet, importeParaEditar } from '@/shared/ui';
@@ -77,6 +78,7 @@ function EditarImporte({ objetivo, etiqueta, onHecho }: { objetivo: Objetivo; et
 export function SheetObjetivos({ objetivos, categorias, onCerrar }: Props) {
   const t = useT('configuracion');
   const { locale } = useIdioma();
+  const nombreCategoria = useNombreCategoria();
   const [vista, setVista] = useState<Vista>({ modo: 'lista' });
   const [error, setError] = useState<string | null>(null);
   const [desactivar, estadoQuitar] = useDesactivarObjetivoMutation();
@@ -116,7 +118,7 @@ export function SheetObjetivos({ objetivos, categorias, onCerrar }: Props) {
       {vista.modo === 'editar' && (
         <EditarImporte
           objetivo={vista.objetivo}
-          etiqueta={etiquetaObjetivo(vista.objetivo, categorias, t)}
+          etiqueta={etiquetaObjetivo(vista.objetivo, categorias, t, nombreCategoria)}
           onHecho={aLista}
         />
       )}
@@ -124,7 +126,7 @@ export function SheetObjetivos({ objetivos, categorias, onCerrar }: Props) {
       {vista.modo === 'quitar' && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-texto">
-            {t('objetivos.quitarConfirmar', { objetivo: etiquetaObjetivo(vista.objetivo, categorias, t) })}
+            {t('objetivos.quitarConfirmar', { objetivo: etiquetaObjetivo(vista.objetivo, categorias, t, nombreCategoria) })}
           </p>
           <AlertaError mensaje={error} />
           <div className="flex flex-wrap gap-2">
@@ -145,7 +147,7 @@ export function SheetObjetivos({ objetivos, categorias, onCerrar }: Props) {
           ) : (
             <ul className="flex flex-col">
               {objetivos.map((o) => {
-                const etiqueta = etiquetaObjetivo(o, categorias, t);
+                const etiqueta = etiquetaObjetivo(o, categorias, t, nombreCategoria);
                 return (
                   <li key={o.id} className="flex items-center gap-2 border-t border-borde py-2 first:border-t-0">
                     <span className="min-w-0 flex-1 truncate font-medium text-texto">{etiqueta}</span>

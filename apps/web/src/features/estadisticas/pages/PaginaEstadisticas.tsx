@@ -4,27 +4,29 @@ import { useListarCuentasQuery } from '@/shared/api/catalogos';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
-import { finDeMes, inicioDeMes, sumarDias, sumarMeses } from '@/shared/lib/fechas';
-import { Card, EmptyState, SegmentedControl, Select } from '@/shared/ui';
+import { finDeMes, inicioDeMes } from '@/shared/lib/fechas';
+import { SegmentedControl, Select } from '@/shared/ui';
 import {
+  useEstadisticasComparativaQuery,
+  useEstadisticasFueraDelBalanceQuery,
   useEstadisticasGastoPorCategoriaQuery,
   useEstadisticasGastoPorMetodoQuery,
-  useEstadisticasGastoPorDiaQuery,
   useEstadisticasIngresosPorCategoriaQuery,
+  useEstadisticasMovimientosPorDiaQuery,
   useEstadisticasResumenMensualQuery,
   useEstadisticasResumenPeriodoQuery,
-  useEstadisticasVariacionQuery,
 } from '../api/estadisticasApi';
-import { BalanceMensual } from '../components/BalanceMensual';
+import { ComparativaMes, useTituloComparativa } from '../components/ComparativaMes';
+import { DesgloseBalance } from '../components/DesgloseBalance';
 import { EstadoConsulta } from '../components/EstadoConsulta';
 import { GastoPorCategoria } from '../components/GastoPorCategoria';
-import { GraficoGastoDiario } from '../components/GraficoGastoDiario';
+import { GraficoBalanceMeses } from '../components/GraficoBalanceMeses';
+import { GraficoDiario } from '../components/GraficoDiario';
+import { GraficoMeses } from '../components/GraficoMeses';
 import { IngresosPorCategoria } from '../components/IngresosPorCategoria';
 import { Interanual } from '../components/Interanual';
 import { MetodosPago } from '../components/MetodosPago';
-import { TarjetasComparativa } from '../components/TarjetasComparativa';
-import { TarjetaVariacion } from '../components/TarjetaVariacion';
-import { repartirIngresos, serieGastoDiario } from '../lib/agregaciones';
+import { repartirIngresos, serieDiaria } from '../lib/agregaciones';
 import { etiquetaMes } from '../lib/formato';
 import {
   hayInteranual,
@@ -37,7 +39,10 @@ import {
 
 type Pestana = 'gastos' | 'ingresos' | 'balance';
 
-const MESES_GRAFICO_BALANCE = 6;
+const MESES_GRAFICO = 6;
+
+/** Consulta que se puede reintentar (RTK Query). */
+type Reintentable = { refetch: () => unknown; isUninitialized: boolean };
 
 export default function PaginaEstadisticas() {
   const t = useT('estadisticas');
@@ -52,38 +57,61 @@ export default function PaginaEstadisticas() {
   const inicioDatos = cuentas.data ? inicioDeDatos(cuentas.data) : null;
   const meses = useMemo(() => mesesDisponibles(hoy, inicioDatos), [hoy, inicioDatos]);
   const mes = mesElegido !== null && meses.includes(mesElegido) ? mesElegido : mesActual;
+  // Mes en curso: 1..D contra 1..d' del mes anterior; mes cerrado: completo contra completo.
   const periodos = periodosComparacion(mes, hoy, inicioDatos);
-
-  const resumen = useEstadisticasResumenPeriodoQuery(periodos.actual);
-  const resumenAnterior = useEstadisticasResumenPeriodoQuery(periodos.anterior ?? skipToken);
+  const anterior = periodos.anterior;
+  const tituloCategorias = useTituloComparativa(periodos, 'categorias.titulo');
 
   const verGastos = pestana === 'gastos';
   const verIngresos = pestana === 'ingresos';
   const verBalance = pestana === 'balance';
+  const si = <T,>(condicion: boolean, arg: T) => (condicion ? arg : skipToken);
 
-  const gastoDiario = useEstadisticasGastoPorDiaQuery(verGastos ? periodos.actual : skipToken);
-  const ingresos = useEstadisticasIngresosPorCategoriaQuery(verIngresos ? periodos.actual : skipToken);
-  const categorias = useEstadisticasGastoPorCategoriaQuery(verGastos ? periodos.actual : skipToken);
-  const metodos = useEstadisticasGastoPorMetodoQuery(verGastos ? periodos.actual : skipToken);
+  const comparativa = useEstadisticasComparativaQuery({ actual: periodos.actual, anterior });
+  const porDia = useEstadisticasMovimientosPorDiaQuery(si(verGastos || verIngresos, periodos.actual));
+  const metodos = useEstadisticasGastoPorMetodoQuery(si(verGastos, periodos.actual));
+  const categorias = useEstadisticasGastoPorCategoriaQuery(si(verGastos || verBalance, periodos.actual));
+  const categoriasAnt = useEstadisticasGastoPorCategoriaQuery(si((verGastos || verBalance) && anterior !== null, anterior ?? periodos.actual));
+  const ingresos = useEstadisticasIngresosPorCategoriaQuery(si(verIngresos || verBalance, periodos.actual));
+  const ingresosAnt = useEstadisticasIngresosPorCategoriaQuery(si(verBalance && anterior !== null, anterior ?? periodos.actual));
+  const fuera = useEstadisticasFueraDelBalanceQuery(si(verBalance, periodos.actual));
+  const fueraAnt = useEstadisticasFueraDelBalanceQuery(si(verBalance && anterior !== null, anterior ?? periodos.actual));
 
-  const mesesBalance = ultimosMeses(mes, MESES_GRAFICO_BALANCE, inicioDatos);
-  const primerMesBalance = mesesBalance[0];
+  const mesesGrafico = ultimosMeses(mes, MESES_GRAFICO, inicioDatos);
+  const primerMes = mesesGrafico[0];
   const resumenMensual = useEstadisticasResumenMensualQuery(
-    verBalance && primerMesBalance !== undefined ? { desde: primerMesBalance, hasta: finDeMes(mes) } : skipToken,
+    si((verGastos || verBalance) && primerMes !== undefined, { desde: primerMes ?? mes, hasta: finDeMes(mes) }),
   );
-  // Variación patrimonial de un mes cerrado: el elegido, o el anterior si el elegido está en curso.
-  const mesCerrado = periodos.enCurso ? sumarMeses(mes, -1) : mes;
-  const hayMesCerrado = inicioDatos !== null && mesCerrado >= inicioDeMes(inicioDatos);
-  const variacion = useEstadisticasVariacionQuery(
-    verBalance && hayMesCerrado ? { d1: sumarDias(mesCerrado, -1), d2: finDeMes(mesCerrado) } : skipToken,
-  );
+  const filasMeses = (resumenMensual.data ?? []).filter((m) => mesesGrafico.includes(m.mes));
+
   const conInteranual = hayInteranual(mes, hoy, inicioDatos);
   const rangoAnio = rangoInteranual(periodos.actual, periodos.enCurso);
-  const resumenAnio = useEstadisticasResumenPeriodoQuery(verBalance && conInteranual ? rangoAnio : skipToken);
+  const resumen = useEstadisticasResumenPeriodoQuery(si(verBalance && conInteranual, periodos.actual));
+  const resumenAnio = useEstadisticasResumenPeriodoQuery(si(verBalance && conInteranual, rangoAnio));
 
-  const reintentar = (...qs: { refetch: () => unknown; isUninitialized: boolean }[]) => () => {
+  const reintentar = (...qs: Reintentable[]) => () => {
     for (const q of qs) if (!q.isUninitialized) void q.refetch();
   };
+  /** Datos de varias consultas a la vez: undefined hasta que estén todas. */
+  const todas = <T,>(datos: T, ...qs: { data?: unknown; isUninitialized: boolean }[]) =>
+    qs.every((q) => q.isUninitialized || q.data !== undefined) ? datos : undefined;
+  const estado = (...qs: (Reintentable & { isFetching: boolean; error?: unknown })[]) => ({
+    cargando: qs.some((q) => q.isFetching),
+    error: qs.find((q) => q.error !== undefined)?.error,
+    reintentar: reintentar(...qs),
+  });
+
+  const nombreMes = etiquetaMes(mes, locale);
+  const graficoDiario = (modo: 'gastos' | 'ingresos') => (
+    <EstadoConsulta datos={porDia.data} {...estado(porDia)}>
+      {(filas) => <GraficoDiario key={`${mes}-${modo}`} modo={modo} nombreMes={nombreMes} dias={serieDiaria(filas, mes, hoy)} />}
+    </EstadoConsulta>
+  );
+  const bloqueComparativa = (modo: 'gastos' | 'ingresos') => (
+    <EstadoConsulta datos={comparativa.data} {...estado(comparativa)}>
+      {(c) => <ComparativaMes periodos={periodos} datos={c} modo={modo} />}
+    </EstadoConsulta>
+  );
 
   return (
     <>
@@ -119,96 +147,73 @@ export default function PaginaEstadisticas() {
           className="self-start"
         />
 
-        <EstadoConsulta
-          datos={resumen.data !== undefined && (periodos.anterior === null || resumenAnterior.data !== undefined) ? resumen.data : undefined}
-          cargando={resumen.isFetching || resumenAnterior.isFetching}
-          error={resumen.error ?? resumenAnterior.error}
-          reintentar={reintentar(resumen, resumenAnterior)}
-        >
-          {(actual) => (
-            <TarjetasComparativa
-              periodos={periodos}
-              actual={actual}
-              anterior={periodos.anterior === null ? null : (resumenAnterior.data ?? null)}
-            />
-          )}
-        </EstadoConsulta>
-
         {verGastos && (
           <>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <EstadoConsulta
-                datos={gastoDiario.data}
-                cargando={gastoDiario.isFetching}
-                error={gastoDiario.error}
-                reintentar={reintentar(gastoDiario)}
-              >
-                {(filas) => <GraficoGastoDiario dias={serieGastoDiario(filas, mes, hoy)} />}
-              </EstadoConsulta>
-              <EstadoConsulta
-                datos={categorias.data !== undefined && resumen.data !== undefined ? categorias.data : undefined}
-                cargando={categorias.isFetching || resumen.isFetching}
-                error={categorias.error ?? resumen.error}
-                reintentar={reintentar(categorias, resumen)}
-              >
-                {(cats) => <GastoPorCategoria categorias={cats} />}
-              </EstadoConsulta>
+              {graficoDiario('gastos')}
+              {bloqueComparativa('gastos')}
             </div>
-            <EstadoConsulta
-              datos={metodos.data}
-              cargando={metodos.isFetching}
-              error={metodos.error}
-              reintentar={reintentar(metodos)}
-            >
-              {(ms) => <MetodosPago metodos={ms} />}
-            </EstadoConsulta>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <EstadoConsulta
+                datos={todas(categorias.data, categorias, categoriasAnt)}
+                {...estado(categorias, categoriasAnt)}
+              >
+                {(cats) => (
+                  <GastoPorCategoria
+                    categorias={cats}
+                    anteriores={anterior === null ? null : (categoriasAnt.data ?? [])}
+                    titulo={tituloCategorias}
+                  />
+                )}
+              </EstadoConsulta>
+              <div className="flex flex-col gap-4">
+                <EstadoConsulta datos={primerMes === undefined ? [] : resumenMensual.data} {...estado(resumenMensual)}>
+                  {() => <GraficoMeses key={mes} meses={filasMeses} hoy={hoy} />}
+                </EstadoConsulta>
+                <EstadoConsulta datos={metodos.data} {...estado(metodos)}>
+                  {(ms) => <MetodosPago metodos={ms} />}
+                </EstadoConsulta>
+              </div>
+            </div>
           </>
         )}
 
         {verIngresos && (
-          <EstadoConsulta
-            datos={ingresos.data}
-            cargando={ingresos.isFetching}
-            error={ingresos.error}
-            reintentar={reintentar(ingresos)}
-          >
-            {(filas) => <IngresosPorCategoria ingresos={repartirIngresos(filas)} />}
-          </EstadoConsulta>
+          <>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {graficoDiario('ingresos')}
+              {bloqueComparativa('ingresos')}
+            </div>
+            <EstadoConsulta datos={ingresos.data} {...estado(ingresos)}>
+              {(filas) => <IngresosPorCategoria key={mes} ingresos={repartirIngresos(filas)} />}
+            </EstadoConsulta>
+          </>
         )}
 
         {verBalance && (
           <>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <EstadoConsulta
-                datos={primerMesBalance === undefined ? [] : resumenMensual.data}
-                cargando={resumenMensual.isFetching}
-                error={resumenMensual.error}
-                reintentar={reintentar(resumenMensual)}
-              >
-                {(ms) => <BalanceMensual meses={ms} hoy={hoy} inicioDatos={inicioDatos} />}
-              </EstadoConsulta>
-              {hayMesCerrado ? (
-                <EstadoConsulta
-                  datos={variacion.data}
-                  cargando={variacion.isFetching}
-                  error={variacion.error}
-                  reintentar={reintentar(variacion)}
-                >
-                  {(v) => <TarjetaVariacion mes={mesCerrado} variacion={v} />}
-                </EstadoConsulta>
-              ) : (
-                <Card titulo={t('variacion.tituloSinMes')}>
-                  <EmptyState titulo={t('variacion.sinMesCerrado')} className="py-6" />
-                </Card>
+            <EstadoConsulta datos={primerMes === undefined ? [] : resumenMensual.data} {...estado(resumenMensual)}>
+              {() => <GraficoBalanceMeses key={mes} meses={filasMeses} hoy={hoy} />}
+            </EstadoConsulta>
+            <EstadoConsulta
+              datos={todas(comparativa.data, comparativa, ingresos, ingresosAnt, categorias, categoriasAnt, fuera, fueraAnt)}
+              {...estado(comparativa, ingresos, ingresosAnt, categorias, categoriasAnt, fuera, fueraAnt)}
+            >
+              {(c) => (
+                <DesgloseBalance
+                  periodos={periodos}
+                  comparativa={c}
+                  ingresos={ingresos.data ?? []}
+                  ingresosAnterior={ingresosAnt.data ?? []}
+                  gastos={categorias.data ?? []}
+                  gastosAnterior={categoriasAnt.data ?? []}
+                  fuera={fuera.data ?? []}
+                  fueraAnterior={fueraAnt.data ?? []}
+                />
               )}
-            </div>
+            </EstadoConsulta>
             {conInteranual && (
-              <EstadoConsulta
-                datos={resumenAnio.data}
-                cargando={resumenAnio.isFetching}
-                error={resumenAnio.error}
-                reintentar={reintentar(resumenAnio)}
-              >
+              <EstadoConsulta datos={todas(resumenAnio.data, resumen, resumenAnio)} {...estado(resumen, resumenAnio)}>
                 {(anio) =>
                   resumen.data ? (
                     <Interanual

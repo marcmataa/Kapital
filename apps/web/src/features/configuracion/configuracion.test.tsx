@@ -114,6 +114,7 @@ function categoria(id: string, nombre: string, tipo: 'gasto' | 'ingreso', orden:
     orden,
     color: '#ff8a3d',
     icono: null,
+    clave: null,
     archivada: false,
     created_at: '2026-10-01T00:00:00Z',
     user_id: USER,
@@ -404,6 +405,71 @@ describe('Categorías', () => {
       { id: 'b', orden: 8 },
     ]);
     expect(reordenar(lista, 0, -1)).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------ Categorías traducidas */
+
+describe('Categorías por defecto traducidas', () => {
+  beforeEach(() => {
+    db.datos.categorias = [
+      categoria('c1', 'Ocio', 'gasto', 1, { clave: 'ocio' }),
+      // Por defecto pero renombrada por el usuario: ya no tiene clave.
+      categoria('c2', 'Fiesta', 'gasto', 2),
+      categoria('c3', 'Nómina', 'ingreso', 3, { clave: 'nomina' }),
+      categoria('c4', 'Rendimientos', 'ingreso', 4, { clave: 'rendimientos' }),
+      categoria('c5', 'Mascotas', 'ingreso', 5),
+    ];
+    db.datos.objetivos = [{ id: 'o2', tipo: 'limite_categoria', categoria_id: 'c1', importe: '300.00' }];
+  });
+
+  const abrir = async (idioma: 'en' | 'ca', boton: string, titulo: string) => {
+    db.datos.perfiles = { user_id: USER, idioma, zona_horaria: 'Europe/Madrid', onboarding_completado: true };
+    renderConApp(<PaginaConfiguracion />, { sesion: sesionFalsa(USER), ruta: '/configuracion', idioma });
+    await userEvent.click(await screen.findByRole('button', { name: boton }));
+    return screen.getByRole('dialog', { name: titulo });
+  };
+
+  it('en inglés: las por defecto se ven traducidas y las propias o renombradas, tal cual', async () => {
+    const hoja = await abrir('en', 'Manage categories →', 'Categories');
+    const gasto = within(hoja).getByRole('list', { name: 'Expense' });
+    expect(within(gasto).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['Leisure', 'Fiesta']);
+    expect(within(hoja).getByRole('button', { name: 'Edit Leisure' })).toBeInTheDocument();
+    // El resumen de objetivos también usa el nombre traducido.
+    expect(screen.getByText(/^Leisure < /)).toBeInTheDocument();
+  });
+
+  it('en catalán, también las de ingreso', async () => {
+    const hoja = await abrir('ca', 'Gestionar categories →', 'Categories');
+    await userEvent.click(within(hoja).getByRole('radio', { name: 'Ingrés' }));
+    const ingreso = within(hoja).getByRole('list', { name: 'Ingrés' });
+    expect(within(ingreso).getByText('Nòmina')).toBeInTheDocument();
+    expect(within(ingreso).getByText('Rendiments')).toBeInTheDocument();
+    expect(within(ingreso).getByText('Mascotas')).toBeInTheDocument();
+  });
+
+  it('editar sin tocar el nombre traducido no envía el nombre (conserva la traducción)', async () => {
+    const hoja = await abrir('en', 'Manage categories →', 'Categories');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Edit Leisure' }));
+    expect(within(hoja).getByLabelText('Name')).toHaveValue('Leisure');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(escrituras('categorias')).toHaveLength(1));
+    expect(escrituras('categorias')[0]?.valores).toEqual({ color: '#ff8a3d', icono: null });
+  });
+
+  it('cambiar el nombre lo guarda tal cual y la categoría pasa a ser propia (sin clave)', async () => {
+    const hoja = await abrir('en', 'Manage categories →', 'Categories');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Edit Leisure' }));
+    const campo = within(hoja).getByLabelText('Name');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'Going out');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(escrituras('categorias')).toHaveLength(1));
+    expect(escrituras('categorias')[0]).toMatchObject({
+      op: 'update',
+      valores: { nombre: 'Going out', clave: null, color: '#ff8a3d', icono: null },
+      filtros: [['id', 'c1']],
+    });
   });
 });
 

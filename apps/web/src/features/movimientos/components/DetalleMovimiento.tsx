@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Lock } from 'lucide-react';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
@@ -40,6 +41,7 @@ export function diaDeRegistro(createdAt: string, zona: string = ZONA_POR_DEFECTO
 
 export function DetalleMovimiento({ movimiento: m, catalogos, onBorrado, nivelTitulo = 'h2', className }: Props) {
   const t = useT('movimientos');
+  const nombreCategoria = useNombreCategoria();
   const { locale } = useIdioma();
   const { zona } = useHoyUsuario();
   const [confirmando, setConfirmando] = useState(false);
@@ -79,7 +81,7 @@ export function DetalleMovimiento({ movimiento: m, catalogos, onBorrado, nivelTi
 
   const balance =
     m.tipo === 'devolucion'
-      ? t('detalle.balance.devolucion', { categoria: categoria?.nombre ?? t('meta.sinCategoria') })
+      ? t('detalle.balance.devolucion', { categoria: categoria ? nombreCategoria(categoria) : t('meta.sinCategoria') })
       : t(`detalle.balance.${m.tipo}`);
 
   // proteger_cuenta_cerrada: con una cuenta cerrada la base rechaza editar y borrar.
@@ -100,7 +102,7 @@ export function DetalleMovimiento({ movimiento: m, catalogos, onBorrado, nivelTi
 
       <dl className="grid grid-cols-2 gap-x-3 gap-y-3.5 text-sm">
         <Dato etiqueta={t('detalle.fecha')}>{textoFecha}</Dato>
-        <Dato etiqueta={t('detalle.categoria')}>{categoria?.nombre ?? t('detalle.sinDato')}</Dato>
+        <Dato etiqueta={t('detalle.categoria')}>{categoria ? nombreCategoria(categoria) : t('detalle.sinDato')}</Dato>
         <Dato etiqueta={t('detalle.metodo')}>{m.metodo === null ? t('detalle.sinDato') : t(`metodo.${m.metodo}`)}</Dato>
         <Dato etiqueta={m.tipo === 'traspaso' ? t('detalle.cuentas') : t('detalle.cuenta')}>{textoCuenta}</Dato>
         <Dato etiqueta={t('detalle.origen')}>{t(`origen.${m.origen}`)}</Dato>

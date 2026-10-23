@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { ErrorApi } from '@/app/api';
 import { useCrearObjetivoMutation, useListarCategoriasQuery, useListarObjetivosQuery } from '@/shared/api/catalogos';
 import { useIdioma, useT } from '@/shared/i18n';
+import { nombreCategoria } from '@/shared/lib/categorias';
 import { esquemaImporte } from '@/shared/lib/esquemas';
 import { Button, MoneyInput, SegmentedControl, Select } from '@/shared/ui';
 
@@ -131,7 +132,7 @@ export function FormObjetivo({ onHecho, onCancelar }: Props) {
             <option value="">{t('form.categoriaElegir')}</option>
             {disponibles.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.nombre}
+                {nombreCategoria(c, tc)}
               </option>
             ))}
           </Select>

@@ -1,6 +1,7 @@
 import { skipToken } from '@reduxjs/toolkit/query';
 import { useListarCuentasQuery } from '@/shared/api/catalogos';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
+import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { useNombreUsuario } from '@/shared/hooks/useNombreUsuario';
 import { useIdioma, useT } from '@/shared/i18n';
 import { finDeMes, inicioDeMes, mismoDiaMesAnterior, sumarMeses } from '@/shared/lib/fechas';
@@ -11,6 +12,7 @@ import {
   useInicioGastoCategoriasQuery,
   useInicioResumenQuery,
   useInicioSeriePatrimonioQuery,
+  useInicioValoresCuentasQuery,
 } from '../api/inicioApi';
 import { AnalisisDestacado } from '../components/AnalisisDestacado';
 import { DonutCategorias } from '../components/DonutCategorias';
@@ -22,6 +24,7 @@ import { TarjetasKpi } from '../components/TarjetasKpi';
 import { UltimosMovimientos } from '../components/UltimosMovimientos';
 import { useMesSeleccionado } from '../hooks/useMesSeleccionado';
 import { mesLargo } from '../lib/calculos';
+import type { CuentaDesglose } from '../lib/desglose';
 
 interface EstadoConsulta {
   isUninitialized: boolean;
@@ -47,6 +50,7 @@ export default function PaginaInicio() {
   const { locale } = useIdioma();
   const { hoy } = useHoyUsuario();
   const { dePila } = useNombreUsuario();
+  const nombreCategoria = useNombreCategoriaCatalogo();
 
   const cuentas = useListarCuentasQuery();
   const inicioDatos = cuentas.data ? inicioDeDatos(cuentas.data) : null;
@@ -78,6 +82,17 @@ export default function PaginaInicio() {
   const patrimonioRef = datosSerie?.find((p) => p.fecha === referencia)?.patrimonio ?? null;
   const patrimonioAnterior = datosSerieAnterior?.find((p) => p.fecha === dPrima)?.patrimonio ?? null;
 
+  // Desglose por cuenta a la fecha de referencia. En curso: valor de hoy (v_saldos, ya en
+  // listarCuentas). Mes cerrado: valores_cuentas(último día), ambos pedidos como texto.
+  const valoresCierre = useInicioValoresCuentasQuery(resuelto && !enCurso ? referencia : skipToken);
+  let cuentasDesglose: CuentaDesglose[] | undefined;
+  if (enCurso) {
+    cuentasDesglose = cuentas.data;
+  } else if (cuentas.data && valoresCierre.currentData) {
+    const valores = new Map(valoresCierre.currentData.map((v) => [v.cuenta_id, v.valor]));
+    cuentasDesglose = cuentas.data.map((c) => ({ ...c, valor: valores.get(c.id) ?? null }));
+  }
+
   const kpiCargando =
     !resuelto ||
     cuentas.isLoading ||
@@ -100,8 +115,6 @@ export default function PaginaInicio() {
         acciones={
           <SelectorMes
             mes={mes}
-            meses={seleccion.meses}
-            mesActual={inicioDeMes(hoy)}
             anterior={seleccion.anterior}
             siguiente={seleccion.siguiente}
             onElegir={seleccion.elegir}
@@ -127,6 +140,7 @@ export default function PaginaInicio() {
             resumenActual={datosResumen}
             // Sin el resumen anterior (o si su tramo es parcial), las tarjetas dicen «Sin datos del mes anterior».
             resumenAnterior={periodos.anterior ? (resumenAnterior.currentData ?? null) : null}
+            cuentas={cuentasDesglose}
           />
         )}
 
@@ -150,7 +164,7 @@ export default function PaginaInicio() {
               <DonutCategorias
                 categorias={datosCategorias.map((c) => ({
                   id: c.categoria_id,
-                  nombre: c.nombre,
+                  nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),
                   color: c.color,
                   gasto: c.gasto,
                 }))}

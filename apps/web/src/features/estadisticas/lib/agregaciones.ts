@@ -1,46 +1,114 @@
-import { aCentimos, desdeCentimos } from '@/shared/lib/dinero';
+import { aCentimos, compararImportes, desdeCentimos } from '@/shared/lib/dinero';
 import { componerFecha, diasDelMes, inicioDeMes, partesDe } from '@/shared/lib/fechas';
 
 /*
- * Presentación de agregados en el cliente. Las sumas las hace SQL (gasto_por_dia,
- * ingresos_por_categoria, gasto_por_categoria…); aquí solo se completa la serie de días y se
- * reparten porcentajes, siempre en céntimos `bigint` (nunca parseFloat/Number sobre importes).
+ * Presentación de agregados en el cliente. Las sumas, medias y variaciones las hace SQL
+ * (movimientos_por_dia, comparativa_estadisticas, gasto_por_categoria…); aquí solo se completa la
+ * serie de días, se emparejan filas y se reparten porcentajes de dibujo, siempre en céntimos
+ * `bigint` (nunca parseFloat/Number sobre importes).
  */
 
-/** Fila de `gasto_por_dia` (solo días con gastos o devoluciones; importe como texto). */
-export interface FilaGastoDia {
-  fecha: string;
-  gasto_neto: string;
+/** Movimiento de un día (`movimientos_por_dia`), con el importe como texto. */
+export interface MovimientoDia {
+  id: string;
+  tipo: 'gasto' | 'devolucion' | 'ingreso';
+  concepto: string;
+  importe: string;
 }
 
-export interface GastoDia {
+/** Fila de `movimientos_por_dia`: solo días con gastos, devoluciones o ingresos. */
+export interface FilaDia {
+  fecha: string;
+  gastos: string;
+  devoluciones: string;
+  gasto_neto: string;
+  ingresos: string;
+  movimientos: MovimientoDia[];
+}
+
+export interface DiaSerie {
   dia: number;
   fecha: string;
-  /** Gasto neto del día (gastos − devoluciones); null en días futuros (no se dibujan). */
-  gasto: string | null;
   /** true para hoy: el valor es provisional. */
   hoy: boolean;
+  /** null en días futuros (no se dibujan). Días sin movimientos: todo a 0,00 € y sin lista. */
+  datos: Omit<FilaDia, 'fecha'> | null;
 }
 
+const DIA_VACIO: Omit<FilaDia, 'fecha'> = {
+  gastos: '0.00',
+  devoluciones: '0.00',
+  gasto_neto: '0.00',
+  ingresos: '0.00',
+  movimientos: [],
+};
+
+const sinFecha = ({ fecha: _fecha, ...resto }: FilaDia): Omit<FilaDia, 'fecha'> => resto;
+
 /**
- * Serie de todos los días del mes de `mes` a partir de `gasto_por_dia` (sección 3: gastos −
- * devoluciones). Los días sin filas valen 0,00 €; los posteriores a `hoy` quedan vacíos (null).
+ * Todos los días del mes de `mes` a partir de `movimientos_por_dia` (los totales vienen de SQL;
+ * aquí no se suma nada). Los días posteriores a `hoy` quedan vacíos (null).
  */
-export function serieGastoDiario(filas: readonly FilaGastoDia[], mes: string, hoy: string): GastoDia[] {
+export function serieDiaria(filas: readonly FilaDia[], mes: string, hoy: string): DiaSerie[] {
   const { anio, mes: m } = partesDe(inicioDeMes(mes));
-  const porFecha = new Map(filas.map((f) => [f.fecha, f.gasto_neto]));
+  const porFecha = new Map(filas.map((f) => [f.fecha, f]));
   return Array.from({ length: diasDelMes(anio, m) }, (_, i) => {
     const fecha = componerFecha({ anio, mes: m, dia: i + 1 });
-    const valor = porFecha.get(fecha);
-    return {
-      dia: i + 1,
-      fecha,
-      gasto: fecha > hoy ? null : valor === undefined ? '0.00' : desdeCentimos(aCentimos(valor)),
-      hoy: fecha === hoy,
-    };
+    const fila = porFecha.get(fecha);
+    const datos = fila ? sinFecha(fila) : DIA_VACIO;
+    return { dia: i + 1, fecha, hoy: fecha === hoy, datos: fecha > hoy ? null : datos };
   });
 }
 
+/** Una fila de comparación «este periodo vs el anterior». */
+export interface FilaComparada {
+  id: string;
+  nombre: string;
+  color?: string;
+  actual: string;
+  /** null = no hay periodo anterior que comparar. */
+  anterior: string | null;
+}
+
+/**
+ * Empareja por id las filas del periodo actual y del anterior (las que solo están en uno salen
+ * con 0,00 € en el otro) y ordena de mayor a menor importe actual. `hayAnterior` = false deja
+ * `anterior` a null en todas.
+ */
+export function emparejar(
+  actual: readonly { id: string; nombre: string; color?: string; importe: string }[],
+  anterior: readonly { id: string; nombre: string; color?: string; importe: string }[],
+  hayAnterior: boolean,
+): FilaComparada[] {
+  const previas = new Map(anterior.map((f) => [f.id, f]));
+  const filas: FilaComparada[] = actual.map((f) => ({
+    id: f.id,
+    nombre: f.nombre,
+    ...(f.color !== undefined && { color: f.color }),
+    actual: f.importe,
+    anterior: hayAnterior ? (previas.get(f.id)?.importe ?? '0.00') : null,
+  }));
+  if (hayAnterior) {
+    const ids = new Set(actual.map((f) => f.id));
+    for (const f of anterior) {
+      if (!ids.has(f.id)) {
+        filas.push({ id: f.id, nombre: f.nombre, ...(f.color !== undefined && { color: f.color }), actual: '0.00', anterior: f.importe });
+      }
+    }
+  }
+  return filas.sort((a, b) => compararImportes(b.actual, a.actual) || compararImportes(b.anterior ?? '0', a.anterior ?? '0') || a.nombre.localeCompare(b.nombre));
+}
+
+/**
+ * Posición (0–1) de `valor` entre `min` y `max` (céntimos) para dibujar ejes con negativos.
+ * Solo coordenadas, nunca dinero.
+ */
+export function fraccionEntre(valor: string, min: bigint, max: bigint): number {
+  if (max <= min) return 0;
+  const c = aCentimos(valor);
+  const acotado = c < min ? min : c > max ? max : c;
+  return Number(((acotado - min) * 10_000n) / (max - min)) / 10_000;
+}
 /** Fila de `ingresos_por_categoria` (importe como texto). */
 export interface FilaIngresoCategoria {
   categoria_id: string;
@@ -89,61 +157,6 @@ export function porcentajeDe(parte: bigint, total: bigint): string | null {
   const negativo = cociente < 0n;
   const abs = negativo ? -cociente : cociente;
   return `${negativo ? '-' : ''}${(abs / 10_000n).toString()}.${(abs % 10_000n).toString().padStart(4, '0')}`;
-}
-
-export interface CategoriaGasto {
-  categoria_id: string;
-  nombre: string;
-  color: string;
-  gasto: string;
-}
-
-export interface RepartoCategorias {
-  /** Categorías con gasto neto > 0: entran en el gráfico. Ordenadas de mayor a menor. */
-  positivas: (CategoriaGasto & { porcentaje: string | null })[];
-  /** Categorías con gasto neto < 0 (te devolvieron más de lo que gastaste): se listan aparte. */
-  negativas: (CategoriaGasto & { porcentaje: string | null })[];
-}
-
-/**
- * Reparte el gasto por categoría (sección 8): el % de cada categoría es sobre la suma de las
- * categorías con gasto positivo, así que las del gráfico suman siempre 100 %. Las negativas se
- * muestran aparte, con su número en negativo y sin porcentaje. Las de gasto 0 no se muestran.
- */
-export function repartirCategorias(categorias: readonly CategoriaGasto[]): RepartoCategorias {
-  const conCentimos = categorias.map((c) => ({ ...c, c: aCentimos(c.gasto) }));
-  const total = conCentimos.reduce((s, x) => (x.c > 0n ? s + x.c : s), 0n);
-  const conPct = conCentimos
-    .sort((a, b) => (a.c === b.c ? a.nombre.localeCompare(b.nombre) : a.c > b.c ? -1 : 1))
-    .map((x) => ({ ...x, porcentaje: x.c > 0n ? porcentajeDe(x.c, total) : null }));
-  const limpiar = ({ c: _c, ...resto }: (typeof conPct)[number]) => resto;
-  return {
-    positivas: conPct.filter((x) => x.c > 0n).map(limpiar),
-    negativas: conPct.filter((x) => x.c < 0n).map(limpiar),
-  };
-}
-
-/**
- * Media mensual del balance (sección 8): solo meses completos. Un mes es completo si ya terminó
- * (anterior al mes de `hoy`) y los datos empiezan como tarde su día 1. Redondeo al céntimo
- * (mitades alejándose de cero). null si no hay ningún mes completo («—»).
- */
-export function mediaMensual(
-  meses: readonly { mes: string; balance: string }[],
-  hoy: string,
-  inicioDatos: string | null,
-): string | null {
-  if (inicioDatos === null) return null;
-  const mesActual = inicioDeMes(hoy);
-  const completos = meses.filter((m) => m.mes < mesActual && inicioDatos <= m.mes);
-  if (completos.length === 0) return null;
-  let suma = 0n;
-  for (const m of completos) suma += aCentimos(m.balance);
-  const n = BigInt(completos.length);
-  let media = suma / n;
-  const resto = suma % n;
-  if (2n * (resto < 0n ? -resto : resto) >= n) media += suma < 0n ? -1n : 1n;
-  return desdeCentimos(media);
 }
 
 /**
