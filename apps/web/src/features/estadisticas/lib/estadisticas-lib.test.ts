@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mediaMensual, porcentajeDe, repartirCategorias, repartirIngresos, serieGastoDiario } from './agregaciones';
+import { emparejar, fraccionEntre, porcentajeDe, repartirIngresos, serieDiaria } from './agregaciones';
 import { hayInteranual, mesesDisponibles, periodosComparacion, rangoInteranual, ultimosMeses } from './periodos';
 
 describe('periodosComparacion (sección 8: misma longitud)', () => {
@@ -94,36 +94,50 @@ describe('meses e interanual', () => {
   });
 });
 
-describe('serieGastoDiario (filas de gasto_por_dia)', () => {
-  // gasto_por_dia solo devuelve días con gastos o devoluciones; el resto valen 0.
+
+describe('serieDiaria (filas de movimientos_por_dia)', () => {
+  // movimientos_por_dia solo devuelve días con movimientos; el resto valen 0 y sin lista.
   const filas = [
-    { fecha: '2026-10-03', gasto_neto: '40.00' },
-    { fecha: '2026-10-05', gasto_neto: '0.30' },
-    { fecha: '2026-10-07', gasto_neto: '-30.00' },
+    {
+      fecha: '2026-10-03',
+      gastos: '50.00',
+      devoluciones: '10.00',
+      gasto_neto: '40.00',
+      ingresos: '0.00',
+      movimientos: [
+        { id: 'a', tipo: 'gasto' as const, concepto: 'Cena', importe: '50.00' },
+        { id: 'b', tipo: 'devolucion' as const, concepto: 'Ana', importe: '10.00' },
+      ],
+    },
+    { fecha: '2026-10-07', gastos: '0.00', devoluciones: '30.00', gasto_neto: '-30.00', ingresos: '0.00', movimientos: [] },
   ];
 
-  it('rellena todos los días del mes y respeta negativos', () => {
-    const dias = serieGastoDiario(filas, '2026-10-01', '2026-10-19');
+  it('rellena todos los días del mes con los totales de SQL, sin sumar nada', () => {
+    const dias = serieDiaria(filas, '2026-10-01', '2026-10-19');
     expect(dias).toHaveLength(31);
-    expect(dias[2]).toEqual({ dia: 3, fecha: '2026-10-03', gasto: '40.00', hoy: false });
-    expect(dias[4]?.gasto).toBe('0.30');
-    expect(dias[6]?.gasto).toBe('-30.00');
-    expect(dias[0]?.gasto).toBe('0.00');
+    expect(dias[2]).toEqual({
+      dia: 3,
+      fecha: '2026-10-03',
+      hoy: false,
+      datos: { gastos: '50.00', devoluciones: '10.00', gasto_neto: '40.00', ingresos: '0.00', movimientos: filas[0]?.movimientos },
+    });
+    expect(dias[6]?.datos?.gasto_neto).toBe('-30.00');
+    expect(dias[0]?.datos).toEqual({ gastos: '0.00', devoluciones: '0.00', gasto_neto: '0.00', ingresos: '0.00', movimientos: [] });
   });
 
   it('los días futuros quedan vacíos y hoy se marca como provisional', () => {
-    const dias = serieGastoDiario(filas, '2026-10-01', '2026-10-19');
-    expect(dias[18]).toMatchObject({ dia: 19, hoy: true, gasto: '0.00' });
-    expect(dias.slice(19).every((d) => d.gasto === null)).toBe(true);
+    const dias = serieDiaria(filas, '2026-10-01', '2026-10-19');
+    expect(dias[18]).toMatchObject({ dia: 19, hoy: true });
+    expect(dias[18]?.datos).not.toBeNull();
+    expect(dias.slice(19).every((d) => d.datos === null)).toBe(true);
   });
 
   it('un mes cerrado tiene todos sus días', () => {
-    const dias = serieGastoDiario([], '2026-09-01', '2026-10-19');
+    const dias = serieDiaria([], '2026-09-01', '2026-10-19');
     expect(dias).toHaveLength(30);
-    expect(dias.every((d) => d.gasto === '0.00' && !d.hoy)).toBe(true);
+    expect(dias.every((d) => d.datos !== null && !d.hoy)).toBe(true);
   });
 });
-
 describe('repartirIngresos (filas de ingresos_por_categoria)', () => {
   it('% sobre el total de ingresos, exacto en céntimos', () => {
     const r = repartirIngresos([
@@ -141,68 +155,43 @@ describe('repartirIngresos (filas de ingresos_por_categoria)', () => {
   });
 });
 
-describe('repartirCategorias (sección 8 y caso de la sección 11)', () => {
-  it('categoría negativa (20 € de gasto y 50 € de devoluciones = −30,00 €) se lista aparte, fuera del gráfico', () => {
-    const r = repartirCategorias(
-      [
-        { categoria_id: 'otros', nombre: 'Otros gastos', color: '#8f9bbd', gasto: '-30.00' },
-        { categoria_id: 'ocio', nombre: 'Ocio', color: '#9b6bff', gasto: '40.00' },
-        { categoria_id: 'rest', nombre: 'Restaurantes', color: '#ff8a3d', gasto: '90.00' },
-        { categoria_id: 'cero', nombre: 'Cero', color: '#000000', gasto: '0.00' },
-      ],
-    );
-    // % sobre la suma de las positivas (130 €): suman 100 % aunque haya una negativa.
-    expect(r.positivas.map((c) => [c.nombre, c.porcentaje])).toEqual([
-      ['Restaurantes', '69.2308'],
-      ['Ocio', '30.7692'],
-    ]);
-    expect(r.negativas).toEqual([
-      { categoria_id: 'otros', nombre: 'Otros gastos', color: '#8f9bbd', gasto: '-30.00', porcentaje: null },
+describe('emparejar (este periodo vs el anterior)', () => {
+  const actual = [
+    { id: 'ocio', nombre: 'Ocio', importe: '40.00' },
+    { id: 'super', nombre: 'Súper', importe: '120.00' },
+  ];
+  const anterior = [
+    { id: 'super', nombre: 'Súper', importe: '100.00' },
+    { id: 'viajes', nombre: 'Viajes', importe: '80.00' },
+  ];
+
+  it('une por id, pone 0,00 € en el periodo que falta y ordena por el importe actual', () => {
+    expect(emparejar(actual, anterior, true)).toEqual([
+      { id: 'super', nombre: 'Súper', actual: '120.00', anterior: '100.00' },
+      { id: 'ocio', nombre: 'Ocio', actual: '40.00', anterior: '0.00' },
+      { id: 'viajes', nombre: 'Viajes', actual: '0.00', anterior: '80.00' },
     ]);
   });
 
-  it('% sobre gastos netos 0 → sin porcentaje', () => {
-    expect(porcentajeDe(100n, 0n)).toBeNull();
-    expect(porcentajeDe(1n, 3n)).toBe('33.3333');
-    expect(porcentajeDe(2n, 3n)).toBe('66.6667');
+  it('sin periodo anterior (sección 8) no hay comparación', () => {
+    expect(emparejar(actual, anterior, false)).toEqual([
+      { id: 'super', nombre: 'Súper', actual: '120.00', anterior: null },
+      { id: 'ocio', nombre: 'Ocio', actual: '40.00', anterior: null },
+    ]);
   });
 });
 
-describe('mediaMensual (solo meses completos)', () => {
-  const meses = [
-    { mes: '2026-06-01', balance: '210.50' },
-    { mes: '2026-07-01', balance: '-45.20' },
-    { mes: '2026-08-01', balance: '229.60' },
-    { mes: '2026-09-01', balance: '339.72' },
-    { mes: '2026-10-01', balance: '2458.32' }, // en curso: no entra
-  ];
-
-  it('excluye el mes en curso', () => {
-    // (210,50 − 45,20 + 229,60 + 339,72) / 4 = 183,655 → 183,66
-    expect(mediaMensual(meses, '2026-10-19', '2026-01-01')).toBe('183.66');
+describe('dibujo', () => {
+  it('fraccionEntre sitúa importes con negativos en el eje, acotados', () => {
+    expect(fraccionEntre('0', -10_000n, 10_000n)).toBe(0.5);
+    expect(fraccionEntre('-100.00', -10_000n, 10_000n)).toBe(0);
+    expect(fraccionEntre('500.00', -10_000n, 10_000n)).toBe(1);
+    expect(fraccionEntre('1', 0n, 0n)).toBe(0);
   });
 
-  it('excluye meses anteriores a los datos o empezados a mitad', () => {
-    // datos desde el 12/07: julio está incompleto → (229,60 + 339,72) / 2 = 284,66
-    expect(mediaMensual(meses, '2026-10-19', '2026-07-12')).toBe('284.66');
-  });
-
-  it('sin meses completos → null («—»)', () => {
-    expect(mediaMensual(meses, '2026-10-19', '2026-09-03')).toBeNull();
-    expect(mediaMensual([], '2026-10-19', '2026-01-01')).toBeNull();
-    expect(mediaMensual(meses, '2026-10-19', null)).toBeNull();
-  });
-
-  it('redondeo de medias negativas alejándose de cero', () => {
-    expect(
-      mediaMensual(
-        [
-          { mes: '2026-08-01', balance: '-0.01' },
-          { mes: '2026-09-01', balance: '-0.02' },
-        ],
-        '2026-10-19',
-        '2026-01-01',
-      ),
-    ).toBe('-0.02');
+  it('porcentajeDe: 4 decimales exactos; sin base, null', () => {
+    expect(porcentajeDe(100n, 0n)).toBeNull();
+    expect(porcentajeDe(1n, 3n)).toBe('33.3333');
+    expect(porcentajeDe(2n, 3n)).toBe('66.6667');
   });
 });

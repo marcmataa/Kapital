@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { api, aErrorApi, type ErrorApi } from '@/app/api';
 import { supabase } from '@/shared/lib/supabase';
-import type { FilaGastoDia, FilaIngresoCategoria } from '../lib/agregaciones';
+import type { FilaDia, FilaIngresoCategoria } from '../lib/agregaciones';
 import type { Rango } from '../lib/periodos';
 
 /*
  * Datos de Estadísticas. PostgREST devuelve `numeric` como número JSON: todos los importes se
  * piden con `::text`, también en las funciones que devuelven tabla, y se validan con zod
- * (si llegara un número en lugar de un string, la respuesta se rechaza).
+ * (si llegara un número en lugar de un string, la respuesta se rechaza). Todas las sumas,
+ * medias y porcentajes salen de SQL.
  */
 
 const importe = z.string().regex(/^-?\d+(\.\d+)?$/);
@@ -38,21 +39,21 @@ export const METODOS = ['tarjeta', 'apple_pay', 'efectivo', 'transferencia', 'bi
 const esquemaMetodo = z.object({ metodo: z.enum(METODOS).nullable(), gasto: importe });
 export type GastoMetodo = z.infer<typeof esquemaMetodo>;
 
-const esquemaVariacion = z.object({
-  patrimonio_inicial: importe,
-  patrimonio_final: importe,
-  balance: importe,
-  revalorizacion: importe,
-  ajustes: importe,
-  saldos_iniciales: importe,
-  variacion: importe,
+const esquemaMovimientoDia = z.object({
+  id: z.string(),
+  tipo: z.enum(['gasto', 'devolucion', 'ingreso']),
+  concepto: z.string(),
+  importe,
 });
-export type VariacionPatrimonial = z.infer<typeof esquemaVariacion>;
 
-const esquemaGastoDia = z.object({
+const esquemaDia = z.object({
   fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  gastos: importe,
+  devoluciones: importe,
   gasto_neto: importe,
-}) satisfies z.ZodType<FilaGastoDia>;
+  ingresos: importe,
+  movimientos: z.array(esquemaMovimientoDia),
+}) satisfies z.ZodType<FilaDia>;
 
 const esquemaIngresoCategoria = z.object({
   categoria_id: z.string(),
@@ -61,8 +62,39 @@ const esquemaIngresoCategoria = z.object({
   ingreso: importe,
 }) satisfies z.ZodType<FilaIngresoCategoria>;
 
+const esquemaComparativa = z.object({
+  gastos_netos: importe,
+  gastos_netos_anterior: importe.nullable(),
+  variacion_gastos: importe.nullable(),
+  ingresos: importe,
+  ingresos_anterior: importe.nullable(),
+  variacion_ingresos: importe.nullable(),
+  balance: importe,
+  balance_anterior: importe.nullable(),
+  variacion_balance: importe.nullable(),
+  dias: z.number().int().positive(),
+  gasto_medio_diario: importe,
+  mayor_concepto: z.string().nullable(),
+  mayor_importe: importe.nullable(),
+});
+export type Comparativa = z.infer<typeof esquemaComparativa>;
+
+const esquemaFueraBalance = z.object({
+  tipo: z.enum(['traspaso', 'ajuste']),
+  cuenta: z.string(),
+  cuenta_destino: z.string().nullable(),
+  sentido: z.enum(['suma', 'resta']).nullable(),
+  importe,
+});
+export type FilaFueraBalance = z.infer<typeof esquemaFueraBalance>;
+
 const COLUMNAS_RESUMEN =
   'ingresos::text, gastos::text, devoluciones::text, gastos_netos::text, balance::text, ahorro_pct::text, ajustes::text';
+
+const COLUMNAS_COMPARATIVA =
+  'gastos_netos::text, gastos_netos_anterior::text, variacion_gastos::text, ingresos::text, ingresos_anterior::text, ' +
+  'variacion_ingresos::text, balance::text, balance_anterior::text, variacion_balance::text, dias, ' +
+  'gasto_medio_diario::text, mayor_concepto, mayor_importe::text';
 
 type Resultado<T> = { data: T } | { error: ErrorApi };
 
@@ -79,6 +111,12 @@ async function validar<T>(consulta: PromiseLike<{ data: unknown; error: unknown 
 }
 
 const p = (r: Rango) => ({ p_desde: r.desde, p_hasta: r.hasta });
+
+/** Tramo actual y el mismo tramo del mes anterior (null = no existe, sección 8). */
+export interface TramosComparacion {
+  actual: Rango;
+  anterior: Rango | null;
+}
 
 export const estadisticasApi = api.injectEndpoints({
   endpoints: (b) => ({
@@ -106,7 +144,7 @@ export const estadisticasApi = api.injectEndpoints({
           supabase.rpc('gasto_por_categoria', p(r)).select('categoria_id, nombre, color, gasto::text'),
           z.array(esquemaCategoria),
         ),
-      providesTags: ['Resumen'],
+      providesTags: ['Resumen', 'Categorias'],
     }),
 
     /** Gasto por método de pago: solo gastos; las devoluciones no restan aquí. */
@@ -116,25 +154,15 @@ export const estadisticasApi = api.injectEndpoints({
       providesTags: ['Resumen'],
     }),
 
-    /** Variación patrimonial entre el cierre de d1 y el de d2 (sección 5). */
-    estadisticasVariacion: b.query<VariacionPatrimonial, { d1: string; d2: string }>({
-      queryFn: ({ d1, d2 }) =>
+    /** Por día: gastos, devoluciones, gasto neto, ingresos y la lista de esos movimientos (SQL). */
+    estadisticasMovimientosPorDia: b.query<FilaDia[], Rango>({
+      queryFn: (r) =>
         validar(
           supabase
-            .rpc('variacion_patrimonial', { p_d1: d1, p_d2: d2 })
-            .select(
-              'patrimonio_inicial::text, patrimonio_final::text, balance::text, revalorizacion::text, ajustes::text, saldos_iniciales::text, variacion::text',
-            )
-            .single(),
-          esquemaVariacion,
+            .rpc('movimientos_por_dia', p(r))
+            .select('fecha, gastos::text, devoluciones::text, gasto_neto::text, ingresos::text, movimientos'),
+          z.array(esquemaDia),
         ),
-      providesTags: ['Resumen'],
-    }),
-
-    /** Gasto neto por día (gastos − devoluciones), agregado en SQL; solo días con movimientos. */
-    estadisticasGastoPorDia: b.query<FilaGastoDia[], Rango>({
-      queryFn: (r) =>
-        validar(supabase.rpc('gasto_por_dia', p(r)).select('fecha, gasto_neto::text'), z.array(esquemaGastoDia)),
       providesTags: ['Resumen', 'Movimientos'],
     }),
 
@@ -147,6 +175,34 @@ export const estadisticasApi = api.injectEndpoints({
         ),
       providesTags: ['Resumen', 'Movimientos', 'Categorias'],
     }),
+
+    /** Tramo contra el mismo tramo del mes anterior: totales, variaciones, gasto medio y mayor gasto. */
+    estadisticasComparativa: b.query<Comparativa, TramosComparacion>({
+      queryFn: ({ actual, anterior }) =>
+        validar(
+          supabase
+            .rpc('comparativa_estadisticas', {
+              ...p(actual),
+              ...(anterior !== null && { p_desde_ant: anterior.desde, p_hasta_ant: anterior.hasta }),
+            })
+            .select(COLUMNAS_COMPARATIVA)
+            .single(),
+          esquemaComparativa,
+        ),
+      providesTags: ['Resumen', 'Movimientos'],
+    }),
+
+    /** Traspasos y ajustes del tramo: se muestran aparte, nunca en el balance. */
+    estadisticasFueraDelBalance: b.query<FilaFueraBalance[], Rango>({
+      queryFn: (r) =>
+        validar(
+          supabase
+            .rpc('fuera_del_balance', p(r))
+            .select('tipo, cuenta, cuenta_destino, sentido, importe::text'),
+          z.array(esquemaFueraBalance),
+        ),
+      providesTags: ['Resumen', 'Movimientos', 'Cuentas'],
+    }),
   }),
 });
 
@@ -155,7 +211,8 @@ export const {
   useEstadisticasResumenMensualQuery,
   useEstadisticasGastoPorCategoriaQuery,
   useEstadisticasGastoPorMetodoQuery,
-  useEstadisticasVariacionQuery,
-  useEstadisticasGastoPorDiaQuery,
+  useEstadisticasMovimientosPorDiaQuery,
   useEstadisticasIngresosPorCategoriaQuery,
+  useEstadisticasComparativaQuery,
+  useEstadisticasFueraDelBalanceQuery,
 } = estadisticasApi;

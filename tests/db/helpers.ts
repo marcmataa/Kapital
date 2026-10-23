@@ -12,10 +12,12 @@ export const MIGRACION_ONBOARDING = leer('supabase/migrations/20261019000000_onb
 export const ROLLBACK_ONBOARDING = leer('supabase/rollback/20261019000000_onboarding_y_analisis.down.sql');
 export const MIGRACION_CORRECCIONES = leer('supabase/migrations/20261020000000_correcciones.sql');
 export const ROLLBACK_CORRECCIONES = leer('supabase/rollback/20261020000000_correcciones.down.sql');
+export const MIGRACION_ESTADISTICAS = leer('supabase/migrations/20261023000002_estadisticas.sql');
+export const ROLLBACK_ESTADISTICAS = leer('supabase/rollback/20261023000002_estadisticas.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
-export const MIGRACIONES = [MIGRACION, MIGRACION_ONBOARDING, MIGRACION_CORRECCIONES];
+export const MIGRACIONES = [MIGRACION, MIGRACION_ONBOARDING, MIGRACION_CORRECCIONES, MIGRACION_ESTADISTICAS];
 /** Todos los rollbacks, en orden inverso. */
-export const ROLLBACKS = [ROLLBACK_CORRECCIONES, ROLLBACK_ONBOARDING, ROLLBACK];
+export const ROLLBACKS = [ROLLBACK_ESTADISTICAS, ROLLBACK_CORRECCIONES, ROLLBACK_ONBOARDING, ROLLBACK];
 
 export type TipoMovimiento = 'gasto' | 'ingreso' | 'devolucion' | 'traspaso' | 'ajuste';
 export type TipoCuenta = 'banco' | 'efectivo' | 'inversion' | 'pasivo' | 'por_cobrar';
@@ -96,6 +98,8 @@ export interface NuevoMovimiento {
   sentido?: 'suma' | 'resta';
   devolucionDe?: string;
   metodo?: string;
+  /** Por defecto, «<tipo> de prueba». */
+  concepto?: string;
 }
 
 export async function mov(db: PGlite, userId: string, m: NuevoMovimiento): Promise<string> {
@@ -105,7 +109,7 @@ export async function mov(db: PGlite, userId: string, m: NuevoMovimiento): Promi
                               sentido, devolucion_de, metodo, concepto)
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
     [userId, m.tipo, m.importe, m.fecha, m.cuenta, m.destino ?? null, m.categoria ?? null,
-     m.sentido ?? null, m.devolucionDe ?? null, m.metodo ?? null, `${m.tipo} de prueba`],
+     m.sentido ?? null, m.devolucionDe ?? null, m.metodo ?? null, m.concepto ?? `${m.tipo} de prueba`],
   );
   return fila.id;
 }
