@@ -16,6 +16,8 @@ export const MIGRACION_VALORES_CUENTAS = leer('supabase/migrations/2026102300000
 export const ROLLBACK_VALORES_CUENTAS = leer('supabase/rollback/20261023000000_valores_cuentas.down.sql');
 export const MIGRACION_CATEGORIAS_CLAVE = leer('supabase/migrations/20261023000001_categorias_clave.sql');
 export const ROLLBACK_CATEGORIAS_CLAVE = leer('supabase/rollback/20261023000001_categorias_clave.down.sql');
+export const MIGRACION_ESTADISTICAS = leer('supabase/migrations/20261023000002_estadisticas.sql');
+export const ROLLBACK_ESTADISTICAS = leer('supabase/rollback/20261023000002_estadisticas.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
 export const MIGRACIONES = [
   MIGRACION,
@@ -23,9 +25,11 @@ export const MIGRACIONES = [
   MIGRACION_CORRECCIONES,
   MIGRACION_VALORES_CUENTAS,
   MIGRACION_CATEGORIAS_CLAVE,
+  MIGRACION_ESTADISTICAS,
 ];
 /** Todos los rollbacks, en orden inverso. */
 export const ROLLBACKS = [
+  ROLLBACK_ESTADISTICAS,
   ROLLBACK_CATEGORIAS_CLAVE,
   ROLLBACK_VALORES_CUENTAS,
   ROLLBACK_CORRECCIONES,
@@ -112,6 +116,8 @@ export interface NuevoMovimiento {
   sentido?: 'suma' | 'resta';
   devolucionDe?: string;
   metodo?: string;
+  /** Por defecto, «<tipo> de prueba». */
+  concepto?: string;
 }
 
 export async function mov(db: PGlite, userId: string, m: NuevoMovimiento): Promise<string> {
@@ -121,7 +127,7 @@ export async function mov(db: PGlite, userId: string, m: NuevoMovimiento): Promi
                               sentido, devolucion_de, metodo, concepto)
      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) returning id`,
     [userId, m.tipo, m.importe, m.fecha, m.cuenta, m.destino ?? null, m.categoria ?? null,
-     m.sentido ?? null, m.devolucionDe ?? null, m.metodo ?? null, `${m.tipo} de prueba`],
+     m.sentido ?? null, m.devolucionDe ?? null, m.metodo ?? null, m.concepto ?? `${m.tipo} de prueba`],
   );
   return fila.id;
 }

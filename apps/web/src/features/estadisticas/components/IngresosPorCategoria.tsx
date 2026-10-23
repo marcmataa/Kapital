@@ -10,15 +10,17 @@ export function IngresosPorCategoria({ ingresos }: { ingresos: readonly IngresoC
   const nombreCategoria = useNombreCategoriaCatalogo();
   return (
     <Card titulo={t('ingresos.titulo')}>
-      {ingresos.length === 0 ? (
-        <EmptyState titulo={t('ingresos.vacio')} className="py-6" />
-      ) : (
-        <BarrasCategorias
-          etiqueta={t('ingresos.titulo')}
-          filas={ingresos.map((i) => ({ ...i, nombre: nombreCategoria(i) }))}
-        />
-      )}
-      <p className="mt-3 text-xs text-apagado sm:text-sm">{t('ingresos.nota')}</p>
+      <div className="flex flex-col gap-3">
+        {ingresos.length === 0 ? (
+          <EmptyState titulo={t('ingresos.vacio')} className="py-6" />
+        ) : (
+          <BarrasCategorias
+            etiqueta={t('ingresos.titulo')}
+            filas={ingresos.map((i) => ({ ...i, nombre: nombreCategoria(i) }))}
+          />
+        )}
+        <p className="text-xs text-apagado sm:text-sm">{t('ingresos.nota')}</p>
+      </div>
     </Card>
   );
 }

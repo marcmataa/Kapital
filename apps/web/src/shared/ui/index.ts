@@ -6,6 +6,7 @@ export { EmptyState } from './EmptyState';
 export { ErrorBoundary, FallbackError } from './ErrorBoundary';
 export { Field, clasesControl, type FieldProps, type PropsControl } from './Field';
 export { Input, type InputProps } from './Input';
+export { LecturaGrafico } from './LecturaGrafico';
 export { MoneyInput, importeParaEditar, separadorDecimal, type MoneyInputProps } from './MoneyInput';
 export { SegmentedControl, type OpcionSegmento } from './SegmentedControl';
 export { Select, type SelectProps } from './Select';

@@ -12,16 +12,18 @@ interface Props {
   subirEsBueno: boolean;
   /** Contexto ya formateado: «vs 1.037,40 € (1–19 sept)». */
   contexto?: string;
+  /** Variación ya calculada en SQL (4+ decimales); si se pasa, no se calcula aquí. null = sin base. */
+  porcentaje?: string | null;
 }
 
 const FLECHA = { 1: ArrowUp, [-1]: ArrowDown, 0: Minus } as const;
 
 /** «↓ −7,3 % vs …» o «Sin datos del mes anterior» si la base es 0 o no existe. */
-export function LineaVariacion({ actual, anterior, subirEsBueno, contexto }: Props) {
+export function LineaVariacion({ actual, anterior, subirEsBueno, contexto, porcentaje }: Props) {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
-  const pct = variacionPorcentual(actual, anterior);
+  const pct = porcentaje !== undefined ? porcentaje : variacionPorcentual(actual, anterior);
   if (pct === null) return <p className="text-xs text-apagado sm:text-sm">{t('comparativa.sinDatosAnterior')}</p>;
   const s = signoPorcentaje(pct);
   const Flecha = FLECHA[s];
