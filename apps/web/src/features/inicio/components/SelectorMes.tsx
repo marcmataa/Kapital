@@ -1,33 +1,27 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useIdioma, useT } from '@/shared/i18n';
 import { formatearMes } from '@/shared/lib/fechas';
-import { Button, Select } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 import { capitalizar } from '../lib/calculos';
 
 interface Props {
   mes: string;
-  /** Meses elegibles, del más reciente al más antiguo. */
-  meses: readonly string[];
-  mesActual: string;
   anterior: string | null;
   siguiente: string | null;
   onElegir: (mes: string) => void;
 }
 
 /**
- * ‹ mes › de Inicio. El desplegable es el mismo de Estadísticas («Octubre de 2026 · hasta hoy»);
- * las flechas se desactivan en los límites (primera cuenta y mes en curso: no hay futuro).
+ * ‹ Octubre de 2026 › de Inicio: solo flechas; el mes es texto (sin desplegable) y se anuncia al
+ * cambiar (aria-live). Las flechas se desactivan en los límites (primera cuenta y mes en curso:
+ * no hay futuro).
  */
-export function SelectorMes({ mes, meses, mesActual, anterior, siguiente, onElegir }: Props) {
+export function SelectorMes({ mes, anterior, siguiente, onElegir }: Props) {
   const t = useT('inicio');
   const { locale } = useIdioma();
-  const etiqueta = (m: string) => {
-    const nombre = capitalizar(formatearMes(m, locale), locale);
-    return m === mesActual ? t('selector.enCurso', { mes: nombre }) : nombre;
-  };
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div role="group" aria-label={t('selector.etiqueta')} className="flex items-center gap-1.5">
       <Button
         variante="secundario"
         aria-label={t('selector.anterior')}
@@ -36,19 +30,14 @@ export function SelectorMes({ mes, meses, mesActual, anterior, siguiente, onEleg
         onClick={() => anterior !== null && onElegir(anterior)}
         className="w-11 px-0"
       />
-      <Select
-        label={t('selector.etiqueta')}
-        etiquetaOculta
-        value={mes}
-        onChange={(e) => onElegir(e.target.value)}
-        className="min-w-56"
+      <span
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="mes-seleccionado"
+        className="min-w-40 text-center text-sm font-semibold text-texto"
       >
-        {meses.map((m) => (
-          <option key={m} value={m}>
-            {etiqueta(m)}
-          </option>
-        ))}
-      </Select>
+        {capitalizar(formatearMes(mes, locale), locale)}
+      </span>
       <Button
         variante="secundario"
         aria-label={t('selector.siguiente')}

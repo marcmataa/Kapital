@@ -9,7 +9,6 @@ export default {
   'error.cargar': "No s'han pogut carregar aquestes dades.",
 
   'selector.etiqueta': 'Mes',
-  'selector.enCurso': '{mes} · fins avui',
   'selector.anterior': 'Mes anterior',
   'selector.siguiente': 'Mes següent',
 
@@ -21,6 +20,7 @@ export default {
   'kpi.vsTramo': 'vs 1–{dia} {mes}',
   'kpi.sinAnterior': 'Sense dades del mes anterior',
   'kpi.sinValor': '—',
+  'kpi.cuentas': 'Patrimoni per compte',
 
   'grafico.titulo': 'Evolució del teu capital',
   'grafico.ejeX': 'Dia del mes',

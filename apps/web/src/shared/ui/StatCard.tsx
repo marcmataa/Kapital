@@ -24,6 +24,10 @@ interface Props {
   variacion?: VariacionStat;
   /** Texto cuando no hay variación (p. ej. «Sin datos del mes anterior»). */
   pie?: ReactNode;
+  /** Cifra protagonista: más grande en móvil (p. ej. el patrimonio de Inicio). */
+  destacado?: boolean;
+  /** Contenido bajo la cifra (p. ej. el desglose por cuenta). */
+  children?: ReactNode;
   className?: string;
 }
 
@@ -43,7 +47,17 @@ function colorVariacion({ tendencia, subirEsBueno = true }: VariacionStat): stri
 const FLECHA = { sube: ArrowUp, baja: ArrowDown, igual: Minus } as const;
 
 /** Tarjeta KPI (Saldo actual, Ingresos, Gastos…) como en el diseño. */
-export function StatCard({ titulo, valor, icono, tono = 'acento', variacion, pie, className }: Props) {
+export function StatCard({
+  titulo,
+  valor,
+  icono,
+  tono = 'acento',
+  variacion,
+  pie,
+  destacado = false,
+  children,
+  className,
+}: Props) {
   const Flecha = FLECHA[variacion?.tendencia ?? 'igual'];
   return (
     <article
@@ -57,9 +71,16 @@ export function StatCard({ titulo, valor, icono, tono = 'acento', variacion, pie
           {icono}
         </div>
       )}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <h3 className="text-sm text-apagado">{titulo}</h3>
-        <p className="cifras mt-1 truncate text-2xl font-semibold tracking-tight text-texto sm:text-3xl">{valor}</p>
+        <p
+          className={cx(
+            'cifras mt-1 truncate font-semibold tracking-tight text-texto sm:text-3xl',
+            destacado ? 'text-4xl' : 'text-2xl',
+          )}
+        >
+          {valor}
+        </p>
         {variacion ? (
           <p className="mt-1 flex flex-wrap items-center gap-1 text-xs">
             <span className={cx('inline-flex items-center gap-0.5 font-medium', colorVariacion(variacion))}>
@@ -71,6 +92,7 @@ export function StatCard({ titulo, valor, icono, tono = 'acento', variacion, pie
         ) : (
           pie !== undefined && <p className="mt-1 text-xs text-apagado">{pie}</p>
         )}
+        {children}
       </div>
     </article>
   );
