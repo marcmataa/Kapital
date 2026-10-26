@@ -21,6 +21,10 @@ export default {
   'kpi.sinAnterior': 'No data for the previous month',
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Net worth by account',
+  'kpi.balance': 'Balance · 1–{dia} {mes}',
+  'kpi.ahorro': 'Savings {porcentaje}',
+  'kpi.topIngresos': 'Top income categories',
+  'kpi.topGastos': 'Top spending categories',
 
   'grafico.titulo': 'How your wealth is evolving',
   'grafico.ejeX': 'Day of the month',
@@ -29,12 +33,12 @@ export default {
   'grafico.alternativa':
     'Daily net worth for {mesActual} up to today ({valorHoy}) compared with {mesAnterior}. Use the chart control to go through each day.',
   'grafico.ayuda':
-    'Hover or drag your finger over the chart, or use the arrow keys, to see each day. The hollow dot is today: provisional until 23:59.',
+    'The hollow dot is today: provisional until 23:59.',
   'grafico.vacio': 'There is no net worth data this month yet.',
   'grafico.alternativaCerrado':
     'Daily net worth for {mesActual} up to {fecha} ({valorHoy}) compared with {mesAnterior}. Use the chart control to go through each day.',
   'grafico.ayudaCerrado':
-    'Hover or drag your finger over the chart, or use the arrow keys, to see each day. The last dot is the month-end close.',
+    'The last dot is the month-end close.',
   'grafico.vacioCerrado': 'There is no net worth data for that month.',
   'grafico.lectura.hoy': '{fecha} · today (provisional)',
   'grafico.lectura.comparacion': 'vs {fecha} {valor} · {diferencia} ({porcentaje})',
@@ -51,6 +55,7 @@ export default {
   'categorias.grafico': 'Donut chart of net spending by category',
   'categorias.lista': 'Net spending by category',
   'categorias.negativa': 'You got back more than you spent: not included in the chart.',
+  'categorias.verMovimientos': 'See this month’s {categoria} transactions',
 
   'analisis.titulo': 'From your {mes} analysis',
   'analisis.ia': 'AI',
@@ -77,6 +82,12 @@ export default {
   'objetivos.progreso': '{actual} / {objetivo}',
   'objetivos.superado': 'Exceeded',
   'objetivos.conseguido': 'Achieved',
+  'objetivos.superadoEn': 'Exceeded by {importe}',
+  'objetivos.proyeccion': '{dias} days left · you need to save {importe}/day',
+  'objetivos.proyeccionUltimoDia': '1 day left · you need to save {importe} today',
+
+  'otros.aviso': '“{categoria}” is {porcentaje} of this month’s spending ({importe}). Recategorise it to see where your money goes.',
+  'otros.recategorizar': 'Recategorise',
   'objetivos.categoriaDesconocida': 'Category',
 
   'form.titulo': 'New goal',

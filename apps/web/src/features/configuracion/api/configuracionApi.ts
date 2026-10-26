@@ -32,6 +32,15 @@ export interface NuevoBanco {
   color: string | null;
   /** Saldo normalizado ('1258.50', '0.00'), salida de `parsearImporte`. */
   saldo: string;
+  /** Fecha de partida ('aaaa-mm-dd', no futura); null = hoy. */
+  fechaInicial?: string | null;
+}
+
+/** Gasto neto medio mensual de una categoría (`media_gasto_categoria`). */
+export interface MediaCategoria {
+  /** 'd.dddd…' sin redondear, o null si aún no hay meses completos. */
+  media: string | null;
+  meses: number;
 }
 
 export interface NuevaCategoria {
@@ -79,7 +88,11 @@ export const configuracionApi = api.injectEndpoints({
       invalidatesTags: ['Perfil'],
     }),
 
-    /** Alta de banco con saldo de hoy. 23514: límite de 5; 23505: nombre repetido; 22023: saldo no válido. */
+    /**
+     * Alta de banco con su saldo en la fecha de partida (hoy si no se indica). 23514: límite de 5;
+     * 23505: nombre repetido; 22023: saldo no válido; 22007: fecha futura. `p_fecha_inicial` solo
+     * se envía si hay fecha (migración 20261024000001).
+     */
     configCrearBanco: b.mutation<string, NuevoBanco>({
       queryFn: (banco) =>
         ejecutar(
@@ -88,6 +101,7 @@ export const configuracionApi = api.injectEndpoints({
             p_nombre: banco.nombre,
             p_color: banco.color,
             p_saldo: banco.saldo,
+            ...(banco.fechaInicial ? { p_fecha_inicial: banco.fechaInicial } : {}),
           }),
         ),
       invalidatesTags: ['Cuentas', 'Resumen'],
@@ -134,6 +148,23 @@ export const configuracionApi = api.injectEndpoints({
       invalidatesTags: ['Categorias'],
     }),
 
+    /** Media mensual de una categoría con meses completos (el mes en curso no entra). */
+    configMediaCategoria: b.query<MediaCategoria | null, string>({
+      queryFn: async (categoriaId) => {
+        try {
+          const { data, error } = await supabase
+            .rpc('media_gasto_categoria', { p_categoria: categoriaId, p_meses: 3 })
+            .select('media::text, meses');
+          if (error) return { error: aErrorApi(error) };
+          const fila = (data as unknown as MediaCategoria[] | null)?.[0];
+          return { data: fila ?? null };
+        } catch (e) {
+          return { error: aErrorApi(e) };
+        }
+      },
+      providesTags: ['Movimientos', 'Categorias'],
+    }),
+
     configListarTokens: b.query<TokenApi[], void>({
       queryFn: () =>
         ejecutar(supabase.from('tokens_api').select(COLUMNAS_TOKENS).order('created_at', { ascending: false })),
@@ -156,6 +187,7 @@ export const {
   useConfigCrearCategoriaMutation,
   useConfigActualizarCategoriaMutation,
   useConfigReordenarCategoriasMutation,
+  useConfigMediaCategoriaQuery,
   useConfigListarTokensQuery,
   useConfigRevocarTokenMutation,
 } = configuracionApi;

@@ -7,12 +7,12 @@ import { CabeceraPagina } from '@/shared/layout';
 import { formatearFechaHora, formatearMes, inicioDeMes, sumarMeses } from '@/shared/lib/fechas';
 import { Button, Card, EmptyState, Spinner } from '@/shared/ui';
 import { useAnalisisListarQuery, useAnalisisObtenerQuery, type AnalisisDetalle } from '../api/analisisApi';
-import { BarrasIngresosGastos } from '../components/BarrasIngresosGastos';
 import { BotonGenerar } from '../components/BotonGenerar';
 import { CategoriasMes } from '../components/CategoriasMes';
 import { ChipsMeses } from '../components/ChipsMeses';
 import { CifrasMes } from '../components/CifrasMes';
 import { ComentarioIA } from '../components/ComentarioIA';
+import { GraficoCascada } from '../components/GraficoCascada';
 import { useAhora } from '../hooks/useAhora';
 import { useLocale } from '../hooks/useLocale';
 import { useSondeoAnalisis } from '../hooks/useSondeoAnalisis';
@@ -30,7 +30,7 @@ export default function PaginaAnalisisMes() {
 
   return (
     <>
-      <CabeceraPagina titulo={titulo} volverA="/analisis" />
+      <CabeceraPagina titulo={titulo} />
       {mes === null ? (
         <Card>
           <EmptyState titulo={t('detalle.mesInvalido')} />
@@ -217,7 +217,7 @@ function AnalisisListo({
       )}
       <CifrasMes datos={datos} />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <BarrasIngresosGastos mes={analisis.mes} actual={datos.resumen} anterior={datos.resumen_mes_anterior} />
+        <GraficoCascada pasos={datos.cascada} />
         <CategoriasMes datos={datos} />
       </div>
       <ComentarioIA

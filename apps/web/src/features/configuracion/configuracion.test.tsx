@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Route, Routes } from 'react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -22,6 +23,7 @@ const db = vi.hoisted(() => ({
   llamadas: [] as Llamada[],
   datos: {} as Record<string, unknown>,
   rpc: vi.fn(),
+  invoke: vi.fn(),
   /** Respuesta para escrituras (update/insert); por defecto, éxito. */
   escribir: vi.fn(),
 }));
@@ -54,6 +56,10 @@ vi.mock('@/shared/lib/supabase', () => {
         return b;
       },
       order: () => b,
+      range(desde: number, hasta: number) {
+        reg.filtros.push(['range', [desde, hasta]]);
+        return b;
+      },
       maybeSingle: () => b,
       then(ok: (r: Respuesta) => unknown, ko?: (e: unknown) => unknown) {
         db.llamadas.push(reg);
@@ -62,7 +68,7 @@ vi.mock('@/shared/lib/supabase', () => {
     };
     return b;
   };
-  return { supabase: { from: desde, rpc: db.rpc } };
+  return { supabase: { from: desde, rpc: db.rpc, functions: { invoke: db.invoke } } };
 });
 
 // Componentes de otras features: se sustituyen por dobles mínimos con la misma interfaz.
@@ -77,13 +83,31 @@ vi.mock('@/features/onboarding/components/SelectorBanco', () => ({
   ),
 }));
 vi.mock('@/features/inicio/components/FormObjetivo', () => ({
-  FormObjetivo: () => <p>Formulario de objetivo</p>,
+  FormObjetivo: (p: { plano?: boolean; ayudaCategoria?: (id: string) => ReactNode }) => (
+    <div>
+      <p>Formulario de objetivo{p.plano ? ' (plano)' : ''}</p>
+      {p.ayudaCategoria?.('c1')}
+    </div>
+  ),
+}));
+// El ajuste por saldo real es el de movimientos (tiene sus propios tests): aquí, qué cuenta recibe.
+vi.mock('@/features/movimientos/components/AjusteSaldoReal', () => ({
+  AjusteSaldoReal: (p: { cuentaInicial: string; onGuardado: () => void }) => (
+    <div>
+      <p>Ajuste por saldo real de {p.cuentaInicial}</p>
+      <button type="button" onClick={p.onGuardado}>
+        Guardar ajuste
+      </button>
+    </div>
+  ),
 }));
 
 const { default: PaginaConfiguracion } = await import('./pages/PaginaConfiguracion');
 const { cambiarPrincipal, COLUMNAS_TOKENS } = await import('./api/configuracionApi');
 const { reordenar } = await import('./components/categorias');
-const { leerSaldo } = await import('./components/SheetAnadirBanco');
+const { leerSaldo, leerFechaInicial } = await import('./components/SheetAnadirBanco');
+const { celdaCsv, COLUMNAS_EXPORTAR, generarCsv } = await import('./api/exportar');
+const { confirmacionValida } = await import('./api/eliminarCuenta');
 
 /* ------------------------------------------------------------------ Datos inventados */
 
@@ -162,6 +186,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.escribir.mockReset();
   db.rpc.mockReset();
+  db.invoke.mockReset();
   db.llamadas = [];
   preparar();
 });
@@ -199,6 +224,23 @@ describe('Mis bancos', () => {
     expect(t.getByText('1.842,10 €')).toBeInTheDocument();
     expect(t.getByText('Principal')).toBeInTheDocument();
     expect(t.getAllByText('Desde 01/10/2026')).toHaveLength(2);
+  });
+
+  it('el límite de 5 bancos se explica siempre, no solo al llegar a él', async () => {
+    renderPagina();
+    expect(await screen.findByText(/Puedes tener hasta 5 bancos abiertos a la vez/)).toBeInTheDocument();
+    expect(screen.getByText(/El efectivo y los bancos cerrados no cuentan/)).toBeInTheDocument();
+  });
+
+  it('cambia el banco principal desde la lista con la RPC atómica', async () => {
+    db.rpc.mockResolvedValue({ data: null, error: null });
+    renderPagina();
+    expect(await screen.findByRole('button', { name: 'Hacer principal Banco Prueba' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hacer principal CaixaBank' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Hacer principal Banco Prueba' }));
+    await waitFor(() => expect(db.rpc).toHaveBeenCalledWith('hacer_principal', { p_cuenta: 'otro' }));
+    expect(db.rpc).toHaveBeenCalledTimes(1);
+    expect(escrituras('cuentas')).toHaveLength(0);
   });
 
   it('añadir banco llama a crear_banco con el saldo normalizado', async () => {
@@ -327,13 +369,63 @@ describe('Mis bancos', () => {
     expect(db.llamadas).toHaveLength(0);
   });
 
-  it('efectivo enlaza al ajuste de su cuenta', async () => {
+  it('efectivo: «¿No cuadra?» abre el ajuste por saldo real de su cuenta sin salir de Configuración', async () => {
     renderPagina();
-    expect(await screen.findByRole('link', { name: '¿No cuadra? Hacer un ajuste →' })).toHaveAttribute(
-      'href',
-      '/movimientos/nuevo?tipo=ajuste&cuenta=efectivo',
+    expect(await screen.findByText('40,00 €')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '¿No cuadra? Hacer un ajuste →' }));
+    const hoja = screen.getByRole('dialog', { name: 'Ajustar Efectivo' });
+    expect(within(hoja).getByText('Ajuste por saldo real de efectivo')).toBeInTheDocument();
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Guardar ajuste' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('cada banco abierto tiene su «¿No cuadra? Hacer un ajuste» (no solo el efectivo)', async () => {
+    renderPagina();
+    expect(await screen.findByRole('button', { name: '¿No cuadra CaixaBank? Hacer un ajuste' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '¿No cuadra Banco Prueba? Hacer un ajuste' }));
+    const hoja = screen.getByRole('dialog', { name: 'Ajustar Banco Prueba' });
+    expect(within(hoja).getByText('Ajuste por saldo real de otro')).toBeInTheDocument();
+  });
+
+  it('añadir banco con fecha de inicio anterior a hoy la envía como p_fecha_inicial', async () => {
+    db.rpc.mockResolvedValue({ data: 'nuevo-id', error: null });
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: '+ Añadir banco' }));
+    const hoja = screen.getByRole('dialog', { name: 'Añadir banco' });
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Elegir ING' }));
+    await userEvent.type(within(hoja).getByLabelText(/Fecha de inicio/), '2026-09-01');
+    const saldo = within(hoja).getByLabelText('Saldo al empezar el 01/09/2026');
+    await userEvent.type(saldo, '300');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Añadir banco' }));
+    await waitFor(() =>
+      expect(db.rpc).toHaveBeenCalledWith('crear_banco', {
+        p_entidad: 'ing',
+        p_nombre: 'ING',
+        p_color: null,
+        p_saldo: '300.00',
+        p_fecha_inicial: '2026-09-01',
+      }),
     );
-    expect(screen.getByText('40,00 €')).toBeInTheDocument();
+  });
+
+  it('una fecha de inicio futura no se envía', async () => {
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: '+ Añadir banco' }));
+    const hoja = screen.getByRole('dialog', { name: 'Añadir banco' });
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Elegir ING' }));
+    await userEvent.type(within(hoja).getByLabelText(/Fecha de inicio/), '2999-01-01');
+    await userEvent.type(within(hoja).getByLabelText(/Saldo/), '0');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Añadir banco' }));
+    expect(within(hoja).getByText('La fecha de inicio no puede ser posterior a hoy.')).toBeInTheDocument();
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it('leerFechaInicial: vacío = hoy (null); no futura ni mal formada', () => {
+    expect(leerFechaInicial('', '2026-10-26')).toBeNull();
+    expect(leerFechaInicial('2026-09-01', '2026-10-26')).toBe('2026-09-01');
+    expect(leerFechaInicial('2026-10-26', '2026-10-26')).toBe('2026-10-26');
+    expect(leerFechaInicial('2026-10-27', '2026-10-26')).toBe('invalida');
+    expect(leerFechaInicial('01/09/2026', '2026-10-26')).toBe('invalida');
   });
 
   it('leerSaldo admite 0 pero no signos ni textos vacíos', () => {
@@ -490,6 +582,44 @@ describe('Objetivos', () => {
     expect(escrituras('objetivos')[0]).toMatchObject({ valores: { importe: '650.50' }, filtros: [['id', 'o1']] });
   });
 
+  it('modal plano: sin «Volver a la lista» y con el título de cada vista', async () => {
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
+    const hoja = screen.getByRole('dialog', { name: 'Objetivos' });
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Cambiar importe de Ahorro mensual' }));
+    expect(screen.getByRole('dialog', { name: 'Ahorro mensual' })).toBe(hoja);
+    expect(within(hoja).queryByText('Volver a la lista')).not.toBeInTheDocument();
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Cancelar' }));
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Quitar Ahorro mensual' }));
+    expect(screen.getByRole('dialog', { name: 'Quitar objetivo' })).toBe(hoja);
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Cancelar' }));
+    await userEvent.click(within(hoja).getByRole('button', { name: '+ Añadir objetivo' }));
+    expect(screen.getByRole('dialog', { name: 'Nuevo objetivo' })).toBe(hoja);
+    expect(within(hoja).getByText('Formulario de objetivo (plano)')).toBeInTheDocument();
+    expect(within(hoja).queryByText('Volver a la lista')).not.toBeInTheDocument();
+  });
+
+  it('al crear un límite muestra la media mensual de la categoría, calculada en SQL', async () => {
+    const select = vi.fn().mockResolvedValue({ data: [{ media: '280.3333333333', meses: 3 }], error: null });
+    db.rpc.mockReturnValue({ select });
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Añadir objetivo' }));
+    expect(await screen.findByText('Media de Ocio: 280 €/mes (meses completos: 3)')).toBeInTheDocument();
+    expect(db.rpc).toHaveBeenCalledWith('media_gasto_categoria', { p_categoria: 'c1', p_meses: 3 });
+    expect(select).toHaveBeenCalledWith('media::text, meses');
+  });
+
+  it('sin meses completos lo dice en vez de inventar una media', async () => {
+    db.rpc.mockReturnValue({ select: vi.fn().mockResolvedValue({ data: [{ media: null, meses: 0 }], error: null }) });
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Añadir objetivo' }));
+    expect(
+      await screen.findByText('Todavía no hay meses completos para calcular la media de Ocio.'),
+    ).toBeInTheDocument();
+  });
+
   it('«Quitar» desactiva el objetivo', async () => {
     renderPagina();
     await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
@@ -504,6 +634,16 @@ describe('Objetivos', () => {
 /* ------------------------------------------------------------------ Atajo */
 
 describe('Atajo del iPhone', () => {
+  it('explica primero qué hace el atajo y que acepta las categorías en cualquier idioma', async () => {
+    renderPagina();
+    const titulo = await screen.findByRole('heading', { name: 'Atajo del iPhone' });
+    const tarjeta = within(titulo.closest('section') as HTMLElement);
+    const textos = tarjeta.getAllByText(/./, { selector: 'p' }).map((p) => p.textContent ?? '');
+    expect(textos[0]).toMatch(/^Apunta gastos desde el iPhone con Siri o un toque/);
+    expect(textos[1]).toMatch(/«Ocio», «Leisure» u «Oci»/);
+    expect(textos[2]).toMatch(/token/);
+  });
+
   it('la lista de tokens nunca pide token_hash', async () => {
     renderPagina();
     expect(await screen.findByText('iPhone')).toBeInTheDocument();
@@ -579,7 +719,7 @@ describe('Apariencia y cuenta', () => {
     sesion.user.app_metadata = { provider: 'google' };
     sesion.user.user_metadata = { full_name: 'Ana Inventada' };
     renderConApp(<PaginaConfiguracion />, { sesion, auth: { cerrarSesion } });
-    expect(screen.getByText('Ana Inventada')).toBeInTheDocument();
+    expect(await screen.findByText('Ana Inventada')).toBeInTheDocument();
     expect(screen.getByText('ana@ejemplo.com · Google')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
     expect(cerrarSesion).toHaveBeenCalledOnce();
@@ -594,7 +734,269 @@ describe('Apariencia y cuenta', () => {
       </Routes>,
       { sesion: sesionFalsa(USER), auth: { cerrarSesion }, ruta: '/configuracion' },
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Cerrar sesión' }));
     expect(await screen.findByRole('heading', { name: 'Pantalla de login' })).toBeInTheDocument();
+  });
+});
+
+/* ------------------------------------------------------------------ Exportar */
+
+describe('Exportar movimientos a CSV', () => {
+  const MOVS = [
+    {
+      id: 'm1',
+      fecha: '2026-10-02',
+      tipo: 'gasto',
+      sentido: null,
+      importe: '1258.00',
+      concepto: 'Cena; "amigos"',
+      comercio: null,
+      categoria_id: 'c1',
+      metodo: 'tarjeta',
+      cuenta_id: 'caixa',
+      cuenta_destino_id: null,
+      notas: null,
+    },
+    {
+      id: 'm2',
+      fecha: '2026-10-03',
+      tipo: 'traspaso',
+      sentido: null,
+      importe: '0.10',
+      concepto: '=HYPERLINK("x")',
+      comercio: null,
+      categoria_id: null,
+      metodo: null,
+      cuenta_id: 'caixa',
+      cuenta_destino_id: 'efectivo',
+      notas: 'línea 1\nlínea 2',
+    },
+  ];
+
+  it('celdaCsv entrecomilla lo necesario y neutraliza fórmulas', () => {
+    expect(celdaCsv('38.50')).toBe('38.50');
+    expect(celdaCsv(null)).toBe('');
+    expect(celdaCsv('a;b')).toBe('"a;b"');
+    expect(celdaCsv('di "hola"')).toBe('"di ""hola"""');
+    expect(celdaCsv('=1+1')).toBe("'=1+1");
+    expect(celdaCsv('-24')).toBe("'-24");
+    expect(celdaCsv('@x')).toBe("'@x");
+  });
+
+  it('generarCsv: importes como texto exacto, nombres de cuenta y categoría traducida', () => {
+    const csv = generarCsv(
+      MOVS,
+      {
+        cuentas: [
+          { id: 'caixa', nombre: 'CaixaBank' },
+          { id: 'efectivo', nombre: 'Efectivo' },
+        ],
+        categorias: [categoria('c1', 'Ocio', 'gasto', 1, { clave: 'ocio' })],
+      },
+      {
+        fecha: 'F',
+        tipo: 'T',
+        sentido: 'S',
+        importe: 'I',
+        concepto: 'C',
+        comercio: 'Co',
+        categoria: 'Ca',
+        metodo: 'M',
+        cuenta: 'Cu',
+        cuentaDestino: 'CD',
+        notas: 'N',
+      },
+      (c) => (c.clave === 'ocio' ? 'Leisure' : c.nombre),
+    );
+    expect(csv.split('\r\n')).toEqual([
+      'F;T;S;I;C;Co;Ca;M;Cu;CD;N',
+      '2026-10-02;gasto;;1258.00;"Cena; ""amigos""";;Leisure;tarjeta;CaixaBank;;',
+      `2026-10-03;traspaso;;0.10;"'=HYPERLINK(""x"")";;;;CaixaBank;Efectivo;"línea 1\nlínea 2"`,
+      '',
+    ]);
+  });
+
+  it('el botón pide los movimientos con importe::text, por páginas, y descarga el CSV', async () => {
+    db.datos.movimientos = MOVS;
+    const blobs: Blob[] = [];
+    const crear = vi.spyOn(URL, 'createObjectURL').mockImplementation((b) => {
+      blobs.push(b as Blob);
+      return 'blob:falso';
+    });
+    const revocar = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const clic = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    try {
+      renderPagina();
+      await userEvent.click(await screen.findByRole('button', { name: 'Exportar movimientos (CSV)' }));
+      await waitFor(() => expect(clic).toHaveBeenCalledOnce());
+      const select = db.llamadas.find((l) => l.tabla === 'movimientos');
+      expect(select?.columnas).toBe(COLUMNAS_EXPORTAR);
+      expect(COLUMNAS_EXPORTAR).toContain('importe::text');
+      expect(select?.filtros).toContainEqual(['range', [0, 999]]);
+      expect(clic).toHaveBeenCalledOnce();
+      const texto = await (blobs[0] as Blob).text();
+      expect(texto).toContain('Fecha;Tipo;Sentido del ajuste;Importe (EUR);');
+      expect(texto).toContain(';1258.00;');
+      expect(texto).toContain(';Ocio;');
+    } finally {
+      crear.mockRestore();
+      revocar.mockRestore();
+      clic.mockRestore();
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ Eliminar cuenta */
+
+describe('Eliminar cuenta', () => {
+  const sesionAna = () => sesionFalsa(USER, { email: 'ana@ejemplo.com' });
+
+  async function abrirPaso2() {
+    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar cuenta' }));
+    const hoja = screen.getByRole('dialog', { name: 'Eliminar cuenta' });
+    expect(within(hoja).getByText(/No se puede deshacer/)).toBeInTheDocument();
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Continuar' }));
+    return hoja;
+  }
+
+  it('confirmacionValida compara el email sin espacios ni mayúsculas', () => {
+    expect(confirmacionValida(' Ana@Ejemplo.com ', 'ana@ejemplo.com')).toBe(true);
+    expect(confirmacionValida('ana@ejemplo.co', 'ana@ejemplo.com')).toBe(false);
+    expect(confirmacionValida('', null)).toBe(false);
+  });
+
+  it('doble confirmación: aviso y email; llama a la Edge Function y cierra sesión', async () => {
+    db.invoke.mockResolvedValue({ data: { ok: true }, error: null });
+    const cerrarSesion = vi.fn(() => Promise.resolve());
+    renderConApp(
+      <Routes>
+        <Route path="/login" element={<h1>Pantalla de login</h1>} />
+        <Route path="*" element={<PaginaConfiguracion />} />
+      </Routes>,
+      { sesion: sesionAna(), auth: { cerrarSesion }, ruta: '/configuracion' },
+    );
+    const hoja = await abrirPaso2();
+    const boton = within(hoja).getByRole('button', { name: 'Eliminar definitivamente' });
+    expect(boton).toBeDisabled();
+    await userEvent.type(within(hoja).getByLabelText('Email de tu cuenta'), 'otra@ejemplo.com');
+    expect(boton).toBeDisabled();
+    await userEvent.clear(within(hoja).getByLabelText('Email de tu cuenta'));
+    await userEvent.type(within(hoja).getByLabelText('Email de tu cuenta'), 'Ana@Ejemplo.com');
+    expect(boton).toBeEnabled();
+    await userEvent.click(boton);
+    await waitFor(() =>
+      expect(db.invoke).toHaveBeenCalledWith('eliminar-cuenta', { body: { confirmacion: 'Ana@Ejemplo.com' } }),
+    );
+    expect(db.invoke).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('heading', { name: 'Pantalla de login' })).toBeInTheDocument();
+    expect(cerrarSesion).toHaveBeenCalledOnce();
+  });
+
+  it('si el servidor pide reautenticación, lo explica y ofrece volver a entrar', async () => {
+    db.invoke.mockResolvedValue({
+      data: null,
+      error: {
+        name: 'FunctionsHttpError',
+        message: 'Edge Function returned a non-2xx status code',
+        context: new Response(JSON.stringify({ error: 'reautenticacion_requerida' }), { status: 403 }),
+      },
+    });
+    const cerrarSesion = vi.fn(() => Promise.resolve());
+    renderConApp(<PaginaConfiguracion />, { sesion: sesionAna(), auth: { cerrarSesion }, ruta: '/configuracion' });
+    const hoja = await abrirPaso2();
+    await userEvent.type(within(hoja).getByLabelText('Email de tu cuenta'), 'ana@ejemplo.com');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Eliminar definitivamente' }));
+    expect(await within(hoja).findByRole('alert')).toHaveTextContent(/vuelve a iniciar sesión/);
+    expect(screen.queryByText(/non-2xx/)).not.toBeInTheDocument();
+    expect(cerrarSesion).not.toHaveBeenCalled();
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Volver a iniciar sesión' }));
+    expect(cerrarSesion).toHaveBeenCalledOnce();
+  });
+
+  it('error de red → mensaje amable, sin cerrar sesión', async () => {
+    db.invoke.mockRejectedValue(new TypeError('Failed to fetch'));
+    const cerrarSesion = vi.fn(() => Promise.resolve());
+    renderConApp(<PaginaConfiguracion />, { sesion: sesionAna(), auth: { cerrarSesion }, ruta: '/configuracion' });
+    const hoja = await abrirPaso2();
+    await userEvent.type(within(hoja).getByLabelText('Email de tu cuenta'), 'ana@ejemplo.com');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Eliminar definitivamente' }));
+    expect(await within(hoja).findByRole('alert')).toHaveTextContent('No hay conexión.');
+    expect(cerrarSesion).not.toHaveBeenCalled();
+  });
+});
+
+/* ------------------------------------------------------------------ Móvil */
+
+describe('Configuración en el móvil', () => {
+  let original: typeof window.matchMedia | undefined;
+  beforeEach(() => {
+    original = window.matchMedia;
+    window.matchMedia = ((q: string) => ({
+      matches: false,
+      media: q,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    return () => {
+      if (original) window.matchMedia = original;
+      else Reflect.deleteProperty(window, 'matchMedia');
+    };
+  });
+
+  const montar = (ruta: string, cerrarSesion = vi.fn(() => Promise.resolve())) =>
+    renderConApp(
+      <Routes>
+        <Route path="/login" element={<h1>Pantalla de login</h1>} />
+        <Route path="/configuracion" element={<PaginaConfiguracion />} />
+        <Route path="/configuracion/:seccion" element={<PaginaConfiguracion />} />
+      </Routes>,
+      { sesion: sesionFalsa(USER), auth: { cerrarSesion }, ruta },
+    );
+
+  it('lista tipo Ajustes de iOS en orden y «Cerrar sesión» al final', async () => {
+    const cerrarSesion = vi.fn(() => Promise.resolve());
+    montar('/configuracion', cerrarSesion);
+    const nav = await screen.findByRole('navigation', { name: 'Configuración' });
+    const enlaces = within(nav).getAllByRole('link');
+    expect(enlaces.map((a) => a.textContent)).toEqual([
+      'Idioma',
+      'Mis bancos',
+      'Efectivo',
+      'Categorías',
+      'Objetivos',
+      'Atajo del iPhone',
+      'Apariencia',
+      'Cuenta',
+    ]);
+    expect(enlaces[1]).toHaveAttribute('href', '/configuracion/bancos');
+    // Ninguna sección se pinta en la lista.
+    expect(screen.queryByRole('heading', { name: 'Mis bancos' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    expect(cerrarSesion).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('heading', { name: 'Pantalla de login' })).toBeInTheDocument();
+  });
+
+  it('cada sección en su propia pantalla, con vuelta a la lista', async () => {
+    montar('/configuracion/bancos');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Mis bancos' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Atajo del iPhone' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Configuración' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('link').find((a) => a.getAttribute('href') === '/configuracion') as HTMLElement);
+    expect(await screen.findByRole('navigation', { name: 'Configuración' })).toBeInTheDocument();
+  });
+
+  it('la pantalla «Cuenta» trae exportar y eliminar cuenta', async () => {
+    montar('/configuracion/cuenta');
+    expect(await screen.findByRole('button', { name: 'Exportar movimientos (CSV)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Eliminar cuenta' })).toBeInTheDocument();
+  });
+
+  it('una sección desconocida vuelve a la lista', async () => {
+    montar('/configuracion/nada');
+    expect(await screen.findByRole('navigation', { name: 'Configuración' })).toBeInTheDocument();
   });
 });

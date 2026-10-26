@@ -20,6 +20,10 @@ export default {
   'kpi.sinAnterior': 'Sin datos del mes anterior',
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Patrimonio por cuenta',
+  'kpi.balance': 'Balance · 1–{dia} {mes}',
+  'kpi.ahorro': 'Ahorro {porcentaje}',
+  'kpi.topIngresos': 'Principales categorías de ingreso',
+  'kpi.topGastos': 'Principales categorías de gasto',
 
   'grafico.titulo': 'Evolución de tu capital',
   'grafico.ejeX': 'Día del mes',
@@ -28,12 +32,12 @@ export default {
   'grafico.alternativa':
     'Patrimonio diario de {mesActual} hasta hoy ({valorHoy}) comparado con {mesAnterior}. Usa el control del gráfico para recorrer cada día.',
   'grafico.ayuda':
-    'Pasa el ratón o el dedo por el gráfico, o usa las flechas del teclado, para ver cada día. El punto hueco es hoy: provisional hasta las 23:59.',
+    'El punto hueco es hoy: provisional hasta las 23:59.',
   'grafico.vacio': 'Todavía no hay datos de patrimonio este mes.',
   'grafico.alternativaCerrado':
     'Patrimonio diario de {mesActual} hasta el {fecha} ({valorHoy}) comparado con {mesAnterior}. Usa el control del gráfico para recorrer cada día.',
   'grafico.ayudaCerrado':
-    'Pasa el ratón o el dedo por el gráfico, o usa las flechas del teclado, para ver cada día. El último punto es el cierre del mes.',
+    'El último punto es el cierre del mes.',
   'grafico.vacioCerrado': 'No hay datos de patrimonio de ese mes.',
   'grafico.lectura.hoy': '{fecha} · hoy (provisional)',
   'grafico.lectura.comparacion': 'vs {fecha} {valor} · {diferencia} ({porcentaje})',
@@ -50,6 +54,7 @@ export default {
   'categorias.grafico': 'Gráfico circular del gasto neto por categoría',
   'categorias.lista': 'Gasto neto por categoría',
   'categorias.negativa': 'Te han devuelto más de lo que gastaste: no entra en el gráfico.',
+  'categorias.verMovimientos': 'Ver los movimientos de {categoria} de este mes',
 
   'analisis.titulo': 'De tu análisis de {mes}',
   'analisis.ia': 'IA',
@@ -76,6 +81,12 @@ export default {
   'objetivos.progreso': '{actual} / {objetivo}',
   'objetivos.superado': 'Superado',
   'objetivos.conseguido': 'Conseguido',
+  'objetivos.superadoEn': 'Superado en {importe}',
+  'objetivos.proyeccion': 'Te quedan {dias} días · necesitas ahorrar {importe}/día',
+  'objetivos.proyeccionUltimoDia': 'Queda 1 día · necesitas ahorrar {importe} hoy',
+
+  'otros.aviso': '«{categoria}» es el {porcentaje} de tu gasto del mes ({importe}). Recategorízalo para ver mejor en qué gastas.',
+  'otros.recategorizar': 'Recategorizar',
   'objetivos.categoriaDesconocida': 'Categoría',
 
   'form.titulo': 'Nuevo objetivo',

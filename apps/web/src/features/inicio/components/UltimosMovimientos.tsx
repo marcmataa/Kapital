@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
+import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
@@ -29,6 +30,7 @@ function importeDe(m: MovimientoReciente, locale: string): { texto: string; clas
 export function UltimosMovimientos() {
   const t = useT('inicio');
   const nombreCategoria = useNombreCategoria();
+  const nombreCuenta = useNombreCuenta();
   const { locale } = useIdioma();
   const { data, isLoading, isError, refetch } = useInicioUltimosMovimientosQuery();
 
@@ -65,8 +67,10 @@ export function UltimosMovimientos() {
             const neutro = m.tipo === 'traspaso' || m.tipo === 'ajuste';
             const cuenta =
               m.tipo === 'traspaso' && m.cuenta && m.destino
-                ? t('movimientos.traspaso', { origen: m.cuenta.nombre, destino: m.destino.nombre })
-                : (m.cuenta?.nombre ?? '');
+                ? t('movimientos.traspaso', { origen: nombreCuenta(m.cuenta), destino: nombreCuenta(m.destino) })
+                : m.cuenta
+                  ? nombreCuenta(m.cuenta)
+                  : '';
             return (
               <li key={m.id} className="border-t border-borde first:border-t-0">
                 <Link

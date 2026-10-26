@@ -1,19 +1,21 @@
-import { Card, LecturaGrafico } from '@/shared/ui';
+import { AyudaGrafico, Card, EtiquetasEje, LecturaGrafico, LineasEje } from '@/shared/ui';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { useSeleccionGrafico } from '@/shared/hooks/useSeleccionGrafico';
-import { aCentimos, desdeCentimos, formatearEuros } from '@/shared/lib/dinero';
+import { aCentimos, formatearEuros } from '@/shared/lib/dinero';
+import { escalaDeImportes, tramoBarra } from '@/shared/lib/ejes';
 import { formatearFecha } from '@/shared/lib/fechas';
 import { cx } from '@/shared/lib/cx';
-import { maximoAbsoluto, proporcion, type DiaSerie, type MovimientoDia } from '../lib/agregaciones';
+import type { DiaSerie, MovimientoDia } from '../lib/agregaciones';
 
 export type ModoDiario = 'gastos' | 'ingresos';
 
 interface Props {
   dias: readonly DiaSerie[];
   /**
-   * gastos: una barra por día con el gasto neto (gastos − devoluciones, sección 3).
-   * ingresos: dos barras por día, ingresos y devoluciones (en otro color: restan del gasto,
-   * nunca son ingresos).
+   * gastos: una barra por día con el gasto neto (gastos − devoluciones, sección 3); al elegir un
+   * día, «Gastos X · Devoluciones −Y · Neto Z» y su lista con las devoluciones en verde.
+   * ingresos: una barra por día con los ingresos reales. Las devoluciones nunca salen aquí: restan
+   * del gasto de su categoría (sección 2).
    */
   modo: ModoDiario;
   /** «Octubre de 2026». */
@@ -23,7 +25,8 @@ interface Props {
 const MARCAS_EJE = [1, 5, 10, 15, 20, 25];
 
 /**
- * Gráfico por día del mes. Los días futuros quedan vacíos; el de hoy se dibuja hueco (provisional).
+ * Gráfico por día del mes. Los días futuros quedan vacíos; el de hoy, con relleno rayado (provisional).
+ * Eje con números redondos (`shared/lib/ejes`) y los días en negativo, por debajo del cero.
  * Se recorre día a día con ratón, dedo (`touch-action: pan-y`) o teclado (control deslizante),
  * como el gráfico de capital de Inicio. La lectura muestra los totales del día (SQL) y sus
  * movimientos. Alternativa accesible: tabla oculta con todos los días.
@@ -34,8 +37,9 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
   const locale = LOCALE_DE[idioma];
   const gastos = modo === 'gastos';
   const barras = (d: DiaSerie): string[] =>
-    d.datos === null ? [] : gastos ? [d.datos.gasto_neto] : [d.datos.ingresos, d.datos.devoluciones];
-  const maximo = maximoAbsoluto(dias.flatMap(barras));
+    d.datos === null ? [] : [gastos ? d.datos.gasto_neto : d.datos.ingresos];
+  // Eje con números redondos (0 / 100 / 200 €); si hay días en negativo, el cero queda dentro.
+  const escala = escalaDeImportes(dias.flatMap(barras));
   const ultimo = dias.length;
   const ultimoConDatos = dias.reduce((acc, d, i) => (d.datos !== null ? i : acc), 0);
   const { indice, superficie, alTeclado } = useSeleccionGrafico({ total: ultimo, inicial: ultimoConDatos });
@@ -46,49 +50,34 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
   const titulo = (d: DiaSerie) => (d.hoy ? t('diario.lectura.hoy', { fecha: etiquetaDia(d) }) : etiquetaDia(d));
   const valor = (d: DiaSerie) =>
     d.datos === null ? t('diario.lectura.futuro') : euros(gastos ? d.datos.gasto_neto : d.datos.ingresos);
-  /** Desglose del día: gastos y devoluciones (modo gastos) o ingresos y devoluciones. */
+  /** Desglose del día (solo gastos): «Gastos X · Devoluciones −Y · Neto Z». */
   const detalle = (d: DiaSerie): string[] => {
-    if (d.datos === null) return [];
+    if (d.datos === null || !gastos) return [];
     const devoluciones = aCentimos(d.datos.devoluciones) !== 0n;
-    if (gastos) {
-      return [
-        t('diario.lectura.gastos', { importe: euros(d.datos.gastos) }),
-        ...(devoluciones ? [t('diario.lectura.devoluciones', { importe: euros(d.datos.devoluciones) })] : []),
-        t('diario.lectura.neto', { importe: euros(d.datos.gasto_neto) }),
-      ];
-    }
     return [
-      t('diario.lectura.ingresos', { importe: euros(d.datos.ingresos) }),
-      t('diario.lectura.devoluciones', { importe: euros(d.datos.devoluciones) }),
+      t('diario.lectura.gastos', { importe: euros(d.datos.gastos) }),
+      ...(devoluciones
+        ? [t('diario.lectura.devoluciones', { importe: formatearEuros(d.datos.devoluciones, locale, { signo: 'negativo' }) })]
+        : []),
+      t('diario.lectura.neto', { importe: euros(d.datos.gasto_neto) }),
     ];
   };
   const lista = (d: DiaSerie): MovimientoDia[] =>
-    (d.datos?.movimientos ?? []).filter((m) => (gastos ? m.tipo !== 'ingreso' : m.tipo !== 'gasto'));
+    (d.datos?.movimientos ?? []).filter((m) => (gastos ? m.tipo !== 'ingreso' : m.tipo === 'ingreso'));
   const textoMovimiento = (m: MovimientoDia) =>
     m.tipo === 'devolucion'
-      ? t('diario.lectura.movimientoDevolucion', { concepto: m.concepto, importe: euros(m.importe) })
+      ? t('diario.lectura.movimientoDevolucion', {
+          concepto: m.concepto,
+          importe: formatearEuros(m.importe, locale, { signo: 'negativo' }),
+        })
       : `${m.concepto} · ${euros(m.importe)}`;
 
-  const mitad = desdeCentimos(maximo / 2n);
   const tituloCard = t(gastos ? 'diario.tituloGastos' : 'diario.tituloIngresos', { mes: nombreMes });
 
   return (
     <Card
       titulo={tituloCard}
-      accion={
-        gastos ? undefined : (
-          <span className="flex gap-3 text-xs text-apagado sm:text-sm" aria-hidden="true">
-            <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-positivo" />
-              {t('diario.leyenda.ingresos')}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="size-2.5 rounded-sm bg-morado" />
-              {t('diario.leyenda.devoluciones')}
-            </span>
-          </span>
-        )
-      }
+      accion={<AyudaGrafico unidad="dia" />}
     >
       <div className="flex flex-col gap-3">
         {elegido && (
@@ -99,7 +88,7 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
             {lista(elegido).length > 0 && (
               <ul aria-label={t('diario.lectura.lista')} className="mt-1 flex flex-col gap-0.5 text-xs text-texto sm:text-sm">
                 {lista(elegido).map((m) => (
-                  <li key={m.id} className={cx('flex justify-between gap-3', m.tipo === 'devolucion' && 'text-morado')}>
+                  <li key={m.id} className={cx('flex justify-between gap-3', m.tipo === 'devolucion' && 'text-positivo')}>
                     <span className="min-w-0 truncate">{m.concepto}</span>
                     <span className="cifras shrink-0">
                       {formatearEuros(m.importe, locale, m.tipo === 'devolucion' && gastos ? { signo: 'negativo' } : {})}
@@ -125,46 +114,44 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
           onKeyDown={alTeclado}
           className="flex gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
         >
-          <div aria-hidden="true" className="flex h-48 min-w-12 flex-col justify-between text-right text-[11px] text-apagado">
-            <span className="cifras">{euros(desdeCentimos(maximo))}</span>
-            <span className="cifras">{euros(mitad)}</span>
-            <span className="cifras">{euros('0')}</span>
-          </div>
+          <EtiquetasEje escala={escala} locale={locale} className="h-48" />
           <div aria-hidden="true" className="flex min-w-0 flex-1 flex-col gap-1.5">
             <div
               data-testid="superficie-diario"
-              className="flex h-48 cursor-crosshair touch-pan-y items-end gap-[2px] border-b border-borde-fuerte select-none"
+              className="relative flex h-48 cursor-crosshair touch-pan-y gap-[2px] select-none"
               {...superficie}
             >
+              <LineasEje escala={escala} />
               {dias.map((d, i) => {
                 const esElegido = i === indice;
                 return (
-                  <div key={d.dia} className="relative flex h-full min-w-0 flex-1 items-end gap-px">
+                  <div key={d.dia} data-dia={d.dia} className="relative flex h-full min-w-0 flex-1 gap-px">
                     {esElegido && <span className="absolute inset-y-0 left-1/2 w-[1.5px] -translate-x-1/2 bg-borde-fuerte" />}
                     {barras(d).map((v, j) => {
+                      // Negativo (te devolvieron más de lo que gastaste): barra roja bajo el cero.
                       const negativo = aCentimos(v) < 0n;
-                      const color = gastos ? 'acento' : j === 0 ? 'positivo' : 'morado';
+                      const color = negativo ? 'negativo' : gastos ? 'acento' : 'positivo';
+                      const { abajo, alto } = tramoBarra(v, escala);
                       return (
-                        <div
-                          key={j}
-                          className={cx(
-                            'relative min-w-0 flex-1 rounded-t-[3px]',
-                            d.hoy
-                              ? cx('border-2 border-dashed bg-transparent', BORDE[color])
-                              : negativo
-                                ? 'h-0.5 bg-negativo'
-                                : FONDO[color],
-                            !esElegido && !d.hoy && 'opacity-70',
-                          )}
-                          style={negativo ? undefined : { height: `${Math.max(proporcion(v, maximo), 1)}%` }}
-                        />
+                        <span key={j} className="relative h-full min-w-0 flex-1">
+                          <span
+                            data-provisional={d.hoy ? 'true' : undefined}
+                            className={cx(
+                              'absolute inset-x-0',
+                              negativo ? 'rounded-b-[3px]' : 'rounded-t-[3px]',
+                              d.hoy ? cx('relleno-provisional', TEXTO[color]) : FONDO[color],
+                              !esElegido && !d.hoy && 'opacity-70',
+                            )}
+                            style={{ bottom: `${abajo}%`, height: `${alto}%` }}
+                          />
+                        </span>
                       );
                     })}
                   </div>
                 );
               })}
             </div>
-            <div className="relative h-4 text-[11px] text-apagado">
+            <div className="relative h-4 text-xs text-apagado">
               {[...MARCAS_EJE, ultimo].map((dia) => (
                 <span key={dia} className="absolute -translate-x-1/2" style={{ left: `${((dia - 0.5) / ultimo) * 100}%` }}>
                   {dia}
@@ -181,7 +168,6 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
           <tr>
             <th scope="col">{t('tabla.dia')}</th>
             <th scope="col">{t(gastos ? 'tabla.gastoNeto' : 'tabla.ingresos')}</th>
-            {!gastos && <th scope="col">{t('tabla.devoluciones')}</th>}
           </tr>
         </thead>
         <tbody>
@@ -195,7 +181,6 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
                       {euros(gastos ? d.datos.gasto_neto : d.datos.ingresos)}
                       {d.hoy && ` (${t('diario.hoy')})`}
                     </td>
-                    {!gastos && <td>{euros(d.datos.devoluciones)}</td>}
                   </tr>,
                 ],
           )}
@@ -205,5 +190,6 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
   );
 }
 
-const FONDO = { acento: 'bg-acento', positivo: 'bg-positivo', morado: 'bg-morado' } as const;
-const BORDE = { acento: 'border-acento', positivo: 'border-positivo', morado: 'border-morado' } as const;
+const FONDO = { acento: 'bg-acento', positivo: 'bg-positivo', negativo: 'bg-negativo' } as const;
+/** Color del rayado provisional (`relleno-provisional` usa currentColor). */
+const TEXTO = { acento: 'text-acento', positivo: 'text-positivo', negativo: 'text-negativo' } as const;

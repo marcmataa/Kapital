@@ -263,7 +263,7 @@ describe('Onboarding', { timeout: 30_000 }, () => {
 });
 
 describe('SelectorBanco', () => {
-  function renderSelector(props: { excluir?: ('bbva' | 'ing')[]; nombresOcupados?: string[] } = {}) {
+  function renderSelector(props: { excluir?: ('bbva' | 'ing')[]; nombresOcupados?: string[]; buscador?: boolean } = {}) {
     const onCambio = vi.fn<(b: BancoElegido | null) => void>();
     renderConApp(<SelectorBanco valor={null} onCambio={onCambio} {...props} />);
     return onCambio;
@@ -275,6 +275,42 @@ describe('SelectorBanco', () => {
     expect(within(grupo).getAllByRole('button')).toHaveLength(10);
     expect(within(grupo).queryByRole('button', { name: 'BBVA' })).not.toBeInTheDocument();
     expect(within(grupo).getByRole('button', { name: 'Otro banco' })).toBeInTheDocument();
+  });
+
+  it('buscador: filtra sin tildes ni mayúsculas y avisa si no hay ninguno', async () => {
+    renderSelector({ buscador: true });
+    const grupo = screen.getByRole('group', { name: 'Bancos' });
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar banco' }), 'SABADÉLL');
+    expect(within(grupo).getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)).toEqual([
+      'Banco Sabadell',
+      'Otro banco',
+    ]);
+    await userEvent.clear(screen.getByRole('searchbox', { name: 'Buscar banco' }));
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar banco' }), 'zzz');
+    expect(screen.getByRole('status')).toHaveTextContent('Ningún banco coincide.');
+    expect(within(grupo).getByRole('button', { name: 'Otro banco' })).toBeInTheDocument();
+  });
+
+  it('sin buscador por defecto (onboarding)', () => {
+    renderSelector();
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+  });
+
+  it('el banco elegido lleva borde verde y un check', () => {
+    renderConApp(<SelectorBanco valor={{ entidad: 'ing', nombre: 'ING', color: null }} onCambio={vi.fn()} />);
+    const ing = screen.getByRole('button', { name: 'ING' });
+    expect(ing).toHaveAttribute('aria-pressed', 'true');
+    expect(ing.className).toContain('border-acento');
+    expect(ing.querySelector('svg')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'BBVA' }).querySelector('svg')).toBeNull();
+  });
+
+  it('«Otro banco»: no pide el nombre antes de escribir', async () => {
+    renderSelector();
+    await userEvent.click(screen.getByRole('button', { name: 'Otro banco' }));
+    expect(screen.getByLabelText('Nombre del banco')).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.queryByText('Escribe el nombre del banco.')).not.toBeInTheDocument();
   });
 
   it('elegir un banco del catálogo emite entidad + nombre', async () => {

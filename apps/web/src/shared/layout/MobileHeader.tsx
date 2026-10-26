@@ -1,10 +1,13 @@
 import { Link } from 'react-router';
 import { useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
-import { BotonTema } from './BotonTema';
 import { Logo } from './Logo';
 
-/** Cabecera fija del móvil (oculta desde lg por CSS). Respeta el notch con safe-area. */
+/**
+ * Cabecera fija del móvil (oculta desde lg por CSS). Respeta el notch con safe-area.
+ * Compacta (48 px + safe-area): solo la marca, sin la palabra «Kapital» ni el botón de tema
+ * (el tema está en Más y en Configuración).
+ */
 export function MobileHeader({ className }: { className?: string }) {
   const t = useT('common');
   return (
@@ -15,11 +18,10 @@ export function MobileHeader({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="flex h-(--alto-header-movil) items-center justify-between">
-        <Link to="/" aria-label={t('nav.inicio')}>
-          <Logo />
+      <div className="flex h-(--alto-header-movil) items-center">
+        <Link to="/" aria-label={t('nav.inicio')} className="-m-1 rounded-lg p-1">
+          <Logo conTexto={false} className="[&_img]:size-7" />
         </Link>
-        <BotonTema className="size-9" />
       </div>
     </header>
   );

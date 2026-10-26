@@ -161,7 +161,7 @@ describe('completar_onboarding', () => {
       db, `select nombre, clave, tipo::text, color, icono, orden from categorias where user_id = $1 order by orden`, [id],
     );
     const mias = await categorias(u);
-    expect(mias).toHaveLength(8);
+    expect(mias).toHaveLength(15);
     expect(mias).toEqual(await categorias(otro));
   });
 

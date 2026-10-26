@@ -33,6 +33,27 @@ describe('GraficoCapital', () => {
     expect(screen.getByRole('slider', { name: 'Día del gráfico de capital' })).toHaveAttribute('aria-valuenow', '19');
   });
 
+  it('la etiqueta «hoy» va encima del área de la línea y dentro del gráfico (sin solapes)', () => {
+    // Último día del mes: el caso en que antes se salía o pisaba la línea.
+    const oct = Array.from({ length: 31 }, (_, i) => `${2000 + i * 10}.00`);
+    pintar('2026-10-31', serie('2026-10', oct, '2026-10-31'), serie('2026-09', SEPT));
+    const etiqueta = screen.getByTestId('etiqueta-hoy');
+    const punto = screen.getByTestId('punto-hoy');
+    const y = Number(etiqueta.getAttribute('y'));
+    expect(y).toBeLessThan(Number(punto.getAttribute('cy')) - 6);
+    const svg = etiqueta.closest('svg');
+    const ancho = Number(svg?.getAttribute('width'));
+    const mitad = ((etiqueta.textContent ?? '').length * 7) / 2;
+    expect(Number(etiqueta.getAttribute('x')) + mitad).toBeLessThanOrEqual(ancho);
+    expect(etiqueta).toHaveAttribute('text-anchor', 'middle');
+  });
+
+  it('la ayuda de uso es un icono (i)', () => {
+    pintar('2026-10-19', serie('2026-10', OCT, '2026-10-19'), serie('2026-09', SEPT));
+    expect(screen.getByRole('button', { name: 'Cómo leer el gráfico' })).toBeInTheDocument();
+    expect(screen.queryByText(/Pasa el ratón o el dedo/)).not.toBeInTheDocument();
+  });
+
   it('el 15 oct se compara con el 15 sept: diferencia en euros y en % (sección 7)', async () => {
     pintar('2026-10-19', serie('2026-10', OCT, '2026-10-19'), serie('2026-09', SEPT));
     const control = screen.getByRole('slider');
@@ -99,7 +120,9 @@ describe('GraficoCapital', () => {
     pintar('2026-10-19', serie('2026-10', OCT, '2026-10-19'), serie('2026-09', SEPT));
     for (const d of ['1', '5', '10', '15', '20', '25', '30']) expect(screen.getByText(d)).toBeInTheDocument();
     expect(screen.getByText('Día del mes')).toBeInTheDocument();
-    expect(screen.getByText('2.600 €')).toBeInTheDocument();
+    // Eje con números redondos (3–4 marcas): 1.500 / 2.000 / 2.500 €.
+    expect(screen.getByText('1.500 €')).toBeInTheDocument();
+    expect(screen.getByText('2.500 €')).toBeInTheDocument();
   });
 
   it('mes cerrado: llega al último día, punto lleno de cierre y sin «hoy» ni «provisional»', () => {

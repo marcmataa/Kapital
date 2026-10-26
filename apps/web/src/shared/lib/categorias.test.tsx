@@ -23,6 +23,22 @@ describe('nombreCategoria', () => {
     expect(nombreCategoria({ nombre: 'Otros ingresos', clave: 'otros_ingresos' }, tDe('ca'))).toBe('Altres ingressos');
   });
 
+  it('las categorías por defecto nuevas (20261024000000) también se traducen', () => {
+    const nuevas = [
+      ['supermercado', 'Groceries', 'Supermercat'],
+      ['hogar', 'Home', 'Llar'],
+      ['salud', 'Health', 'Salut'],
+      ['deporte', 'Sport', 'Esport'],
+      ['cuidado_personal', 'Personal care', 'Cura personal'],
+      ['ropa', 'Clothing', 'Roba'],
+      ['regalos', 'Gifts', 'Regals'],
+    ] as const;
+    for (const [clave, en, ca] of nuevas) {
+      expect(nombreCategoria({ nombre: 'x', clave }, tDe('en'))).toBe(en);
+      expect(nombreCategoria({ nombre: 'x', clave }, tDe('ca'))).toBe(ca);
+    }
+  });
+
   it('una categoría propia o renombrada (sin clave) se ve tal cual en cualquier idioma', () => {
     for (const idioma of ['es', 'en', 'ca'] as const) {
       expect(nombreCategoria({ nombre: 'Mascotas', clave: null }, tDe(idioma))).toBe('Mascotas');
@@ -35,7 +51,11 @@ describe('nombreCategoria', () => {
   });
 
   it('cada clave tiene texto en es / en / ca, y en español coincide con el nombre de la base', () => {
-    const nombresBase = ['Restaurantes', 'Ocio', 'Transporte', 'Suscripciones', 'Otros gastos', 'Nómina', 'Otros ingresos', 'Rendimientos'];
+    const nombresBase = [
+      'Restaurantes', 'Ocio', 'Transporte', 'Suscripciones', 'Otros gastos', 'Nómina', 'Otros ingresos', 'Rendimientos',
+      'Supermercado', 'Hogar', 'Salud', 'Deporte', 'Cuidado personal', 'Ropa', 'Regalos',
+    ];
+    expect(CLAVES_CATEGORIA).toHaveLength(nombresBase.length);
     CLAVES_CATEGORIA.forEach((clave, i) => {
       expect(nombreCategoria({ nombre: 'x', clave }, tDe('es'))).toBe(nombresBase[i]);
       for (const idioma of ['en', 'ca'] as const) expect(nombreCategoria({ nombre: 'x', clave }, tDe(idioma))).not.toBe('x');

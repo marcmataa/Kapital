@@ -21,6 +21,10 @@ export default {
   'kpi.sinAnterior': 'Sense dades del mes anterior',
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Patrimoni per compte',
+  'kpi.balance': 'Balanç · 1–{dia} {mes}',
+  'kpi.ahorro': 'Estalvi {porcentaje}',
+  'kpi.topIngresos': 'Principals categories d’ingrés',
+  'kpi.topGastos': 'Principals categories de despesa',
 
   'grafico.titulo': 'Evolució del teu capital',
   'grafico.ejeX': 'Dia del mes',
@@ -29,12 +33,12 @@ export default {
   'grafico.alternativa':
     "Patrimoni diari de {mesActual} fins avui ({valorHoy}) comparat amb {mesAnterior}. Fes servir el control del gràfic per recórrer cada dia.",
   'grafico.ayuda':
-    'Passa el ratolí o el dit pel gràfic, o fes servir les fletxes del teclat, per veure cada dia. El punt buit és avui: provisional fins a les 23:59.',
+    'El punt buit és avui: provisional fins a les 23:59.',
   'grafico.vacio': 'Encara no hi ha dades de patrimoni aquest mes.',
   'grafico.alternativaCerrado':
     'Patrimoni diari de {mesActual} fins al {fecha} ({valorHoy}) comparat amb {mesAnterior}. Fes servir el control del gràfic per recórrer cada dia.',
   'grafico.ayudaCerrado':
-    "Passa el ratolí o el dit pel gràfic, o fes servir les fletxes del teclat, per veure cada dia. L'últim punt és el tancament del mes.",
+    "L'últim punt és el tancament del mes.",
   'grafico.vacioCerrado': "No hi ha dades de patrimoni d'aquell mes.",
   'grafico.lectura.hoy': '{fecha} · avui (provisional)',
   'grafico.lectura.comparacion': 'vs {fecha} {valor} · {diferencia} ({porcentaje})',
@@ -51,6 +55,7 @@ export default {
   'categorias.grafico': 'Gràfic circular de la despesa neta per categoria',
   'categorias.lista': 'Despesa neta per categoria',
   'categorias.negativa': "T'han retornat més del que vas gastar: no entra al gràfic.",
+  'categorias.verMovimientos': 'Veure els moviments de {categoria} d’aquest mes',
 
   'analisis.titulo': "De la teva anàlisi de {mes}",
   'analisis.ia': 'IA',
@@ -77,6 +82,12 @@ export default {
   'objetivos.progreso': '{actual} / {objetivo}',
   'objetivos.superado': 'Superat',
   'objetivos.conseguido': 'Aconseguit',
+  'objetivos.superadoEn': 'Superat en {importe}',
+  'objetivos.proyeccion': 'Et queden {dias} dies · has d’estalviar {importe}/dia',
+  'objetivos.proyeccionUltimoDia': 'Queda 1 dia · has d’estalviar {importe} avui',
+
+  'otros.aviso': '«{categoria}» és el {porcentaje} de la teva despesa del mes ({importe}). Recategoritza-ho per veure millor en què gastes.',
+  'otros.recategorizar': 'Recategoritza',
   'objetivos.categoriaDesconocida': 'Categoria',
 
   'form.titulo': 'Nou objectiu',

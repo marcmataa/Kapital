@@ -55,6 +55,8 @@ describe('parsearImporteLocal (según el idioma de la interfaz)', () => {
     ['38,5', '38.50'],
     ['1.200', '1200.00'],
     ['1,000', '1.00'],
+    ['38.5', '38.50'],
+    ['0.99', '0.99'],
   ])('es/ca como leer_importe: %s → %s', (entrada, esperado) => {
     expect(parsearImporteLocal(entrada, 'es-ES')).toBe(esperado);
     expect(parsearImporteLocal(entrada, 'ca-ES')).toBe(esperado);

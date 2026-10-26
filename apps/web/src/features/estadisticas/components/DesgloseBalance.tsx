@@ -1,5 +1,6 @@
 import { Card } from '@/shared/ui';
 import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
+import { useNombreCuentaCatalogo } from '@/shared/hooks/useNombreCuenta';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
 import { cx } from '@/shared/lib/cx';
@@ -7,7 +8,7 @@ import type { Comparativa, FilaFueraBalance, GastoCategoria } from '../api/estad
 import { emparejar, type FilaIngresoCategoria } from '../lib/agregaciones';
 import { signo } from '../lib/formato';
 import type { PeriodosComparacion } from '../lib/periodos';
-import { useTituloComparativa } from './ComparativaMes';
+import { useLineaVs, useTituloComparativa } from './ComparativaMes';
 import { FilasComparadas, type FilaVista } from './FilasComparadas';
 import { LineaVariacion } from './LineaVariacion';
 
@@ -34,8 +35,11 @@ export function DesgloseBalance(props: Props) {
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   const titulo = useTituloComparativa(periodos, 'desglose.titulo');
+  const lineaVs = useLineaVs();
   const hayAnterior = periodos.anterior !== null;
   const nombreCategoria = useNombreCategoriaCatalogo();
+  // v_fuera_balance trae el nombre de la cuenta, no la clave: la cuenta de efectivo se traduce por catálogo.
+  const nombreCuenta = useNombreCuentaCatalogo();
   const deIngreso = (f: FilaIngresoCategoria) => ({
     id: `i-${f.categoria_id}`,
     nombre: nombreCategoria({ id: f.categoria_id, nombre: f.nombre }),
@@ -58,8 +62,11 @@ export function DesgloseBalance(props: Props) {
 
   const nombreFuera = (f: FilaFueraBalance) =>
     f.tipo === 'traspaso'
-      ? t('desglose.traspaso', { origen: f.cuenta, destino: f.cuenta_destino ?? '' })
-      : t(f.sentido === 'resta' ? 'desglose.ajusteResta' : 'desglose.ajusteSuma', { cuenta: f.cuenta });
+      ? t('desglose.traspaso', {
+          origen: nombreCuenta({ nombre: f.cuenta }),
+          destino: f.cuenta_destino === null ? '' : nombreCuenta({ nombre: f.cuenta_destino }),
+        })
+      : t(f.sentido === 'resta' ? 'desglose.ajusteResta' : 'desglose.ajusteSuma', { cuenta: nombreCuenta({ nombre: f.cuenta }) });
   const claveFuera = (f: FilaFueraBalance) => `${f.tipo}|${f.cuenta}|${f.cuenta_destino ?? ''}|${f.sentido ?? ''}`;
   const previas = new Map(props.fueraAnterior.map((f) => [claveFuera(f), f]));
   const actuales = new Set(props.fuera.map(claveFuera));
@@ -79,6 +86,8 @@ export function DesgloseBalance(props: Props) {
   });
 
   const sBalance = signo(c.balance);
+  // «+38,00 € vs +382,00 € el mes pasado», con el % aparte.
+  const vsBalance = lineaVs(c.balance, c.balance_anterior, { signo: 'siempre' });
   return (
     <Card titulo={titulo}>
       <section aria-labelledby="desglose-cuenta" className="flex flex-col gap-3">
@@ -95,15 +104,12 @@ export function DesgloseBalance(props: Props) {
             <span className={cx('cifras text-lg font-bold', sBalance < 0 ? 'text-negativo' : sBalance > 0 ? 'text-positivo' : 'text-texto')}>
               {formatearEuros(c.balance, locale, { signo: 'siempre' })}
             </span>
-            <LineaVariacion
-              actual={c.balance}
-              anterior={c.balance_anterior}
-              porcentaje={c.variacion_balance}
-              subirEsBueno
-              {...(c.balance_anterior !== null && {
-                contexto: t('comparativa.antes', { importe: formatearEuros(c.balance_anterior, locale, { signo: 'siempre' }) }),
-              })}
-            />
+            {vsBalance !== null && (
+              <span data-testid="balance-vs" className="cifras text-xs text-apagado sm:text-sm">
+                {vsBalance}
+              </span>
+            )}
+            <LineaVariacion actual={c.balance} anterior={c.balance_anterior} porcentaje={c.variacion_balance} subirEsBueno />
           </span>
         </div>
       </section>
@@ -120,7 +126,7 @@ export function DesgloseBalance(props: Props) {
         {grupoB.length === 0 ? (
           <p className="text-sm text-apagado">{t('desglose.sinFuera')}</p>
         ) : (
-          <FilasComparadas filas={grupoB} etiqueta={t('desglose.fuera')} etiquetaAnterior={t('desglose.antes')} />
+          <FilasComparadas filas={grupoB} etiqueta={t('desglose.fuera')} etiquetaAnterior={t('desglose.antes')} leyenda={false} />
         )}
       </section>
     </Card>

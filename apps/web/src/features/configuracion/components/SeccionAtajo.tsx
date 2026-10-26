@@ -88,7 +88,9 @@ export function SeccionAtajo() {
           <h2 id="config-atajo" className="text-base font-semibold text-texto">
             {t('atajo.titulo')}
           </h2>
-          <p className="mt-1 text-sm text-apagado">{t('atajo.descripcion')}</p>
+          <p className="mt-1 max-w-prose text-sm text-texto">{t('atajo.descripcion')}</p>
+          <p className="mt-1 max-w-prose text-sm text-apagado">{t('atajo.categorias')}</p>
+          <p className="mt-1 max-w-prose text-sm text-apagado">{t('atajo.tokens')}</p>
         </div>
         <Button variante="secundario" onClick={() => setCreando(true)}>
           {t('atajo.crear')}

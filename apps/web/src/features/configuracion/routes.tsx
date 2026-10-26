@@ -8,8 +8,11 @@ const rutas: RutasFeature = {
   app: [
     {
       path: 'configuracion',
-      // Subrutas propias de configuración (idioma, bancos, categorías…) van en children.
-      children: [{ index: true, element: <PaginaConfiguracion /> }],
+      // En el móvil cada sección (idioma, bancos, efectivo…) es su propia pantalla: /configuracion/:seccion.
+      children: [
+        { index: true, element: <PaginaConfiguracion /> },
+        { path: ':seccion', element: <PaginaConfiguracion /> },
+      ],
     },
   ],
 };

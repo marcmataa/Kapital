@@ -5,7 +5,7 @@
 import type { PGlite } from '@electric-sql/pglite';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
-  MIGRACIONES, MIGRACION_ONBOARDING, ROLLBACKS, ROLLBACK_CORRECCIONES, ROLLBACK_ONBOARDING, actuarComo, conRol, crearCategoria, crearCuenta, crearDb, crearUsuario, mov, todas, una,
+  MIGRACIONES, MIGRACION_ONBOARDING, ROLLBACKS, ROLLBACK_CORRECCIONES, ROLLBACK_MOVIMIENTOS_UX, ROLLBACK_ONBOARDING, actuarComo, conRol, crearCategoria, crearCuenta, crearDb, crearUsuario, mov, todas, una,
 } from './helpers.js';
 
 let db: PGlite;
@@ -150,6 +150,8 @@ describe('rollback', () => {
     try {
       const u = await crearUsuario(limpia);
       const cuenta = await crearCuenta(limpia, u, { nombre: 'BBVA', saldoInicial: '100.00' });
+      // Los down van en orden inverso: el de movimientos_ux restaura el crear_banco de onboarding.
+      await limpia.exec(ROLLBACK_MOVIMIENTOS_UX);
       await limpia.exec(ROLLBACK_CORRECCIONES);
       await limpia.exec(ROLLBACK_ONBOARDING);
 

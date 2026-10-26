@@ -67,6 +67,12 @@ function renderRuta(ruta: string) {
   );
 }
 
+/** Categoría del formulario: cuadrícula de chips (radiogroup). */
+async function elegirCategoria(nombre: string) {
+  const grupo = await screen.findByRole('radiogroup', { name: 'Categoría' });
+  await userEvent.click(within(grupo).getByRole('radio', { name: new RegExp(`^${nombre}`) }));
+}
+
 const ubicacion = () => screen.getByTestId('ubicacion').textContent ?? '';
 /** Intl separa «€» con espacio duro: se compara con espacios normales. */
 const conTexto = (texto: string) => (_: string, el: Element | null) =>
@@ -111,23 +117,140 @@ const LISTA: Movimiento[] = [
 ];
 
 describe('Lista de movimientos', () => {
-  it('agrupa por mes y pone el signo según el tipo', async () => {
-    responderCon(LISTA);
+  it('agrupa por día con el subtotal de SQL y pone el signo según el tipo; las filas no repiten la fecha', async () => {
+    responderCon(LISTA, (l) =>
+      l.tabla === 'rpc:subtotales_por_dia'
+        ? {
+            data: [
+              { fecha: '2026-10-14', n: 1, balance: '24.00' },
+              { fecha: '2026-10-12', n: 1, balance: '-38.50' },
+              { fecha: '2026-10-10', n: 1, balance: null },
+            ],
+            error: null,
+          }
+        : undefined,
+    );
     renderRuta('/movimientos');
 
-    expect(await screen.findByRole('heading', { name: 'Octubre 2026' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Septiembre 2026' })).toBeInTheDocument();
-    expect(screen.getByText(conTexto('+24,00 €'))).toHaveClass('text-positivo');
-    expect(screen.getByText(conTexto('-38,50 €'))).toHaveClass('text-negativo');
-    expect(screen.getByText(conTexto('100,00 €'))).toHaveClass('text-apagado');
-    expect(screen.getByText(conTexto('+3,12 €'))).toHaveClass('text-apagado');
-    expect(screen.getByText(conTexto('+1.258,00 €'))).toHaveClass('text-positivo');
-    // Meta explicativa de traspasos y ajustes
-    expect(screen.getByText('10 oct · Banco Uno → Banco Dos · no cuenta en el balance')).toBeInTheDocument();
-    expect(screen.getByText('3 oct · Ajuste · Banco Dos · se muestra aparte')).toBeInTheDocument();
-    expect(screen.getByText('12 oct · Restaurantes · Tarjeta')).toBeInTheDocument();
+    const dia14 = await screen.findByRole('heading', { name: /^14 oct/ });
+    await waitFor(() => expect(dia14.textContent?.replace(/\s/g, ' ')).toBe('14 octBalance del día: +24,00 €'));
+    const dia12 = screen.getByRole('heading', { name: /^12 oct/ });
+    expect(dia12.textContent?.replace(/\s/g, ' ')).toContain('-38,50 €');
+    // Un día solo con traspasos no tiene balance (no se inventa un 0)
+    expect(screen.getByRole('heading', { name: /^10 oct/ }).textContent).toBe('10 oct');
+    expect(screen.getByRole('heading', { name: /^30 sept|^30 sep/ })).toBeInTheDocument();
+
+    // El subtotal se pide a SQL con los mismos filtros, desde el día más antiguo cargado
+    const rpc = db().llamadas.find((l) => l.tabla === 'rpc:subtotales_por_dia');
+    expect(paso(rpc, 'rpc')?.[1]).toMatchObject({ p_desde: '2026-09-30', p_hasta: null, p_tipo: null, p_q: null });
+    expect(String(paso(rpc, 'select')?.[1])).toContain('balance::text');
+
+    const lista = screen.getByRole('region', { name: 'Lista de movimientos' });
+    expect(within(lista).getByText(conTexto('+24,00 €'), { selector: 'a span' })).toHaveClass('text-positivo');
+    expect(within(lista).getByText(conTexto('-38,50 €'), { selector: 'a span' })).toHaveClass('text-negativo');
+    expect(within(lista).getByText(conTexto('100,00 €'))).toHaveClass('text-apagado');
+    expect(within(lista).getByText(conTexto('+3,12 €'))).toHaveClass('text-apagado');
+    expect(within(lista).getByText(conTexto('+1.258,00 €'))).toHaveClass('text-positivo');
+    // Meta sin fecha; traspasos y ajustes: icono + texto para lectores de pantalla
+    expect(within(lista).getByText('Banco Uno → Banco Dos')).toBeInTheDocument();
+    expect(within(lista).getByText('No cuenta en el balance')).toHaveClass('sr-only');
+    expect(within(lista).getByText('Ajuste · Banco Dos')).toBeInTheDocument();
+    expect(within(lista).getByText('No cuenta en el balance: se muestra aparte')).toHaveClass('sr-only');
+    expect(within(lista).getByText('Restaurantes · Tarjeta')).toBeInTheDocument();
+    expect(within(lista).queryByText(/12 oct ·/)).not.toBeInTheDocument();
     // Cada fila es un enlace al detalle
     expect(screen.getByRole('link', { name: /Cena con amigos/ })).toHaveAttribute('href', `/movimientos/${ID.mov2}`);
+  });
+
+  it('chips con número y total por tipo de SQL («Gastos · 38 · −863 €»), sin el filtro de tipo', async () => {
+    responderCon(LISTA, (l) =>
+      l.tabla === 'rpc:totales_por_tipo'
+        ? {
+            data: [
+              { tipo: 'gasto', n: 38, total: '863.40' },
+              { tipo: 'ingreso', n: 2, total: '1258.00' },
+              { tipo: 'ajuste', n: 1, total: '-5.00' },
+            ],
+            error: null,
+          }
+        : undefined,
+    );
+    renderRuta('/movimientos?tipo=gasto&q=cena');
+    const nombre = (b: HTMLElement) => (b.textContent ?? '').replace(/\s/g, ' ');
+    await waitFor(() => expect(nombre(screen.getByRole('button', { name: /^Gastos/ }))).toBe('Gastos · 38 · -863 €'));
+    expect(nombre(screen.getByRole('button', { name: /^Todos/ }))).toBe('Todos · 41');
+    expect(nombre(screen.getByRole('button', { name: /^Ingresos/ }))).toBe('Ingresos · 2 · +1.258 €');
+    expect(nombre(screen.getByRole('button', { name: /^Ajustes/ }))).toBe('Ajustes · 1 · -5 €');
+    expect(nombre(screen.getByRole('button', { name: /^Traspasos/ }))).toBe('Traspasos · 0');
+    const rpc = db().llamadas.find((l) => l.tabla === 'rpc:totales_por_tipo');
+    expect(paso(rpc, 'rpc')?.[1]).toEqual({ p_q: 'cena', p_desde: null, p_hasta: null, p_categoria: null, p_metodo: null, p_cuenta: null });
+  });
+
+  it('escritorio sin selección: resumen del filtro activo calculado en SQL', async () => {
+    responderCon(LISTA, (l) =>
+      l.tabla === 'rpc:resumen_filtro'
+        ? {
+            data: [
+              {
+                n: 5,
+                ingresos: '1258.00',
+                gastos_netos: '14.50',
+                balance: '1243.50',
+                ajustes: '3.12',
+                dias: 21,
+                gasto_medio_diario: '0.6904761904761905',
+                categoria_id: ID.restaurantes,
+                categoria_gasto: '38.50',
+              },
+            ],
+            error: null,
+          }
+        : undefined,
+    );
+    renderRuta('/movimientos');
+    const panel = await screen.findByRole('complementary', { name: 'Resumen de tus movimientos' });
+    await within(panel).findByText('5');
+    const valor = (etiqueta: string) =>
+      within(panel).getByText(etiqueta).nextElementSibling?.textContent?.replace(/\s/g, ' ');
+    expect(valor('Balance')).toBe('+1.243,50 €');
+    expect(valor('Gastos netos')).toBe('14,50 €');
+    expect(valor('Gasto medio diario')).toBe('0,69 €');
+    expect(within(panel).getByText('en 21 días')).toBeInTheDocument();
+    expect(valor('Categoría principal')).toBe('Restaurantes');
+    expect(valor('Ajustes (no cuentan en el balance)')).toBe('+3,12 €');
+  });
+
+  it('móvil: deslizar una fila muestra Editar y Borrar; borrar pide confirmación', async () => {
+    responderCon(LISTA, (l) =>
+      l.tabla === 'movimientos' && operacion(l) === 'delete' ? { data: [{ id: ID.mov2 }], error: null } : undefined,
+    );
+    renderRuta('/movimientos');
+    const fila = await screen.findByRole('link', { name: /Cena con amigos/ });
+    const acciones = within(fila.closest('li') as HTMLElement).getByTestId('acciones-fila');
+    expect(acciones).toHaveAttribute('inert');
+
+    fireEvent.touchStart(fila, { touches: [{ clientX: 300, clientY: 20 }] });
+    fireEvent.touchMove(fila, { touches: [{ clientX: 120, clientY: 24 }] });
+    fireEvent.touchEnd(fila, { touches: [] });
+    expect(acciones).not.toHaveAttribute('inert');
+    expect(within(acciones).getByRole('link', { name: 'Editar' })).toHaveAttribute('href', `/movimientos/${ID.mov2}/editar`);
+
+    await userEvent.click(within(acciones).getByRole('button', { name: 'Borrar' }));
+    const dialogo = await screen.findByRole('dialog', { name: '¿Borrar este movimiento?' });
+    expect(llamadasMovimientos('delete')).toHaveLength(0);
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Borrar' }));
+    await waitFor(() => expect(llamadasMovimientos('delete')).toHaveLength(1));
+    expect(pasos(llamadasMovimientos('delete')[0], 'eq')).toEqual([['eq', 'id', ID.mov2]]);
+  });
+
+  it('un desplazamiento vertical no abre las acciones (es scroll)', async () => {
+    responderCon(LISTA);
+    renderRuta('/movimientos');
+    const fila = await screen.findByRole('link', { name: /Cena con amigos/ });
+    fireEvent.touchStart(fila, { touches: [{ clientX: 300, clientY: 20 }] });
+    fireEvent.touchMove(fila, { touches: [{ clientX: 290, clientY: 200 }] });
+    fireEvent.touchEnd(fila, { touches: [] });
+    expect(within(fila.closest('li') as HTMLElement).getByTestId('acciones-fila')).toHaveAttribute('inert');
   });
 
   it('pide importes como texto, en orden keyset y de 50 en 50 (+1 para saber si hay más)', async () => {
@@ -165,7 +288,7 @@ describe('Lista de movimientos', () => {
   it('la búsqueda va a la URL y llega a la consulta sin caracteres reservados', async () => {
     responderCon(LISTA);
     renderRuta('/movimientos');
-    await screen.findByRole('heading', { name: 'Octubre 2026' });
+    await screen.findByRole('heading', { name: /^14 oct/ });
 
     await userEvent.type(screen.getByRole('searchbox', { name: 'Buscar' }), 'cena),id.neq.0');
     await waitFor(() => expect(ubicacion()).toContain('q=cena'));
@@ -178,23 +301,23 @@ describe('Lista de movimientos', () => {
   it('filtros en la URL: se leen al entrar, los chips los cambian y se conservan los demás', async () => {
     responderCon(LISTA);
     renderRuta(`/movimientos?tipo=gasto&cuenta=${ID.caixa}`);
-    await screen.findByRole('heading', { name: 'Octubre 2026' });
+    await screen.findByRole('heading', { name: /^14 oct/ });
 
-    expect(screen.getByRole('button', { name: 'Gastos' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /^Gastos/ })).toHaveAttribute('aria-pressed', 'true');
     const consulta = llamadasMovimientos('select')[0];
     expect(pasos(consulta, 'eq')).toContainEqual(['eq', 'tipo', 'gasto']);
     expect(pasos(consulta, 'or')).toContainEqual(['or', `cuenta_id.eq.${ID.caixa},cuenta_destino_id.eq.${ID.caixa}`]);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Ingresos' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Ingresos/ }));
     expect(ubicacion()).toBe(`/movimientos?tipo=ingreso&cuenta=${ID.caixa}`);
-    await userEvent.click(screen.getByRole('button', { name: 'Todos' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Todos/ }));
     expect(ubicacion()).toBe(`/movimientos?cuenta=${ID.caixa}`);
   });
 
   it('el panel de filtros (hoja en móvil) escribe fechas y método en la URL', async () => {
     responderCon(LISTA);
     renderRuta('/movimientos');
-    await screen.findByRole('heading', { name: 'Octubre 2026' });
+    await screen.findByRole('heading', { name: /^14 oct/ });
 
     await userEvent.click(screen.getByRole('button', { name: 'Filtros' }));
     const hoja = await screen.findByRole('dialog', { name: 'Filtros' });
@@ -210,9 +333,16 @@ describe('Lista de movimientos', () => {
 
   it('sin resultados con filtros ofrece quitarlos', async () => {
     responderCon([]);
-    renderRuta('/movimientos?tipo=ajuste');
+    renderRuta('/movimientos?tipo=gasto&q=nada');
     await userEvent.click(await screen.findByRole('button', { name: 'Quitar filtros' }));
     expect(ubicacion()).toBe('/movimientos');
+  });
+
+  it('sin ajustes (y sin más filtros) no es «sin resultados»: todavía no has hecho ninguno', async () => {
+    responderCon([]);
+    renderRuta('/movimientos?tipo=ajuste');
+    expect(await screen.findByText('Todavía no has hecho ningún ajuste')).toBeInTheDocument();
+    expect(screen.queryByText('No hay movimientos con estos filtros')).not.toBeInTheDocument();
   });
 });
 
@@ -240,9 +370,9 @@ describe('Categorías por defecto traducidas', () => {
   it('en inglés, la lista y el panel de filtros muestran el nombre traducido; las propias, tal cual', async () => {
     responder();
     renderConIdioma('/movimientos', 'en');
-    expect(await screen.findByText(/· Leisure · /)).toBeInTheDocument();
-    expect(screen.getByText(/· Comidas fuera · /)).toBeInTheDocument();
-    expect(screen.getByText(/· Salary · /)).toBeInTheDocument();
+    expect(await screen.findByText(/^Leisure · /)).toBeInTheDocument();
+    expect(screen.getByText(/^Comidas fuera · /)).toBeInTheDocument();
+    expect(screen.getByText(/^Salary · /)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }));
     const hoja = await screen.findByRole('dialog', { name: 'Filters' });
@@ -254,9 +384,9 @@ describe('Categorías por defecto traducidas', () => {
   it('en catalán, el selector del formulario también', async () => {
     responder();
     renderConIdioma('/movimientos/nuevo', 'ca');
-    const selector = await screen.findByLabelText('Categoria');
-    await waitFor(() => expect(within(selector).getByRole('option', { name: '🎉 Oci' })).toBeInTheDocument());
-    expect(within(selector).getByRole('option', { name: 'Comidas fuera' })).toBeInTheDocument();
+    const selector = await screen.findByRole('radiogroup', { name: 'Categoria' });
+    expect(within(selector).getByRole('radio', { name: 'Oci' })).toHaveTextContent('🎉');
+    expect(within(selector).getByRole('radio', { name: 'Comidas fuera' })).toBeInTheDocument();
   });
 });
 
@@ -336,7 +466,7 @@ describe('Formulario', () => {
 
     const importe = await screen.findByLabelText('Importe');
     await userEvent.type(importe, '38,5');
-    await userEvent.selectOptions(screen.getByLabelText('Categoría'), ID.restaurantes);
+    await elegirCategoria('Restaurantes');
     expect(screen.getByLabelText('Sale de')).toHaveValue(ID.caixa); // principal por defecto
     expect(screen.getByLabelText('Fecha en que ocurrió')).toHaveValue('2026-10-20'); // hoy en Madrid
     fireEvent.change(screen.getByLabelText('Fecha en que ocurrió'), { target: { value: '2026-10-17' } });
@@ -385,7 +515,7 @@ describe('Formulario', () => {
     renderRuta('/movimientos/nuevo');
     await userEvent.click(await screen.findByRole('radio', { name: 'Ingreso' }));
     await userEvent.type(screen.getByLabelText('Importe'), '1.258,00');
-    await userEvent.selectOptions(screen.getByLabelText('Categoría'), ID.nomina);
+    await elegirCategoria('Nómina');
     await userEvent.selectOptions(screen.getByLabelText('Entra en'), ID.ing);
     await userEvent.type(screen.getByLabelText('Concepto'), 'Nómina');
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
@@ -425,55 +555,96 @@ describe('Formulario', () => {
     });
   });
 
-  it('?tipo=ajuste&cuenta=… prepara un ajuste de esa cuenta y exige la nota', async () => {
-    responderCon([], respuestaInsert);
+  it('ajuste por saldo real: la diferencia la calcula SQL, se enseña antes de guardar y exige la nota', async () => {
+    responderCon([], (l) => {
+      if (l.tabla === 'rpc:calcular_ajuste') {
+        return { data: [{ saldo_app: '100.00', saldo_real: '103.12', diferencia: '3.12', sentido: 'suma' }], error: null };
+      }
+      if (l.tabla === 'rpc:crear_ajuste') return { data: [{ id: 'nuevo', diferencia: '3.12' }], error: null };
+      return undefined;
+    });
     renderRuta(`/movimientos/nuevo?tipo=ajuste&cuenta=${ID.ing}`);
 
     expect(await screen.findByRole('radio', { name: 'Ajuste' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByLabelText('Cuenta a corregir')).toHaveValue(ID.ing);
     expect(screen.getByRole('note')).toHaveTextContent('No cuenta en el balance');
 
-    await userEvent.type(screen.getByLabelText('Importe'), '-3,12');
-    await userEvent.click(screen.getByRole('radio', { name: 'Resta' }));
-    await userEvent.type(screen.getByLabelText('Concepto'), 'Cuadre');
+    const saldo = screen.getByLabelText('¿Cuánto tienes ahora en Banco Dos?');
+    expect(saldo).toHaveFocus();
+    await userEvent.type(saldo, '103,12');
+    expect(await screen.findByText(conTexto('Se creará un ajuste de +3,12 €'))).toBeInTheDocument();
+    const calculo = db().llamadas.find((l) => l.tabla === 'rpc:calcular_ajuste');
+    expect(paso(calculo, 'rpc')?.[1]).toEqual({ p_cuenta: ID.ing, p_saldo_real: '103.12' });
+
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
     expect(await screen.findByText('Un ajuste necesita una nota que explique el descuadre.')).toBeInTheDocument();
-    expect(llamadasMovimientos('insert')).toHaveLength(0);
+    expect(db().llamadas.some((l) => l.tabla === 'rpc:crear_ajuste')).toBe(false);
 
     await userEvent.type(screen.getByLabelText(/Nota \(obligatoria\)/), 'Diferencia con el extracto');
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
-    await waitFor(() => expect(insertado()).toBeDefined());
-    expect(insertado()).toMatchObject({
-      tipo: 'ajuste',
-      importe: '3.12',
-      sentido: 'resta',
-      cuenta_id: ID.ing,
-      notas: 'Diferencia con el extracto',
-      categoria_id: null,
-      metodo: null,
+    await waitFor(() => expect(db().llamadas.some((l) => l.tabla === 'rpc:crear_ajuste')).toBe(true));
+    const creado = db().llamadas.find((l) => l.tabla === 'rpc:crear_ajuste');
+    expect(paso(creado, 'rpc')?.[1]).toEqual({
+      p_cuenta: ID.ing,
+      p_saldo_real: '103.12',
+      p_nota: 'Diferencia con el extracto',
+      p_concepto: 'Ajuste de saldo',
     });
+    // El importe nunca lo manda la web: no hay insert directo en movimientos
+    expect(llamadasMovimientos('insert')).toHaveLength(0);
   });
 
-  it('devolución «-24» se guarda como 24.00 (sección 11) vinculada al gasto original', async () => {
+  it('ajuste: si el saldo cuadra no se guarda nada; un descubierto se envía con signo', async () => {
+    responderCon([], (l) =>
+      l.tabla === 'rpc:calcular_ajuste'
+        ? { data: [{ saldo_app: '-20.00', saldo_real: '-20.00', diferencia: '0.00', sentido: null }], error: null }
+        : undefined,
+    );
+    renderRuta(`/movimientos/nuevo?tipo=ajuste&cuenta=${ID.caixa}`);
+    await userEvent.type(await screen.findByLabelText('¿Cuánto tienes ahora en Banco Uno?'), '-20');
+    expect(await screen.findByText('El saldo cuadra: no hace falta ningún ajuste.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled();
+    const calculo = db().llamadas.find((l) => l.tabla === 'rpc:calcular_ajuste');
+    expect(paso(calculo, 'rpc')?.[1]).toEqual({ p_cuenta: ID.caixa, p_saldo_real: '-20.00' });
+  });
+
+  it('devolución: «Gasto original» primero (de SQL); al elegirlo rellena categoría, cuenta y lo pendiente; «-24» se guarda como 24.00', async () => {
     responderCon([], (l) => {
-      if (l.tabla !== 'movimientos') return undefined;
-      if (operacion(l) === 'insert') return { data: { id: 'nuevo' }, error: null };
-      if (paso(l, 'in')) return { data: [{ id: 'otra', devolucion_de: ID.mov2, importe: '15.00' }], error: null };
-      return {
-        data: [{ id: ID.mov2, fecha: '2026-10-12', concepto: 'Entradas', importe: '100.00' }],
-        error: null,
-      };
+      if (l.tabla === 'rpc:gastos_devolvibles') {
+        return {
+          data: [
+            {
+              id: ID.mov2,
+              fecha: '2026-10-12',
+              concepto: 'Entradas',
+              importe: '100.00',
+              pendiente: '85.00',
+              categoria_id: ID.ocio,
+              cuenta_id: ID.ing,
+            },
+          ],
+          error: null,
+        };
+      }
+      if (l.tabla === 'movimientos' && operacion(l) === 'insert') return { data: { id: 'nuevo' }, error: null };
+      return undefined;
     });
     renderRuta('/movimientos/nuevo');
     await userEvent.click(await screen.findByRole('radio', { name: 'Devolución' }));
-    await userEvent.type(screen.getByLabelText('Importe'), '-24');
-    await userEvent.selectOptions(screen.getByLabelText('Categoría'), ID.ocio);
     const original = screen.getByLabelText(/Gasto original/);
+    // El gasto original va antes que el importe
+    expect(original.compareDocumentPosition(screen.getByLabelText('Importe')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await waitFor(() => expect(within(original).getByRole('option', { name: /Entradas/ })).toBeInTheDocument());
     expect(within(original).getByRole('option', { name: /Entradas/ }).textContent?.replace(/\s/g, ' ')).toBe(
       '12 oct · Entradas · 100,00 € (quedan 85,00 €)',
     );
     await userEvent.selectOptions(original, ID.mov2);
+    expect(screen.getByLabelText('Importe')).toHaveValue('85,00');
+    expect(screen.getByRole('radio', { name: /^Ocio/ })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByLabelText('Entra en')).toHaveValue(ID.ing);
+
+    await userEvent.clear(screen.getByLabelText('Importe'));
+    await userEvent.type(screen.getByLabelText('Importe'), '-24');
     await userEvent.type(screen.getByLabelText('Concepto'), 'Bizum entrada');
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
@@ -483,8 +654,89 @@ describe('Formulario', () => {
       importe: '24.00',
       categoria_id: ID.ocio,
       devolucion_de: ID.mov2,
-      cuenta_id: ID.caixa,
+      cuenta_id: ID.ing,
     });
+  });
+
+  it('orden: Importe → Concepto → Categoría → Cuenta → Método → Fecha → Notas; el importe recibe el foco', async () => {
+    responderCon([]);
+    renderRuta('/movimientos/nuevo');
+    const importe = await screen.findByLabelText('Importe');
+    await waitFor(() => expect(importe).toHaveFocus());
+    expect(importe).toHaveAttribute('inputmode', 'decimal');
+    const campos = [
+      importe,
+      screen.getByLabelText('Concepto'),
+      screen.getByRole('radiogroup', { name: 'Categoría' }),
+      screen.getByLabelText('Sale de'),
+      screen.getByLabelText('Método de pago'),
+      screen.getByLabelText('Fecha en que ocurrió'),
+      screen.getByLabelText(/^Notas/),
+    ];
+    for (let i = 1; i < campos.length; i++) {
+      const anterior = campos[i - 1] as HTMLElement;
+      expect(anterior.compareDocumentPosition(campos[i] as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
+  it('valida al salir del campo, no antes de escribir', async () => {
+    responderCon([]);
+    renderRuta('/movimientos/nuevo');
+    const importe = await screen.findByLabelText('Importe');
+    expect(screen.queryByText('Introduce un importe mayor que 0.')).not.toBeInTheDocument();
+    await userEvent.type(importe, '0');
+    expect(screen.queryByText('Introduce un importe mayor que 0.')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText('Concepto'));
+    expect(await screen.findByText('Introduce un importe mayor que 0.')).toBeInTheDocument();
+  });
+
+  it('categorías: las más usadas primero (SQL) y sugerencia por el concepto', async () => {
+    responderCon([], (l) => {
+      if (l.tabla === 'rpc:categorias_mas_usadas') {
+        return { data: [{ categoria_id: ID.restaurantes }, { categoria_id: ID.ocio }], error: null };
+      }
+      if (l.tabla === 'rpc:sugerir_categoria') return { data: ID.ocio, error: null };
+      return undefined;
+    });
+    renderRuta('/movimientos/nuevo');
+    const grupo = await screen.findByRole('radiogroup', { name: 'Categoría' });
+    await waitFor(() =>
+      expect(within(grupo).getAllByRole('radio').map((r) => r.textContent)).toEqual([
+        expect.stringContaining('Restaurantes'),
+        expect.stringContaining('Ocio'),
+      ]),
+    );
+    await userEvent.type(screen.getByLabelText('Concepto'), 'Cine Yelmo');
+    await waitFor(() => expect(within(grupo).getByRole('radio', { name: /^Ocio/ })).toHaveAttribute('aria-checked', 'true'));
+    expect(within(grupo).getByRole('radio', { name: /^Ocio/ })).toHaveTextContent('Sugerida');
+    const sugerencia = db().llamadas.find((l) => l.tabla === 'rpc:sugerir_categoria');
+    expect(paso(sugerencia, 'rpc')?.[1]).toEqual({ p_concepto: 'Cine Yelmo', p_tipo: 'gasto' });
+  });
+
+  it('chips «Hoy» y «Ayer» junto a la fecha', async () => {
+    responderCon([]);
+    renderRuta('/movimientos/nuevo');
+    const fecha = await screen.findByLabelText('Fecha en que ocurrió');
+    expect(screen.getByRole('button', { name: 'Hoy' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Ayer' }));
+    expect(fecha).toHaveValue('2026-10-19');
+    expect(screen.getByRole('button', { name: 'Ayer' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('traspaso: cada cuenta muestra su saldo de hoy (v_saldos)', async () => {
+    responderCon([], (l) =>
+      l.tabla === 'v_saldos' ? { data: [{ id: ID.caixa, valor: '98.32' }], error: null } : undefined,
+    );
+    renderRuta('/movimientos/nuevo');
+    await userEvent.click(await screen.findByRole('radio', { name: 'Traspaso' }));
+    const desde = screen.getByLabelText('Desde');
+    await waitFor(() =>
+      expect(
+        within(desde)
+          .getAllByRole('option')
+          .map((o) => o.textContent?.replace(/\s/g, ' ')),
+      ).toContain('Banco Uno · 98,32 €'),
+    );
   });
 
   it('un error de la base se traduce y nunca se enseña el mensaje crudo', async () => {
@@ -498,7 +750,7 @@ describe('Formulario', () => {
     );
     renderRuta('/movimientos/nuevo');
     await userEvent.type(await screen.findByLabelText('Importe'), '10');
-    await userEvent.selectOptions(screen.getByLabelText('Categoría'), ID.ocio);
+    await elegirCategoria('Ocio');
     await userEvent.type(screen.getByLabelText('Concepto'), 'Algo');
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 

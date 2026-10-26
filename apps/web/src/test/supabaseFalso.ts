@@ -20,7 +20,7 @@ export const estado = {
   invoke: vi.fn(),
 };
 
-const METODOS = ['select', 'eq', 'gte', 'lte', 'in', 'order', 'limit', 'single', 'maybeSingle'];
+const METODOS = ['select', 'insert', 'eq', 'gte', 'lte', 'in', 'order', 'limit', 'single', 'maybeSingle'];
 
 function consulta(ll: Llamada) {
   estado.llamadas.push(ll);

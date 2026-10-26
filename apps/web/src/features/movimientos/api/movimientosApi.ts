@@ -22,15 +22,6 @@ export interface PaginaMovimientos {
   siguiente: Cursor | null;
 }
 
-export interface GastoDevolvible {
-  id: string;
-  fecha: string;
-  concepto: string;
-  importe: string;
-  /** Lo que queda por devolver (importe − devoluciones ya vinculadas), 'd.dd'. */
-  pendiente: string;
-}
-
 /** Orden de la lista: el más reciente primero; empates por hora de registro y por id. */
 export function filtroCursor(c: Cursor): string {
   // Los valores vienen de la base (fecha, timestamptz, uuid), no del usuario; aun así van entre comillas.
@@ -136,49 +127,6 @@ export const movimientosApi = api.injectEndpoints({
       providesTags: ['Movimientos'],
     }),
 
-    /**
-     * Gastos recientes de una categoría a los que se puede vincular una devolución, con lo que
-     * queda por devolver (validar_movimiento rechaza devolver más que el gasto original).
-     * `excluir`: la devolución que se está editando (no cuenta contra sí misma).
-     */
-    movimientosGastosDevolvibles: b.query<GastoDevolvible[], { categoriaId: string; excluir: string | null }>({
-      queryFn: ({ categoriaId, excluir }) =>
-        capturar(async () => {
-          if (!esUuid(categoriaId)) return { data: [] };
-          const gastos = await supabase
-            .from('movimientos')
-            .select('id, fecha, concepto, importe::text')
-            .eq('tipo', 'gasto')
-            .eq('categoria_id', categoriaId)
-            .order('fecha', { ascending: false })
-            .order('created_at', { ascending: false })
-            .limit(30);
-          if (gastos.error) return { error: aErrorApi(gastos.error) };
-          const lista = gastos.data as unknown as Omit<GastoDevolvible, 'pendiente'>[];
-          if (lista.length === 0) return { data: [] };
-          const devs = await supabase
-            .from('movimientos')
-            .select('id, devolucion_de, importe::text')
-            .in(
-              'devolucion_de',
-              lista.map((g) => g.id),
-            );
-          if (devs.error) return { error: aErrorApi(devs.error) };
-          const devuelto = new Map<string, bigint>();
-          for (const d of devs.data as unknown as { id: string; devolucion_de: string; importe: string }[]) {
-            if (d.id === excluir) continue;
-            devuelto.set(d.devolucion_de, (devuelto.get(d.devolucion_de) ?? 0n) + aCentimos(d.importe));
-          }
-          return {
-            data: lista.map((g) => ({
-              ...g,
-              pendiente: desdeCentimos(aCentimos(g.importe) - (devuelto.get(g.id) ?? 0n)),
-            })),
-          };
-        }),
-      providesTags: ['Movimientos'],
-    }),
-
     movimientosCrear: b.mutation<string, PayloadMovimiento>({
       queryFn: (payload) =>
         capturar(async () => {
@@ -225,7 +173,6 @@ export const {
   useMovimientosListarInfiniteQuery,
   useMovimientosObtenerQuery,
   useMovimientosDevueltoQuery,
-  useMovimientosGastosDevolviblesQuery,
   useMovimientosCrearMutation,
   useMovimientosActualizarMutation,
   useMovimientosBorrarMutation,

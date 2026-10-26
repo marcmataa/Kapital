@@ -101,6 +101,33 @@ const OPCIONES_ESTILO: Record<EstiloFecha, Intl.DateTimeFormatOptions> = {
   larga: { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
 };
 
+/*
+ * Meses abreviados propios (sin el punto ni la preposición de Intl): los datos de Intl cambian
+ * entre navegadores y versiones (Safari del iPhone y Chrome de escritorio no coinciden: «sep» /
+ * «sept», «d’oct.» / «oct.»), y la fecha corta debe verse igual en móvil y en escritorio.
+ */
+const MESES_CORTOS: Record<'es' | 'en' | 'ca', readonly string[]> = {
+  es: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  ca: ['gen', 'febr', 'març', 'abr', 'maig', 'juny', 'jul', 'ag', 'set', 'oct', 'nov', 'des'],
+};
+
+function idiomaDeLocale(locale: string): 'es' | 'en' | 'ca' {
+  const base = locale.slice(0, 2).toLowerCase();
+  return base === 'en' || base === 'ca' ? base : 'es';
+}
+
+/**
+ * Fecha corta de día y mes, la única de la app: '2026-10-14' → '14 oct' (es), '14 Oct' (en),
+ * '14 oct' (ca). Igual en todos los navegadores.
+ */
+export function formatearDiaMes(fecha: string, locale: string): string {
+  const { mes, dia } = partesDe(fecha);
+  const nombre = MESES_CORTOS[idiomaDeLocale(locale)][mes - 1];
+  if (nombre === undefined) throw new Error('fecha_invalida');
+  return `${dia} ${nombre}`;
+}
+
 /** Formatea un día civil ('YYYY-MM-DD') en el idioma dado. */
 export function formatearFecha(fecha: string, locale: string, estilo: EstiloFecha = 'media'): string {
   return new Intl.DateTimeFormat(locale, { ...OPCIONES_ESTILO[estilo], timeZone: 'UTC' }).format(comoUtc(fecha));

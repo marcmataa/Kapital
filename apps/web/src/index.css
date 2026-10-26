@@ -22,7 +22,7 @@
   --k-borde-fuerte: #27443a;
   --k-texto: #eef3ec;
   --k-apagado: #9db5ab;
-  --k-tenue: #7f978d;
+  --k-tenue: #8fa79d;
   --k-acento: #5fd3a0;
   --k-acento-hover: #7ee0b4;
   --k-acento-suave: #10291f;
@@ -57,16 +57,16 @@
     --k-borde-fuerte: #c3d6cc;
     --k-texto: #0d1f19;
     --k-apagado: #4d6359;
-    --k-tenue: #6b8278;
-    --k-acento: #0f8a5f;
-    --k-acento-hover: #0c744f;
+    --k-tenue: #566c62;
+    --k-acento: #0a7550;
+    --k-acento-hover: #08613f;
     --k-acento-suave: #e3f2eb;
     --k-acento-borde: #a9d6c2;
     --k-sobre-acento: #ffffff;
-    --k-enlace: #0f8a5f;
-    --k-positivo: #0f8a5f;
+    --k-enlace: #0a7550;
+    --k-positivo: #0a7550;
     --k-positivo-suave: #e3f2eb;
-    --k-negativo: #c4362a;
+    --k-negativo: #b3302a;
     --k-negativo-suave: rgb(196 54 42 / 0.1);
     --k-sobre-negativo: #ffffff;
     --k-aviso: #8a5a00;
@@ -92,16 +92,16 @@
   --k-borde-fuerte: #c3d6cc;
   --k-texto: #0d1f19;
   --k-apagado: #4d6359;
-  --k-tenue: #6b8278;
-  --k-acento: #0f8a5f;
-  --k-acento-hover: #0c744f;
+  --k-tenue: #566c62;
+  --k-acento: #0a7550;
+  --k-acento-hover: #08613f;
   --k-acento-suave: #e3f2eb;
   --k-acento-borde: #a9d6c2;
   --k-sobre-acento: #ffffff;
-  --k-enlace: #0f8a5f;
-  --k-positivo: #0f8a5f;
+  --k-enlace: #0a7550;
+  --k-positivo: #0a7550;
   --k-positivo-suave: #e3f2eb;
-  --k-negativo: #c4362a;
+  --k-negativo: #b3302a;
   --k-negativo-suave: rgb(196 54 42 / 0.1);
   --k-sobre-negativo: #ffffff;
   --k-aviso: #8a5a00;
@@ -146,6 +146,24 @@
   --color-morado-suave: var(--k-morado-suave);
   --color-overlay: var(--k-overlay);
   --shadow-tarjeta: var(--k-sombra);
+  /* Texto secundario mínimo 13 px (WCAG / revisión UX): text-xs = 13 px en toda la app. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.125rem;
+  /* Ancho máximo común de las páginas: 1200 px de contenido + 2 × 40 px de margen. */
+  --container-contenido: 80rem;
+}
+
+/*
+ * Datos provisionales (hoy, el mes en curso): relleno claro rayado del color del texto
+ * (`text-acento relleno-provisional`), nunca un rectángulo vacío con borde discontinuo.
+ */
+@utility relleno-provisional {
+  background-color: color-mix(in srgb, currentColor 22%, transparent);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, currentColor 60%, transparent) 0 2px,
+    transparent 2px 6px
+  );
 }
 
 /* Capas (z-index). Todas definidas: nada de variables sin declarar. */
@@ -153,7 +171,7 @@
   --z-nav: 40;
   --z-sheet: 50;
   --z-toast: 60;
-  --alto-header-movil: 3.5rem;
+  --alto-header-movil: 3rem;
   --alto-bottom-nav: 4rem;
 }
 

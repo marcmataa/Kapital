@@ -1,10 +1,11 @@
 import { Link, useParams } from 'react-router';
+import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useIdioma, useT } from '@/shared/i18n';
-import { CabeceraPagina } from '@/shared/layout';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
-import { Button, Card, EmptyState, PantallaCarga, importeParaEditar, clasesBoton } from '@/shared/ui';
+import { Button, EmptyState, PantallaCarga, importeParaEditar, clasesBoton } from '@/shared/ui';
 import { useMovimientosDevueltoQuery, useMovimientosObtenerQuery } from '../api/movimientosApi';
 import { FormularioMovimiento } from '../components/FormularioMovimiento';
+import { PantallaFormulario } from '../components/PantallaFormulario';
 import { useCatalogos } from '../hooks/useCatalogos';
 import { useVolver } from '../hooks/useVolver';
 import { valoresDesdeMovimiento } from '../schemas/movimiento';
@@ -12,6 +13,7 @@ import { valoresDesdeMovimiento } from '../schemas/movimiento';
 export default function PaginaEditarMovimiento() {
   const t = useT('movimientos');
   const tc = useT('common');
+  const nombreCuenta = useNombreCuenta();
   const { locale } = useIdioma();
   const { id = '' } = useParams();
   const catalogos = useCatalogos();
@@ -60,7 +62,7 @@ export default function PaginaEditarMovimiento() {
       .find((c) => c?.fecha_cierre != null);
     contenido =
       cerrada !== undefined ? (
-        <EmptyState titulo={t('detalle.cuentaCerrada', { cuenta: cerrada.nombre })} />
+        <EmptyState titulo={t('detalle.cuentaCerrada', { cuenta: nombreCuenta(cerrada) })} />
       ) : (
         <FormularioMovimiento
           key={m.id}
@@ -77,9 +79,8 @@ export default function PaginaEditarMovimiento() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl">
-      <CabeceraPagina titulo={t('editar.titulo')} volverA={`/movimientos/${id}`} />
-      <Card>{contenido}</Card>
-    </div>
+    <PantallaFormulario titulo={t('editar.titulo')} volverA={`/movimientos/${id}`}>
+      {contenido}
+    </PantallaFormulario>
   );
 }

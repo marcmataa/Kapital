@@ -15,6 +15,7 @@ import {
   useEstadisticasMovimientosPorDiaQuery,
   useEstadisticasResumenMensualQuery,
   useEstadisticasResumenPeriodoQuery,
+  useEstadisticasRitmoQuery,
 } from '../api/estadisticasApi';
 import { ComparativaMes, useTituloComparativa } from '../components/ComparativaMes';
 import { DesgloseBalance } from '../components/DesgloseBalance';
@@ -68,6 +69,9 @@ export default function PaginaEstadisticas() {
   const si = <T,>(condicion: boolean, arg: T) => (condicion ? arg : skipToken);
 
   const comparativa = useEstadisticasComparativaQuery({ actual: periodos.actual, anterior });
+  // Devoluciones, gasto diario vs el mes anterior y proyección a fin de mes (ritmo_gasto). Es un
+  // complemento: mientras carga o si falla, la comparativa se muestra sin él.
+  const ritmo = useEstadisticasRitmoQuery(si(verGastos, { actual: periodos.actual, anterior }));
   const porDia = useEstadisticasMovimientosPorDiaQuery(si(verGastos || verIngresos, periodos.actual));
   const metodos = useEstadisticasGastoPorMetodoQuery(si(verGastos, periodos.actual));
   const categorias = useEstadisticasGastoPorCategoriaQuery(si(verGastos || verBalance, periodos.actual));
@@ -109,7 +113,7 @@ export default function PaginaEstadisticas() {
   );
   const bloqueComparativa = (modo: 'gastos' | 'ingresos') => (
     <EstadoConsulta datos={comparativa.data} {...estado(comparativa)}>
-      {(c) => <ComparativaMes periodos={periodos} datos={c} modo={modo} />}
+      {(c) => <ComparativaMes periodos={periodos} datos={c} modo={modo} ritmo={modo === 'gastos' ? ritmo.currentData : undefined} />}
     </EstadoConsulta>
   );
 

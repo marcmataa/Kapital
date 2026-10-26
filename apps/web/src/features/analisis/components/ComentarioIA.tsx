@@ -1,7 +1,12 @@
-import type { ReactNode } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Sparkles, Target } from 'lucide-react';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useT } from '@/shared/i18n';
-import type { ContenidoAnalisis } from '../schemas/esquemas';
+import { formatearEuros } from '@/shared/lib/dinero';
+import { Button } from '@/shared/ui';
+import { useLocale } from '../hooks/useLocale';
+import type { AccionAnalisis, ContenidoAnalisis } from '../schemas/esquemas';
+import { DialogoCrearLimite } from './DialogoCrearLimite';
 
 interface Props {
   contenido: ContenidoAnalisis;
@@ -11,11 +16,16 @@ interface Props {
 
 /**
  * Texto de la IA, siempre como texto plano (React escapa; nunca HTML). La IA no calcula:
- * comenta los totales; las cifras de la pantalla salen de la base.
+ * comenta los totales e insights que salen de la base. Las recomendaciones con acción
+ * (validada en la Edge Function) llevan un botón «Crear límite» prellenado.
  */
 export function ComentarioIA({ contenido, pie }: Props) {
   const t = useT('analisis');
+  const locale = useLocale();
+  const nombreDe = useNombreCategoria();
+  const [accion, setAccion] = useState<AccionAnalisis | null>(null);
   const subtitulo = 'text-xs font-semibold tracking-wider text-apagado uppercase';
+  const hayObservaciones = contenido.observaciones.length > 0;
   return (
     <section
       aria-labelledby="analisis-ia-titulo"
@@ -32,25 +42,44 @@ export function ComentarioIA({ contenido, pie }: Props) {
         <h3 className={subtitulo}>{t('ia.resumen')}</h3>
         <p className="max-w-[72ch] text-base leading-relaxed whitespace-pre-line text-texto">{contenido.resumen}</p>
       </div>
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <h3 className={subtitulo}>{t('ia.destacados')}</h3>
-          <ul className="flex list-disc flex-col gap-2 pl-5 text-[15px] leading-normal text-texto">
-            {contenido.destacados.map((d, i) => (
-              <li key={i}>{d}</li>
-            ))}
-          </ul>
-        </div>
+      <div className={hayObservaciones ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'flex flex-col'}>
+        {hayObservaciones && (
+          <div className="flex flex-col gap-2">
+            <h3 className={subtitulo}>{t('ia.observaciones')}</h3>
+            <ul className="flex list-disc flex-col gap-2 pl-5 text-[15px] leading-normal text-texto">
+              {contenido.observaciones.map((o, i) => (
+                <li key={i}>{o}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <h3 className={subtitulo}>{t('ia.recomendaciones')}</h3>
-          <ul className="flex list-disc flex-col gap-2 pl-5 text-[15px] leading-normal text-texto">
+          <ul className="flex list-disc flex-col gap-3 pl-5 text-[15px] leading-normal text-texto">
             {contenido.recomendaciones.map((r, i) => (
-              <li key={i}>{r}</li>
+              <li key={i}>
+                <span>{r.texto}</span>
+                {r.accion !== null && (
+                  <Button
+                    variante="secundario"
+                    tamano="sm"
+                    className="mt-2 flex"
+                    icono={<Target aria-hidden="true" className="size-4" />}
+                    onClick={() => setAccion(r.accion)}
+                  >
+                    {t('limite.boton', {
+                      categoria: nombreDe({ nombre: r.accion.categoria, clave: r.accion.clave }),
+                      importe: formatearEuros(r.accion.importe, locale),
+                    })}
+                  </Button>
+                )}
+              </li>
             ))}
           </ul>
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-borde pt-4">{pie}</div>
+      {accion !== null && <DialogoCrearLimite accion={accion} onCerrar={() => setAccion(null)} />}
     </section>
   );
 }

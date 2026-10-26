@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { ChevronRight, Star } from 'lucide-react';
 import type { Cuenta } from '@/shared/api/catalogos';
 import { useIdioma, useT } from '@/shared/i18n';
 import { MAX_BANCOS } from '@/shared/lib/bancos';
 import { formatearEuros } from '@/shared/lib/dinero';
 import { formatearFecha } from '@/shared/lib/fechas';
 import { Badge, BankLogo, Button, Card } from '@/shared/ui';
+import { useConfigHacerPrincipalMutation } from '../api/configuracionApi';
+import { claveError } from '../api/errores';
+import { SheetAjuste } from './SheetAjuste';
 import { SheetAnadirBanco } from './SheetAnadirBanco';
 import { SheetBanco } from './SheetBanco';
 
@@ -13,18 +17,34 @@ interface Props {
   cuentas: readonly Cuenta[];
 }
 
-/** «Mis bancos»: abiertos (máx. 5), alta, principal y cierre. Los cerrados, plegados. */
+/**
+ * «Mis bancos»: abiertos (máx. 5), alta, principal y cierre. Los cerrados, plegados. Cada banco
+ * abierto tiene su «¿No cuadra? Hacer un ajuste» (ajuste por saldo real).
+ */
 export function SeccionBancos({ cuentas }: Props) {
   const t = useT('configuracion');
   const { locale } = useIdioma();
   const [anadiendo, setAnadiendo] = useState(false);
   const [gestionando, setGestionando] = useState<string | null>(null);
+  const [ajustando, setAjustando] = useState<string | null>(null);
 
   const bancos = cuentas.filter((c) => c.tipo === 'banco');
   const abiertos = bancos.filter((c) => c.fecha_cierre === null);
   const cerrados = bancos.filter((c) => c.fecha_cierre !== null);
   const enLimite = abiertos.length >= MAX_BANCOS;
   const seleccionado = abiertos.find((c) => c.id === gestionando) ?? null;
+  const aAjustar = abiertos.find((c) => c.id === ajustando) ?? null;
+  const [hacerPrincipal, estadoPrincipal] = useConfigHacerPrincipalMutation();
+
+  // Cambiar el banco principal desde la lista (misma RPC atómica que en la hoja del banco).
+  const marcarPrincipal = async (c: Cuenta) => {
+    try {
+      await hacerPrincipal(c.id).unwrap();
+      toast.success(t('bancos.principalHecho', { nombre: c.nombre }));
+    } catch (e) {
+      toast.error(t(claveError(e) === 'error.red' ? 'error.red' : 'bancos.principalError'));
+    }
+  };
 
   return (
     <Card aria-labelledby="config-bancos" className="flex flex-col gap-3">
@@ -36,6 +56,7 @@ export function SeccionBancos({ cuentas }: Props) {
           <p className="mt-1 text-sm text-apagado">
             {t('bancos.contador', { n: abiertos.length, max: MAX_BANCOS })}
           </p>
+          <p className="mt-1 max-w-prose text-xs text-apagado">{t('bancos.limiteExplicacion', { max: MAX_BANCOS })}</p>
         </div>
         <Button
           onClick={() => setAnadiendo(true)}
@@ -66,7 +87,27 @@ export function SeccionBancos({ cuentas }: Props) {
                 <span className="text-sm text-apagado">
                   {t('bancos.desde', { fecha: formatearFecha(c.fecha_inicial, locale, 'corta') })}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setAjustando(c.id)}
+                  aria-label={t('bancos.ajusteDe', { nombre: c.nombre })}
+                  className="mt-0.5 self-start text-left text-sm font-medium text-enlace hover:underline"
+                >
+                  {t('bancos.ajuste')}
+                </button>
               </div>
+              {!c.es_principal && (
+                <button
+                  type="button"
+                  onClick={() => void marcarPrincipal(c)}
+                  disabled={estadoPrincipal.isLoading}
+                  aria-label={t('bancos.hacerPrincipalNombre', { nombre: c.nombre })}
+                  title={t('bancos.hacerPrincipal')}
+                  className="rounded-lg p-2 text-apagado transition-colors hover:bg-superficie-2 hover:text-acento disabled:opacity-60"
+                >
+                  <Star aria-hidden="true" className="size-4" />
+                </button>
+              )}
               <span className="font-semibold text-texto tabular-nums">
                 {c.valor === null ? t('bancos.sinValor') : formatearEuros(c.valor, locale)}
               </span>
@@ -103,6 +144,7 @@ export function SeccionBancos({ cuentas }: Props) {
       )}
 
       {anadiendo && <SheetAnadirBanco cuentas={cuentas} onCerrar={() => setAnadiendo(false)} />}
+      {aAjustar !== null && <SheetAjuste cuenta={aAjustar} cuentas={cuentas} onCerrar={() => setAjustando(null)} />}
       {seleccionado !== null && (
         <SheetBanco
           cuenta={seleccionado}

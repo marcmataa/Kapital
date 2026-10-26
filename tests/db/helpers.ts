@@ -18,6 +18,14 @@ export const MIGRACION_CATEGORIAS_CLAVE = leer('supabase/migrations/202610230000
 export const ROLLBACK_CATEGORIAS_CLAVE = leer('supabase/rollback/20261023000001_categorias_clave.down.sql');
 export const MIGRACION_ESTADISTICAS = leer('supabase/migrations/20261023000002_estadisticas.sql');
 export const ROLLBACK_ESTADISTICAS = leer('supabase/rollback/20261023000002_estadisticas.down.sql');
+export const MIGRACION_CATEGORIAS_CUENTAS_CLAVE = leer('supabase/migrations/20261024000000_categorias_y_cuentas_clave.sql');
+export const ROLLBACK_CATEGORIAS_CUENTAS_CLAVE = leer('supabase/rollback/20261024000000_categorias_y_cuentas_clave.down.sql');
+export const MIGRACION_MOVIMIENTOS_UX = leer('supabase/migrations/20261024000001_movimientos_ux.sql');
+export const ROLLBACK_MOVIMIENTOS_UX = leer('supabase/rollback/20261024000001_movimientos_ux.down.sql');
+export const MIGRACION_ANALISIS_CONFIG = leer('supabase/migrations/20261024000002_analisis_config.sql');
+export const ROLLBACK_ANALISIS_CONFIG = leer('supabase/rollback/20261024000002_analisis_config.down.sql');
+export const MIGRACION_INICIO_ESTADISTICAS = leer('supabase/migrations/20261024000003_inicio_estadisticas.sql');
+export const ROLLBACK_INICIO_ESTADISTICAS = leer('supabase/rollback/20261024000003_inicio_estadisticas.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
 export const MIGRACIONES = [
   MIGRACION,
@@ -26,15 +34,42 @@ export const MIGRACIONES = [
   MIGRACION_VALORES_CUENTAS,
   MIGRACION_CATEGORIAS_CLAVE,
   MIGRACION_ESTADISTICAS,
+  MIGRACION_CATEGORIAS_CUENTAS_CLAVE,
+  MIGRACION_MOVIMIENTOS_UX,
+  MIGRACION_ANALISIS_CONFIG,
+  MIGRACION_INICIO_ESTADISTICAS,
 ];
 /** Todos los rollbacks, en orden inverso. */
 export const ROLLBACKS = [
+  ROLLBACK_INICIO_ESTADISTICAS,
+  ROLLBACK_ANALISIS_CONFIG,
+  ROLLBACK_MOVIMIENTOS_UX,
+  ROLLBACK_CATEGORIAS_CUENTAS_CLAVE,
   ROLLBACK_ESTADISTICAS,
   ROLLBACK_CATEGORIAS_CLAVE,
   ROLLBACK_VALORES_CUENTAS,
   ROLLBACK_CORRECCIONES,
   ROLLBACK_ONBOARDING,
   ROLLBACK,
+];
+
+/** Categorías por defecto de un usuario nuevo (onboarding / preparar_usuario), por `orden`. */
+export const CATEGORIAS_POR_DEFECTO = [
+  { nombre: 'Restaurantes', clave: 'restaurantes' },
+  { nombre: 'Ocio', clave: 'ocio' },
+  { nombre: 'Transporte', clave: 'transporte' },
+  { nombre: 'Suscripciones', clave: 'suscripciones' },
+  { nombre: 'Supermercado', clave: 'supermercado' },
+  { nombre: 'Hogar', clave: 'hogar' },
+  { nombre: 'Salud', clave: 'salud' },
+  { nombre: 'Deporte', clave: 'deporte' },
+  { nombre: 'Cuidado personal', clave: 'cuidado_personal' },
+  { nombre: 'Ropa', clave: 'ropa' },
+  { nombre: 'Regalos', clave: 'regalos' },
+  { nombre: 'Otros gastos', clave: 'otros_gastos' },
+  { nombre: 'Nómina', clave: 'nomina' },
+  { nombre: 'Otros ingresos', clave: 'otros_ingresos' },
+  { nombre: 'Rendimientos', clave: 'rendimientos' },
 ];
 
 export type TipoMovimiento = 'gasto' | 'ingreso' | 'devolucion' | 'traspaso' | 'ajuste';

@@ -88,6 +88,21 @@ const esquemaFueraBalance = z.object({
 });
 export type FilaFueraBalance = z.infer<typeof esquemaFueraBalance>;
 
+const esquemaRitmo = z.object({
+  devoluciones: importe,
+  gasto_medio_diario: importe,
+  gasto_medio_diario_anterior: importe.nullable(),
+  variacion_medio_diario: importe.nullable(),
+  dias_mes: z.number().int().positive(),
+  proyeccion_fin_mes: importe.nullable(),
+});
+/** Ritmo de gasto del tramo (ritmo_gasto): devoluciones, gasto medio diario y proyección a fin de mes. */
+export type RitmoGasto = z.infer<typeof esquemaRitmo>;
+
+const COLUMNAS_RITMO =
+  'devoluciones::text, gasto_medio_diario::text, gasto_medio_diario_anterior::text, variacion_medio_diario::text, ' +
+  'dias_mes, proyeccion_fin_mes::text';
+
 const COLUMNAS_RESUMEN =
   'ingresos::text, gastos::text, devoluciones::text, gastos_netos::text, balance::text, ahorro_pct::text, ajustes::text';
 
@@ -192,6 +207,25 @@ export const estadisticasApi = api.injectEndpoints({
       providesTags: ['Resumen', 'Movimientos'],
     }),
 
+    /**
+     * Ritmo de gasto del tramo contra el mismo tramo del mes anterior: devoluciones, gasto medio
+     * diario de los dos y proyección lineal del gasto neto a fin de mes (solo en el mes en curso).
+     */
+    estadisticasRitmo: b.query<RitmoGasto, TramosComparacion>({
+      queryFn: ({ actual, anterior }) =>
+        validar(
+          supabase
+            .rpc('ritmo_gasto', {
+              ...p(actual),
+              ...(anterior !== null && { p_desde_ant: anterior.desde, p_hasta_ant: anterior.hasta }),
+            })
+            .select(COLUMNAS_RITMO)
+            .single(),
+          esquemaRitmo,
+        ),
+      providesTags: ['Resumen', 'Movimientos'],
+    }),
+
     /** Traspasos y ajustes del tramo: se muestran aparte, nunca en el balance. */
     estadisticasFueraDelBalance: b.query<FilaFueraBalance[], Rango>({
       queryFn: (r) =>
@@ -214,5 +248,6 @@ export const {
   useEstadisticasMovimientosPorDiaQuery,
   useEstadisticasIngresosPorCategoriaQuery,
   useEstadisticasComparativaQuery,
+  useEstadisticasRitmoQuery,
   useEstadisticasFueraDelBalanceQuery,
 } = estadisticasApi;

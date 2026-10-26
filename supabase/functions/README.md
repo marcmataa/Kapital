@@ -4,6 +4,10 @@
 
 Genera el análisis mensual con IA (OpenAI `gpt-4o-mini`) a partir de los agregados de `datos_analisis_usuario`. A OpenAI solo viajan agregados del mes; nunca conceptos, comercios ni notas.
 
+- Escribe en el idioma del perfil (es/en/ca) y con los nombres de categoría traducidos (`etiqueta`, calculada en SQL con `traduccion_categoria`).
+- Los insights (comparativa por categoría con el mes anterior, mayor gasto del mes, gasto en fin de semana) se calculan en SQL (`datos_analisis`); la IA solo los comenta.
+- Contenido guardado (versión 2): `{ version: 2, resumen, observaciones[], recomendaciones: [{ texto, accion }] }`. `accion` es `null` o `{ tipo: "crear_limite", categoria, clave, etiqueta, importe }`. `_shared/analisis/validar.ts` descarta acciones sobre categorías que no existen o que ya tienen límite y textos que hablan de límites o presupuestos que no existen; si no queda nada válido, la respuesta es inválida y se reintenta.
+
 - `analisis-mensual/index.ts`: pegamento de Deno (clientes de Supabase y `Deno.serve`).
 - `_shared/analisis/`: lógica pura, sin globals de Deno, testeada con Vitest en Node (`tests/functions/`).
 - `analisis-mensual/deno.json`: import map (`zod`, `@supabase/supabase-js` vía `npm:`).
@@ -18,6 +22,8 @@ Genera el análisis mensual con IA (OpenAI `gpt-4o-mini`) a partir de los agrega
 Respuestas: `{ "ok": true }` o `{ "error": "<código>" }`. Códigos: `no_autenticado` (401), `no_autorizado` (401, cron), `origen_no_permitido` (403), `onboarding_pendiente` (403), `metodo_no_permitido` (405), `cuerpo_invalido` (400), `mes_no_disponible` (400), `en_curso` (409), `cuerpo_demasiado_grande` (413), `limite_regeneracion` (429), `limite_reintentos` (429), `generacion_fallida` (502), `error_interno` (500).
 
 ### Desplegar
+
+Primero la migración `20261024000002_analisis_config.sql` (los datos nuevos del análisis) y después la función.
 
 ```sh
 npx supabase login
@@ -51,3 +57,28 @@ Reglas:
 npx vitest run tests/functions
 npx tsc -p tsconfig.functions.json
 ```
+
+## `eliminar-cuenta`
+
+Borra la cuenta del usuario que llama y, en cascada, todos sus datos (todas las tablas referencian `auth.users` con `on delete cascade`).
+
+- `eliminar-cuenta/index.ts`: pegamento de Deno (cliente admin con `service_role`, que nunca sale de la función).
+- `_shared/eliminar-cuenta/handler.ts`: lógica pura, testeada en `tests/functions/eliminar-cuenta.test.ts`.
+
+Petición: `POST { "confirmacion": "<su email>" }` con `Authorization: Bearer <JWT del usuario>`.
+
+Comprobaciones, en orden:
+1. `verify_jwt = true` (`supabase/config.toml`) y, dentro, `auth.getUser(jwt)`: el usuario a borrar es siempre el del JWT verificado; el cuerpo no admite ids (solo `confirmacion`).
+2. Reautenticación reciente: el último inicio de sesión (`amr` del JWT) debe ser de hace 10 minutos como mucho. Si no, `reautenticacion_requerida` (403) y la web pide volver a entrar.
+3. Confirmación explícita: `confirmacion` debe ser el email de la cuenta (sin importar mayúsculas).
+4. `auth.admin.deleteUser(<id del JWT>)`.
+
+CORS limitado a `APP_ORIGIN` (el mismo secreto que `analisis-mensual`); un `Origin` fuera de la lista recibe 403. Logs: solo `{ evento, codigo }`, sin ids ni emails.
+
+Códigos: `no_autenticado` (401), `reautenticacion_requerida` (403), `origen_no_permitido` (403), `confirmacion_invalida` (400), `cuerpo_invalido` (400), `metodo_no_permitido` (405), `cuerpo_demasiado_grande` (413), `error_interno` (500).
+
+```sh
+npx supabase functions deploy eliminar-cuenta
+```
+
+No necesita secretos nuevos: `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta Supabase y `APP_ORIGIN` ya existe.
