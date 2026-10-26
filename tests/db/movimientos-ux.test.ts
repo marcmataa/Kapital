@@ -231,6 +231,12 @@ describe('ajuste por saldo real', () => {
     await expect(comoUsuario(`select * from crear_ajuste($1, '10', 'x')`, [ajena])).rejects.toThrow('cuenta_no_valida');
     expect((await una<{ n: number }>(db, `select count(*)::int as n from movimientos where cuenta_id = $1`, [ajena])).n).toBe(0);
   });
+
+  it('una cuenta de inversión no se cuadra con un ajuste (su valor real es una valoración)', async () => {
+    const broker = await crearCuenta(db, u, { nombre: 'Broker', tipo: 'inversion', saldoInicial: '500.00' });
+    await expect(comoUsuario(`select * from calcular_ajuste($1, '510')`, [broker])).rejects.toThrow('cuenta_inversion');
+    await expect(comoUsuario(`select * from crear_ajuste($1, '510', 'x')`, [broker])).rejects.toThrow('cuenta_inversion');
+  });
 });
 
 describe('media_gasto_categoria', () => {

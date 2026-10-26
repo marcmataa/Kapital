@@ -221,7 +221,9 @@ $$;
 -- diferencia es siempre positiva y el sentido dice si el ajuste suma o resta
 -- (sección 1: el tipo decide el signo). Diferencia 0 = no hace falta ajuste.
 -- Errores (22023, mensaje = código para la web): cuenta_no_valida,
--- cuenta_cerrada, fecha_no_valida, saldo_no_valido.
+-- cuenta_cerrada, cuenta_inversion, fecha_no_valida, saldo_no_valido.
+-- Las cuentas de inversión no se cuadran con ajustes: su valor real es una
+-- valoración (sección 6), no un movimiento.
 create function calcular_ajuste(p_cuenta uuid, p_saldo_real text, p_fecha date default null)
 returns table (saldo_app numeric, saldo_real numeric, diferencia numeric, sentido sentido_ajuste)
 language plpgsql stable security invoker set search_path = public as $$
@@ -239,6 +241,9 @@ begin
   end if;
   if v_cuenta.fecha_cierre is not null then
     raise exception 'cuenta_cerrada' using errcode = '22023';
+  end if;
+  if v_cuenta.tipo = 'inversion' then
+    raise exception 'cuenta_inversion' using errcode = '22023';
   end if;
   if v_fecha < v_cuenta.fecha_inicial or v_fecha > hoy_usuario() then
     raise exception 'fecha_no_valida' using errcode = '22023';
