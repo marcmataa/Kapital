@@ -19,7 +19,6 @@ export function IngresosPorCategoria({ ingresos }: { ingresos: readonly IngresoC
             filas={ingresos.map((i) => ({ ...i, nombre: nombreCategoria(i) }))}
           />
         )}
-        <p className="text-xs text-apagado sm:text-sm">{t('ingresos.nota')}</p>
       </div>
     </Card>
   );

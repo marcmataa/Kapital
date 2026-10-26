@@ -83,11 +83,16 @@ describe('GraficoDiario · gastos', () => {
     await userEvent.keyboard('{Home}{ArrowRight}{ArrowRight}');
     expect(control).toHaveAttribute('aria-valuenow', '3');
     expect(lectura()).toContain('3 oct 2026 · 40,00 €');
-    expect(lectura()).toContain('Gastos 50,00 € · Devoluciones 10,00 € · Neto 40,00 €');
+    // «Gastos X · Devoluciones −Y · Neto Z»: la devolución resta (decisión del usuario, §6).
+    expect(lectura()).toContain('Gastos 50,00 € · Devoluciones -10,00 € · Neto 40,00 €');
     const lista = within(screen.getByTestId('lectura-diario')).getByRole('list');
     expect(within(lista).getByText('Cena').nextSibling).toHaveTextContent('50,00 €');
-    expect(within(lista).getByText('Ana - cena').nextSibling).toHaveTextContent('-10,00 €');
-    expect(normal(control.getAttribute('aria-valuetext'))).toContain('Devolución Ana - cena · 10,00 €');
+    // La devolución, en verde y con signo menos.
+    const devolucion = within(lista).getByText('Ana - cena').closest('li');
+    expect(devolucion).toHaveTextContent(/-10,00\s€/);
+    expect(devolucion).toHaveClass('text-positivo');
+    expect(within(lista).getByText('Cena').closest('li')).not.toHaveClass('text-positivo');
+    expect(normal(control.getAttribute('aria-valuetext'))).toContain('Devolución Ana - cena · -10,00 €');
     await userEvent.keyboard('{ArrowRight}');
     expect(lectura()).toBe('4 oct 2026 · 0,00 €Gastos 0,00 € · Neto 0,00 €');
     await userEvent.keyboard('{End}');
@@ -109,23 +114,23 @@ describe('GraficoDiario · gastos', () => {
   });
 });
 
-describe('GraficoDiario · ingresos y devoluciones', () => {
-  it('leyenda aparte y lectura con ingresos y devoluciones, que nunca se suman', async () => {
+describe('GraficoDiario · ingresos', () => {
+  it('solo ingresos reales: ni barra, ni leyenda, ni lectura, ni nota de devoluciones', async () => {
     renderConApp(<GraficoDiario dias={DIAS} modo="ingresos" nombreMes="Octubre de 2026" />);
-    expect(screen.getByText('Devoluciones (restan del gasto)')).toBeInTheDocument();
-    expect(screen.getByText(/Las devoluciones no son ingresos/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ingresos por día · Octubre de 2026' })).toBeInTheDocument();
+    expect(screen.queryByText(/[Dd]evoluci/)).not.toBeInTheDocument();
     const lectura = () => normal(screen.getByTestId('lectura-diario').textContent);
     expect(lectura()).toContain('19 oct 2026 · hoy (provisional) · 900,00 €');
-    expect(lectura()).toContain('Ingresos 900,00 € · Devoluciones 0,00 €');
+    expect(within(screen.getByTestId('lectura-diario')).getByRole('list')).toHaveTextContent('Nómina');
+    // Una sola barra por día (la del ingreso).
+    const superficie = screen.getByTestId('superficie-diario');
+    for (const dia of Array.from(superficie.children)) expect(dia.querySelectorAll('div').length).toBeLessThanOrEqual(1);
     const control = screen.getByRole('slider');
     control.focus();
     await userEvent.keyboard('{Home}{ArrowRight}{ArrowRight}');
-    // Día 3: sin ingresos; la devolución se muestra aparte y no suma al importe del día.
-    expect(lectura()).toContain('3 oct 2026 · 0,00 €');
-    expect(lectura()).toContain('Ingresos 0,00 € · Devoluciones 10,00 €');
-    const lista = within(screen.getByTestId('lectura-diario')).getByRole('list');
-    expect(within(lista).getByText('Ana - cena')).toBeInTheDocument();
-    expect(within(lista).queryByText('Cena')).not.toBeInTheDocument();
+    // Día 3: sin ingresos; su devolución no sale en esta vista.
+    expect(lectura()).toBe('3 oct 2026 · 0,00 €');
+    expect(normal(control.getAttribute('aria-valuetext'))).not.toMatch(/Devoluci|Ana/);
   });
 });
 
@@ -264,7 +269,9 @@ describe('DesgloseBalance', () => {
     const balance = screen.getByTestId('fila-balance');
     expect(within(balance).getByText('+339,72 €')).toHaveClass('text-positivo');
     expect(within(balance).getByText('+48,0 %').parentElement).toHaveClass('text-positivo');
-    expect(normal(balance.textContent)).toContain('antes +229,60 €');
+    // «+339,72 € vs +229,60 € el mes pasado», con el % aparte (nada de «+48,0 % antes»).
+    expect(normal(within(balance).getByTestId('balance-vs').textContent)).toBe('+339,72 € vs +229,60 € el mes pasado');
+    expect(normal(balance.textContent)).not.toContain('antes');
     // Grupo B: traspasos y ajustes, fuera de cualquier total.
     const fuera = screen.getByTestId('fuera-del-balance');
     expect(within(fuera).getByText('Traspaso BBVA → Trade Republic').closest('li')).toHaveTextContent('100,00 €');

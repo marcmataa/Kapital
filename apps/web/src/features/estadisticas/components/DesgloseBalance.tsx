@@ -7,7 +7,7 @@ import type { Comparativa, FilaFueraBalance, GastoCategoria } from '../api/estad
 import { emparejar, type FilaIngresoCategoria } from '../lib/agregaciones';
 import { signo } from '../lib/formato';
 import type { PeriodosComparacion } from '../lib/periodos';
-import { useTituloComparativa } from './ComparativaMes';
+import { useLineaVs, useTituloComparativa } from './ComparativaMes';
 import { FilasComparadas, type FilaVista } from './FilasComparadas';
 import { LineaVariacion } from './LineaVariacion';
 
@@ -34,6 +34,7 @@ export function DesgloseBalance(props: Props) {
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   const titulo = useTituloComparativa(periodos, 'desglose.titulo');
+  const lineaVs = useLineaVs();
   const hayAnterior = periodos.anterior !== null;
   const nombreCategoria = useNombreCategoriaCatalogo();
   const deIngreso = (f: FilaIngresoCategoria) => ({
@@ -79,6 +80,8 @@ export function DesgloseBalance(props: Props) {
   });
 
   const sBalance = signo(c.balance);
+  // «+38,00 € vs +382,00 € el mes pasado», con el % aparte.
+  const vsBalance = lineaVs(c.balance, c.balance_anterior, { signo: 'siempre' });
   return (
     <Card titulo={titulo}>
       <section aria-labelledby="desglose-cuenta" className="flex flex-col gap-3">
@@ -95,15 +98,12 @@ export function DesgloseBalance(props: Props) {
             <span className={cx('cifras text-lg font-bold', sBalance < 0 ? 'text-negativo' : sBalance > 0 ? 'text-positivo' : 'text-texto')}>
               {formatearEuros(c.balance, locale, { signo: 'siempre' })}
             </span>
-            <LineaVariacion
-              actual={c.balance}
-              anterior={c.balance_anterior}
-              porcentaje={c.variacion_balance}
-              subirEsBueno
-              {...(c.balance_anterior !== null && {
-                contexto: t('comparativa.antes', { importe: formatearEuros(c.balance_anterior, locale, { signo: 'siempre' }) }),
-              })}
-            />
+            {vsBalance !== null && (
+              <span data-testid="balance-vs" className="cifras text-xs text-apagado sm:text-sm">
+                {vsBalance}
+              </span>
+            )}
+            <LineaVariacion actual={c.balance} anterior={c.balance_anterior} porcentaje={c.variacion_balance} subirEsBueno />
           </span>
         </div>
       </section>
