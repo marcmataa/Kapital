@@ -40,6 +40,9 @@ export default {
   'bancos.cerradoHecho': '{nombre} has been closed.',
   'bancos.cerrarError': "It can't be closed: today's balance must be 0 and it can't have later-dated transactions.",
   'bancos.hacerAjuste': 'Make an adjustment →',
+  'bancos.ajuste': 'Doesn’t match? Make an adjustment',
+  'bancos.ajusteDe': 'Doesn’t {nombre} match? Make an adjustment',
+  'ajuste.titulo': 'Adjust {nombre}',
 
   'anadir.titulo': 'Add bank',
   'anadir.saldo': "Today's balance",
@@ -51,6 +54,11 @@ export default {
   'anadir.errorLimite': 'You already have 5 open banks, which is the maximum. Close one to add another.',
   'anadir.errorDuplicado': 'You already have an account with that name.',
   'anadir.errorSaldo': 'The balance is not valid. Enter a positive amount, e.g. 1258.50.',
+  'anadir.fecha': 'Start date',
+  'anadir.fechaAyuda': 'To count this bank from an earlier day, pick it. Empty = from today.',
+  'anadir.fechaInvalida': 'The start date cannot be later than today.',
+  'anadir.saldoEn': 'Balance at the start of {fecha}',
+  'anadir.saldoEnAyuda': 'What you had at the start of that day. Transactions from that date are added to this balance.',
 
   'efectivo.titulo': 'Cash',
   'efectivo.ajuste': "Doesn't match? Make an adjustment →",
@@ -105,6 +113,9 @@ export default {
   'objetivos.quitado': 'Goal removed.',
   'objetivos.guardado': 'Goal saved.',
   'objetivos.nuevo': 'New goal',
+  'objetivos.quitarTitulo': 'Remove goal',
+  'objetivos.media': '{categoria} average: {importe}/month (full months: {n})',
+  'objetivos.sinMedia': 'There are no full months yet to work out the {categoria} average.',
 
   'atajo.titulo': 'iPhone shortcut',
   'atajo.descripcion': 'The token is shown only once, when you create it.',

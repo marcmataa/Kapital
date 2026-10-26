@@ -241,8 +241,23 @@ isOneToOne: false
               "balance": number,"balance_anterior": number,"dias": number,"gasto_medio_diario": number,"gastos_netos": number,"gastos_netos_anterior": number,"ingresos": number,"ingresos_anterior": number,"mayor_concepto": string,"mayor_importe": number,"variacion_balance": number,"variacion_gastos": number,"variacion_ingresos": number
             }[]
                            },
+"calcular_ajuste":
+{ Args: { "p_cuenta": string,"p_fecha"?: string,"p_saldo_real": string }; Returns: {
+              "diferencia": number,"saldo_app": number,"saldo_real": number,"sentido": Database["public"]['Enums']["sentido_ajuste"] | null
+            }[]
+                           },
+"categorias_mas_usadas":
+{ Args: { "p_tipo": Database["public"]['Enums']["tipo_categoria"] }; Returns: {
+              "categoria_id": string,"usos": number
+            }[]
+                           },
+"crear_ajuste":
+{ Args: { "p_concepto"?: string,"p_cuenta": string,"p_fecha"?: string,"p_nota": string,"p_saldo_real": string }; Returns: {
+              "diferencia": number,"id": string | null,"sentido": Database["public"]['Enums']["sentido_ajuste"] | null
+            }[]
+                           },
 "crear_banco":
-{ Args: { "p_color": string | null,"p_entidad": string | null,"p_nombre": string | null,"p_saldo": string }; Returns: string
+{ Args: { "p_color": string | null,"p_entidad": string | null,"p_fecha_inicial"?: string | null,"p_nombre": string | null,"p_saldo": string }; Returns: string
                            },
 "crear_token":
 { Args: { "p_nombre"?: string }; Returns: string
@@ -262,6 +277,11 @@ isOneToOne: false
 "fuera_del_balance":
 { Args: { "p_desde": string,"p_hasta": string }; Returns: {
               "cuenta": string,"cuenta_destino": string,"importe": number,"sentido": Database["public"]['Enums']["sentido_ajuste"],"tipo": Database["public"]['Enums']["tipo_movimiento"]
+            }[]
+                           },
+"gastos_devolvibles":
+{ Args: { "p_excluir"?: string | null,"p_limite"?: number }; Returns: {
+              "categoria_id": string,"concepto": string,"cuenta_id": string,"fecha": string,"id": string,"importe": number,"pendiente": number
             }[]
                            },
 "gasto_por_categoria":
@@ -296,6 +316,14 @@ isOneToOne: false
 "leer_saldo":
 { Args: { "p": string }; Returns: number
                            },
+"media_gasto_categoria":
+{ Args: { "p_categoria": string,"p_meses"?: number }; Returns: {
+              "media": number | null,"meses": number
+            }[]
+                           },
+"movimientos_filtrados":
+{ Args: { "p_categoria"?: string | null,"p_cuenta"?: string | null,"p_desde"?: string | null,"p_hasta"?: string | null,"p_metodo"?: Database["public"]['Enums']["metodo_pago"] | null,"p_q"?: string | null,"p_tipo"?: Database["public"]['Enums']["tipo_movimiento"] | null }; Returns: Database["public"]["Tables"]["movimientos"]["Row"][]
+                           },
 "movimientos_por_dia":
 { Args: { "p_desde": string,"p_hasta": string }; Returns: {
               "devoluciones": number,"fecha": string,"gasto_neto": number,"gastos": number,"ingresos": number,"movimientos": Json
@@ -303,6 +331,9 @@ isOneToOne: false
                            },
 "nombre_entidad":
 { Args: { "p_entidad": string }; Returns: string
+                           },
+"normalizar_concepto":
+{ Args: { "p": string }; Returns: string
                            },
 "patrimonio":
 { Args: { "p_fecha": string }; Returns: number
@@ -326,6 +357,11 @@ isOneToOne: false
 "reintentar_analisis":
 { Args: { "p_mes": string }; Returns: undefined
                            },
+"resumen_filtro":
+{ Args: { "p_categoria"?: string | null,"p_cuenta"?: string | null,"p_desde"?: string | null,"p_hasta"?: string | null,"p_metodo"?: Database["public"]['Enums']["metodo_pago"] | null,"p_q"?: string | null,"p_tipo"?: Database["public"]['Enums']["tipo_movimiento"] | null }; Returns: {
+              "ajustes": number,"balance": number,"categoria_gasto": number,"categoria_id": string,"devoluciones": number,"dias": number,"gasto_medio_diario": number,"gastos": number,"gastos_netos": number,"ingresos": number,"n": number
+            }[]
+                           },
 "resumen_mensual":
 { Args: { "p_desde": string,"p_hasta": string }; Returns: {
               "ahorro_pct": number,"ajustes": number,"balance": number,"devoluciones": number,"gastos": number,"gastos_netos": number,"ingresos": number,"mes": string
@@ -347,6 +383,19 @@ isOneToOne: false
 "serie_patrimonio":
 { Args: { "p_desde": string,"p_hasta": string,"p_hoy"?: string }; Returns: {
               "fecha": string,"patrimonio": number,"provisional": boolean
+            }[]
+                           },
+"subtotales_por_dia":
+{ Args: { "p_categoria"?: string | null,"p_cuenta"?: string | null,"p_desde"?: string | null,"p_hasta"?: string | null,"p_metodo"?: Database["public"]['Enums']["metodo_pago"] | null,"p_q"?: string | null,"p_tipo"?: Database["public"]['Enums']["tipo_movimiento"] | null }; Returns: {
+              "balance": number | null,"fecha": string,"n": number
+            }[]
+                           },
+"sugerir_categoria":
+{ Args: { "p_concepto": string,"p_tipo"?: Database["public"]['Enums']["tipo_categoria"] }; Returns: string | null
+                           },
+"totales_por_tipo":
+{ Args: { "p_categoria"?: string | null,"p_cuenta"?: string | null,"p_desde"?: string | null,"p_hasta"?: string | null,"p_metodo"?: Database["public"]['Enums']["metodo_pago"] | null,"p_q"?: string | null }; Returns: {
+              "n": number,"tipo": Database["public"]['Enums']["tipo_movimiento"],"total": number
             }[]
                            },
 "solicitar_regeneracion":

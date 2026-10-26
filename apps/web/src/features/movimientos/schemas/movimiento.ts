@@ -236,3 +236,16 @@ export function cuentaPorDefecto(cuentas: readonly Cuenta[], metodo: MetodoPago 
     metodo === 'efectivo' ? abiertas.find((c) => c.tipo === 'efectivo') : abiertas.find((c) => c.es_principal);
   return (preferida ?? abiertas[0])?.id ?? '';
 }
+
+/**
+ * Categorías en el orden de `categorias_mas_usadas` (ids, más usadas primero). Las que no estén
+ * en esa lista (p. ej. mientras carga) conservan su orden y van al final.
+ */
+export function ordenarPorUso<T extends { id: string }>(categorias: readonly T[], usadas: readonly string[] | undefined): T[] {
+  if (usadas === undefined || usadas.length === 0) return [...categorias];
+  const posicion = new Map(usadas.map((id, i) => [id, i]));
+  return categorias
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => (posicion.get(a.c.id) ?? usadas.length + a.i) - (posicion.get(b.c.id) ?? usadas.length + b.i))
+    .map((x) => x.c);
+}

@@ -44,32 +44,62 @@ export const CLASE_TONO: Record<Tono, string> = {
   neutro: 'text-apagado',
 };
 
-export interface GrupoMes<T> {
-  /** Día 1 del mes ('2026-10-01'). */
-  mes: string;
+/** '2026-10-14' → '14 oct'. El formateador de fecha corta de toda la app. */
+export function diaCorto(fecha: string, locale: string): string {
+  return formatearDiaMes(fecha, locale);
+}
+
+export interface GrupoDia<T> {
+  /** 'YYYY-MM-DD'. */
+  fecha: string;
   movimientos: T[];
 }
 
-/** Agrupa una lista ya ordenada por fecha descendente en meses consecutivos. */
-export function agruparPorMes<T extends Pick<Movimiento, 'fecha'>>(lista: readonly T[]): GrupoMes<T>[] {
-  const grupos: GrupoMes<T>[] = [];
+/** Agrupa una lista ya ordenada por fecha descendente en días consecutivos. */
+export function agruparPorDia<T extends Pick<Movimiento, 'fecha'>>(lista: readonly T[]): GrupoDia<T>[] {
+  const grupos: GrupoDia<T>[] = [];
   for (const m of lista) {
-    const mes = `${m.fecha.slice(0, 7)}-01`;
     const ultimo = grupos[grupos.length - 1];
-    if (ultimo?.mes === mes) ultimo.movimientos.push(m);
-    else grupos.push({ mes, movimientos: [m] });
+    if (ultimo?.fecha === m.fecha) ultimo.movimientos.push(m);
+    else grupos.push({ fecha: m.fecha, movimientos: [m] });
   }
   return grupos;
 }
 
-/** '2026-10-01' → 'Octubre 2026' (sin el «de» de Intl en español). */
-export function tituloMes(mes: string, locale: string): string {
-  const fecha = new Date(`${mes}T00:00:00Z`);
-  const nombre = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(fecha);
-  return `${nombre.charAt(0).toLocaleUpperCase(locale)}${nombre.slice(1)} ${mes.slice(0, 4)}`;
+/** Cabecera de un día: '14 oct', y con año si no es el año de `hoy` ('14 oct 2025'). */
+export function tituloDia(fecha: string, hoy: string, locale: string): string {
+  const dia = diaCorto(fecha, locale);
+  return fecha.slice(0, 4) === hoy.slice(0, 4) ? dia : `${dia} ${fecha.slice(0, 4)}`;
 }
 
-/** '2026-10-14' → '14 oct'. El formateador de fecha corta de toda la app. */
-export function diaCorto(fecha: string, locale: string): string {
-  return formatearDiaMes(fecha, locale);
+/**
+ * Importe redondeado a euros enteros para los chips ('−863 €'). Solo para mostrar: Intl redondea
+ * el string decimal tal cual (sin pasar por float). `signo` como en formatearEuros.
+ */
+export function eurosRedondos(importe: string, locale: string, signo: 'auto' | 'siempre' | 'negativo' = 'auto'): string {
+  let valor = importe.trim();
+  if (!/^-?\d+(\.\d+)?$/.test(valor)) throw new Error('importe_invalido');
+  if (signo === 'negativo') valor = `-${valor.replace(/^-/, '')}`;
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'EUR',
+    useGrouping: 'always',
+    maximumFractionDigits: 0,
+    minimumFractionDigits: 0,
+    signDisplay: signo === 'siempre' ? 'exceptZero' : 'negative',
+  }).format(valor as Intl.StringNumericLiteral);
+}
+
+/** Signo con el que se muestra el total de un tipo en su chip (el de su importe en la lista). */
+export function signoTotalTipo(tipo: Movimiento['tipo']): 'auto' | 'siempre' | 'negativo' {
+  switch (tipo) {
+    case 'gasto':
+      return 'negativo';
+    case 'ingreso':
+    case 'devolucion':
+    case 'ajuste':
+      return 'siempre';
+    case 'traspaso':
+      return 'auto';
+  }
 }

@@ -1,15 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { Plus, Search, SlidersHorizontal } from 'lucide-react';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
 import { cx } from '@/shared/lib/cx';
+import { formatearEuros } from '@/shared/lib/dinero';
 import { Button, EmptyState, Sheet, Spinner, clasesBoton } from '@/shared/ui';
 import { useMovimientosListarInfiniteQuery, useMovimientosObtenerQuery } from '../api/movimientosApi';
+import { useMovimientosSubtotalesDiaQuery, useMovimientosTotalesTipoQuery } from '../api/sqlApi';
 import { ChipsTipo } from '../components/ChipsTipo';
 import { DetalleMovimiento } from '../components/DetalleMovimiento';
 import { CONSULTA_ESCRITORIO, FilaMovimiento } from '../components/FilaMovimiento';
+import { NuevoMovimiento } from '../components/NuevoMovimiento';
 import { PanelFiltros } from '../components/PanelFiltros';
+import { ResumenFiltro } from '../components/ResumenFiltro';
 import { useCatalogos } from '../hooks/useCatalogos';
 import {
   FILTROS_VACIOS,
@@ -19,15 +24,21 @@ import {
   normalizarFiltros,
   type Filtros,
 } from '../lib/filtros';
-import { agruparPorMes, tituloMes } from '../lib/presentacion';
+import { agruparPorDia, tituloDia } from '../lib/presentacion';
 import { esUuid } from '../lib/tipos';
 
 const ESPERA_BUSQUEDA_MS = 300;
+const SIN_PARAMS = new URLSearchParams();
+
+function esEscritorio(): boolean {
+  return typeof window.matchMedia === 'function' && window.matchMedia(CONSULTA_ESCRITORIO).matches;
+}
 
 export default function PaginaMovimientos() {
   const t = useT('movimientos');
   const tc = useT('common');
   const { locale } = useIdioma();
+  const { hoy } = useHoyUsuario();
   const [params, setParams] = useSearchParams();
   const filtros = useMemo(() => filtrosDesdeParams(params), [params]);
   const consulta = useMemo(() => normalizarFiltros(filtros), [filtros]);
@@ -37,7 +48,23 @@ export default function PaginaMovimientos() {
 
   const lista = useMovimientosListarInfiniteQuery(consulta);
   const movimientos = useMemo(() => lista.data?.pages.flatMap((p) => p.filas) ?? [], [lista.data]);
-  const grupos = useMemo(() => agruparPorMes(movimientos), [movimientos]);
+  const grupos = useMemo(() => agruparPorDia(movimientos), [movimientos]);
+
+  // Chips: número y total de cada tipo (SQL), con todos los filtros salvo el de tipo.
+  const consultaSinTipo = useMemo(() => ({ ...consulta, tipo: null }), [consulta]);
+  const totales = useMovimientosTotalesTipoQuery(consultaSinTipo);
+
+  // Subtotal de cada día (SQL), solo de los días ya cargados: desde el más antiguo de la lista.
+  const masAntigua = movimientos[movimientos.length - 1]?.fecha ?? null;
+  const consultaDias = useMemo(
+    () => ({ ...consulta, desde: consulta.desde !== null && masAntigua !== null && consulta.desde > masAntigua ? consulta.desde : masAntigua }),
+    [consulta, masAntigua],
+  );
+  const subtotales = useMovimientosSubtotalesDiaQuery(consultaDias, { skip: masAntigua === null });
+  const balancePorDia = useMemo(
+    () => new Map((subtotales.data ?? []).map((d) => [d.fecha, d.balance])),
+    [subtotales.data],
+  );
 
   // Detalle del panel lateral: de la lista si ya está cargado; si no (enlace compartido), se pide.
   const enLista = movimientos.find((m) => m.id === seleccionado);
@@ -80,20 +107,26 @@ export default function PaginaMovimientos() {
   const [panelAbierto, setPanelAbierto] = useState(false);
   const [hojaAbierta, setHojaAbierta] = useState(false);
   const abrirFiltros = () => {
-    if (typeof window.matchMedia === 'function' && window.matchMedia(CONSULTA_ESCRITORIO).matches) {
-      setPanelAbierto((v) => !v);
-    } else {
-      setHojaAbierta(true);
-    }
+    if (esEscritorio()) setPanelAbierto((v) => !v);
+    else setHojaAbierta(true);
   };
   const nFiltros = contarFiltrosPanel(filtros);
   const hayFiltros = nFiltros > 0 || filtros.tipo !== null || consulta.q !== '';
+  const soloTipoAjuste = filtros.tipo === 'ajuste' && nFiltros === 0 && consulta.q === '';
   const clavePanel = filtrosAParams(filtros).toString();
 
   const aplicarPanel = (cambios: Pick<Filtros, 'desde' | 'hasta' | 'categoria' | 'metodo' | 'cuenta'>) => {
     actualizar(cambios);
     setHojaAbierta(false);
     setPanelAbierto(false);
+  };
+
+  // Nuevo movimiento en escritorio: modal sobre la lista (no se pierde la lista ni los filtros).
+  const [nuevoAbierto, setNuevoAbierto] = useState(false);
+  const abrirNuevo = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0 || !esEscritorio()) return;
+    e.preventDefault();
+    setNuevoAbierto(true);
   };
 
   const hrefDetalle = (id: string) => `/movimientos/${id}`;
@@ -117,52 +150,69 @@ export default function PaginaMovimientos() {
       />
     );
   } else if (movimientos.length === 0) {
-    contenido = hayFiltros ? (
-      <EmptyState
-        titulo={t('lista.sinResultadosTitulo')}
-        descripcion={t('lista.sinResultadosTexto')}
-        accion={
-          <Button variante="secundario" onClick={() => setParams(filtrosAParams(FILTROS_VACIOS, params))}>
-            {t('lista.quitarFiltros')}
-          </Button>
-        }
-      />
-    ) : (
-      <EmptyState
-        titulo={t('lista.vacioTitulo')}
-        descripcion={t('lista.vacioTexto')}
-        accion={
-          <Link to="/movimientos/nuevo" className={clasesBoton('primario')}>
-            {t('lista.nuevo')}
-          </Link>
-        }
-      />
-    );
+    if (soloTipoAjuste) {
+      // Sin ajustes y sin más filtros: no es «sin resultados», es que todavía no hay ninguno.
+      contenido = <EmptyState titulo={t('lista.vacioAjustesTitulo')} descripcion={t('lista.vacioAjustesTexto')} />;
+    } else if (hayFiltros) {
+      contenido = (
+        <EmptyState
+          titulo={t('lista.sinResultadosTitulo')}
+          descripcion={t('lista.sinResultadosTexto')}
+          accion={
+            <Button variante="secundario" onClick={() => setParams(filtrosAParams(FILTROS_VACIOS, params))}>
+              {t('lista.quitarFiltros')}
+            </Button>
+          }
+        />
+      );
+    } else {
+      contenido = (
+        <EmptyState
+          titulo={t('lista.vacioTitulo')}
+          descripcion={t('lista.vacioTexto')}
+          accion={
+            <Link to="/movimientos/nuevo" className={clasesBoton('primario')}>
+              {t('lista.nuevo')}
+            </Link>
+          }
+        />
+      );
+    }
   } else {
     contenido = (
       <>
-        {grupos.map((g) => (
-          <section key={g.mes} aria-labelledby={`mes-${g.mes}`}>
-            <h2
-              id={`mes-${g.mes}`}
-              className="mx-3 mt-2.5 mb-1.5 text-[13px] font-semibold tracking-wider text-apagado uppercase"
-            >
-              {tituloMes(g.mes, locale)}
-            </h2>
-            <ul className="flex flex-col gap-0.5">
-              {g.movimientos.map((m) => (
-                <FilaMovimiento
-                  key={m.id}
-                  movimiento={m}
-                  catalogos={catalogos}
-                  seleccionado={m.id === seleccionado}
-                  href={hrefDetalle(m.id)}
-                  onSeleccionar={seleccionar}
-                />
-              ))}
-            </ul>
-          </section>
-        ))}
+        {grupos.map((g) => {
+          const balance = balancePorDia.get(g.fecha) ?? null;
+          const tono = balance === null || /^-?0\.00$/.test(balance) ? 'text-apagado' : balance.startsWith('-') ? 'text-negativo' : 'text-positivo';
+          return (
+            <section key={g.fecha} aria-labelledby={`dia-${g.fecha}`}>
+              <h2
+                id={`dia-${g.fecha}`}
+                className="mx-3 mt-3 mb-1 flex items-baseline justify-between gap-3 text-[13px] font-semibold text-apagado"
+              >
+                <span>{tituloDia(g.fecha, hoy, locale)}</span>
+                {balance !== null && (
+                  <span className={cx('tabular-nums', tono)}>
+                    <span className="sr-only">{t('lista.subtotalDia')} </span>
+                    {formatearEuros(balance, locale, { signo: 'siempre' })}
+                  </span>
+                )}
+              </h2>
+              <ul className="flex flex-col gap-0.5">
+                {g.movimientos.map((m) => (
+                  <FilaMovimiento
+                    key={m.id}
+                    movimiento={m}
+                    catalogos={catalogos}
+                    seleccionado={m.id === seleccionado}
+                    href={hrefDetalle(m.id)}
+                    onSeleccionar={seleccionar}
+                  />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
         {lista.hasNextPage && (
           <div className="flex justify-center pt-3">
             <Button
@@ -183,25 +233,21 @@ export default function PaginaMovimientos() {
       <CabeceraPagina
         titulo={t('titulo')}
         acciones={
-          <>
-            <Button
-              variante="secundario"
-              onClick={abrirFiltros}
-              aria-expanded={panelAbierto || hojaAbierta}
-              icono={<SlidersHorizontal aria-hidden="true" className="size-4" />}
-            >
-              {nFiltros > 0 ? t('filtros.botonActivos', { n: nFiltros }) : t('filtros.boton')}
-            </Button>
-            <Link to="/movimientos/nuevo" className={cx(clasesBoton('primario'), 'hidden lg:inline-flex')}>
-              <Plus aria-hidden="true" className="size-4" />
-              {t('lista.nuevo')}
-            </Link>
-          </>
+          // En móvil ya está el «+» central de la barra inferior.
+          <Link
+            to="/movimientos/nuevo"
+            onClick={abrirNuevo}
+            className={cx(clasesBoton('primario'), 'hidden lg:inline-flex')}
+          >
+            <Plus aria-hidden="true" className="size-4" />
+            {t('lista.nuevo')}
+          </Link>
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2.5">
-        <label className="flex h-11 min-w-0 flex-[1_1_18rem] items-center gap-2.5 rounded-xl border border-borde bg-superficie px-3.5 text-tenue focus-within:border-acento">
+      {/* Búsqueda, filtros y chips en una sola barra. */}
+      <div className="-mt-2 flex flex-wrap items-center gap-2.5 rounded-2xl border border-borde bg-superficie p-2">
+        <label className="flex h-11 min-w-0 flex-[1_1_14rem] items-center gap-2.5 rounded-xl bg-superficie-2 px-3.5 text-tenue focus-within:ring-2 focus-within:ring-acento">
           <Search aria-hidden="true" className="size-4 shrink-0" />
           <span className="sr-only">{t('lista.buscar')}</span>
           <input
@@ -214,7 +260,18 @@ export default function PaginaMovimientos() {
             className="min-w-0 flex-1 bg-transparent text-base text-texto placeholder:text-tenue focus:outline-none sm:text-[15px]"
           />
         </label>
-        <ChipsTipo valor={filtros.tipo} onChange={(tipo) => actualizar({ tipo })} />
+        <Button
+          variante="secundario"
+          onClick={abrirFiltros}
+          aria-expanded={panelAbierto || hojaAbierta}
+          icono={<SlidersHorizontal aria-hidden="true" className="size-4" />}
+          className="lg:order-last"
+        >
+          {nFiltros > 0 ? t('filtros.botonActivos', { n: nFiltros }) : t('filtros.boton')}
+        </Button>
+        <div className="w-full min-w-0 lg:w-auto lg:flex-[1_1_auto]">
+          <ChipsTipo valor={filtros.tipo} onChange={(tipo) => actualizar({ tipo })} totales={totales.data} />
+        </div>
       </div>
 
       {panelAbierto && (
@@ -237,7 +294,7 @@ export default function PaginaMovimientos() {
           {contenido}
         </section>
         <aside
-          aria-label={t('detalle.titulo')}
+          aria-label={detalle !== null ? t('detalle.titulo') : t('resumen.titulo')}
           className="hidden min-w-0 flex-[1_1_20rem] rounded-2xl border border-borde bg-superficie p-5 lg:sticky lg:top-8 lg:block"
         >
           {detalle !== null ? (
@@ -248,7 +305,7 @@ export default function PaginaMovimientos() {
               onBorrado={() => seleccionar(null)}
             />
           ) : (
-            <EmptyState titulo={t('lista.seleccionaTitulo')} descripcion={t('lista.seleccionaTexto')} />
+            <ResumenFiltro filtros={consulta} hayFiltros={hayFiltros} catalogos={catalogos} />
           )}
         </aside>
       </div>
@@ -262,6 +319,10 @@ export default function PaginaMovimientos() {
           categorias={catalogos.categorias}
           onAplicar={aplicarPanel}
         />
+      </Sheet>
+
+      <Sheet abierto={nuevoAbierto} onCerrar={() => setNuevoAbierto(false)} titulo={t('nuevo.titulo')}>
+        {nuevoAbierto && <NuevoMovimiento params={SIN_PARAMS} onTerminar={() => setNuevoAbierto(false)} />}
       </Sheet>
     </div>
   );

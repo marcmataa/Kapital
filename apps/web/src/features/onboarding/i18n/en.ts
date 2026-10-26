@@ -62,6 +62,8 @@ export default {
   'selector.color': 'Colour',
   'selector.nombreVacio': 'Enter the bank name.',
   'selector.nombreOcupado': 'You already have an account with that name.',
+  'selector.buscar': 'Search banks',
+  'selector.sinResultados': 'No bank matches. If yours is not listed, choose “Other bank”.',
 
   'color.verde': 'Green',
   'color.azul': 'Blue',

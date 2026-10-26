@@ -50,7 +50,14 @@ export function crearSupabaseFalso() {
     return builder;
   };
 
-  return { estado, supabase: { from } };
+  /** RPC: se apunta como la tabla `rpc:<función>` con el paso ['rpc', argumentos]. */
+  const rpc = (funcion: string, args?: unknown) => {
+    const builder = from(`rpc:${funcion}`) as Record<string, unknown>;
+    estado.llamadas[estado.llamadas.length - 1]?.pasos.push(['rpc', args]);
+    return builder;
+  };
+
+  return { estado, supabase: { from, rpc } };
 }
 
 /** Primer paso con ese método, o undefined. */

@@ -20,6 +20,8 @@ export const MIGRACION_ESTADISTICAS = leer('supabase/migrations/20261023000002_e
 export const ROLLBACK_ESTADISTICAS = leer('supabase/rollback/20261023000002_estadisticas.down.sql');
 export const MIGRACION_CATEGORIAS_CUENTAS_CLAVE = leer('supabase/migrations/20261024000000_categorias_y_cuentas_clave.sql');
 export const ROLLBACK_CATEGORIAS_CUENTAS_CLAVE = leer('supabase/rollback/20261024000000_categorias_y_cuentas_clave.down.sql');
+export const MIGRACION_MOVIMIENTOS_UX = leer('supabase/migrations/20261024000001_movimientos_ux.sql');
+export const ROLLBACK_MOVIMIENTOS_UX = leer('supabase/rollback/20261024000001_movimientos_ux.down.sql');
 export const MIGRACION_INICIO_ESTADISTICAS = leer('supabase/migrations/20261024000003_inicio_estadisticas.sql');
 export const ROLLBACK_INICIO_ESTADISTICAS = leer('supabase/rollback/20261024000003_inicio_estadisticas.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
@@ -31,11 +33,13 @@ export const MIGRACIONES = [
   MIGRACION_CATEGORIAS_CLAVE,
   MIGRACION_ESTADISTICAS,
   MIGRACION_CATEGORIAS_CUENTAS_CLAVE,
+  MIGRACION_MOVIMIENTOS_UX,
   MIGRACION_INICIO_ESTADISTICAS,
 ];
 /** Todos los rollbacks, en orden inverso. */
 export const ROLLBACKS = [
   ROLLBACK_INICIO_ESTADISTICAS,
+  ROLLBACK_MOVIMIENTOS_UX,
   ROLLBACK_CATEGORIAS_CUENTAS_CLAVE,
   ROLLBACK_ESTADISTICAS,
   ROLLBACK_CATEGORIAS_CLAVE,

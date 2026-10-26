@@ -62,6 +62,8 @@ export default {
   'selector.color': 'Color',
   'selector.nombreVacio': 'Escriu el nom del banc.',
   'selector.nombreOcupado': 'Ja tens un compte amb aquest nom.',
+  'selector.buscar': 'Cerca un banc',
+  'selector.sinResultados': 'Cap banc no coincideix. Si no hi és, tria «Un altre banc».',
 
   'color.verde': 'Verd',
   'color.azul': 'Blau',

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Route, Routes } from 'react-router';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -77,13 +78,29 @@ vi.mock('@/features/onboarding/components/SelectorBanco', () => ({
   ),
 }));
 vi.mock('@/features/inicio/components/FormObjetivo', () => ({
-  FormObjetivo: () => <p>Formulario de objetivo</p>,
+  FormObjetivo: (p: { plano?: boolean; ayudaCategoria?: (id: string) => ReactNode }) => (
+    <div>
+      <p>Formulario de objetivo{p.plano ? ' (plano)' : ''}</p>
+      {p.ayudaCategoria?.('c1')}
+    </div>
+  ),
+}));
+// El ajuste por saldo real es el de movimientos (tiene sus propios tests): aquí, qué cuenta recibe.
+vi.mock('@/features/movimientos/components/AjusteSaldoReal', () => ({
+  AjusteSaldoReal: (p: { cuentaInicial: string; onGuardado: () => void }) => (
+    <div>
+      <p>Ajuste por saldo real de {p.cuentaInicial}</p>
+      <button type="button" onClick={p.onGuardado}>
+        Guardar ajuste
+      </button>
+    </div>
+  ),
 }));
 
 const { default: PaginaConfiguracion } = await import('./pages/PaginaConfiguracion');
 const { cambiarPrincipal, COLUMNAS_TOKENS } = await import('./api/configuracionApi');
 const { reordenar } = await import('./components/categorias');
-const { leerSaldo } = await import('./components/SheetAnadirBanco');
+const { leerSaldo, leerFechaInicial } = await import('./components/SheetAnadirBanco');
 
 /* ------------------------------------------------------------------ Datos inventados */
 
@@ -327,13 +344,63 @@ describe('Mis bancos', () => {
     expect(db.llamadas).toHaveLength(0);
   });
 
-  it('efectivo enlaza al ajuste de su cuenta', async () => {
+  it('efectivo: «¿No cuadra?» abre el ajuste por saldo real de su cuenta sin salir de Configuración', async () => {
     renderPagina();
-    expect(await screen.findByRole('link', { name: '¿No cuadra? Hacer un ajuste →' })).toHaveAttribute(
-      'href',
-      '/movimientos/nuevo?tipo=ajuste&cuenta=efectivo',
+    expect(await screen.findByText('40,00 €')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '¿No cuadra? Hacer un ajuste →' }));
+    const hoja = screen.getByRole('dialog', { name: 'Ajustar Efectivo' });
+    expect(within(hoja).getByText('Ajuste por saldo real de efectivo')).toBeInTheDocument();
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Guardar ajuste' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('cada banco abierto tiene su «¿No cuadra? Hacer un ajuste» (no solo el efectivo)', async () => {
+    renderPagina();
+    expect(await screen.findByRole('button', { name: '¿No cuadra CaixaBank? Hacer un ajuste' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '¿No cuadra Banco Prueba? Hacer un ajuste' }));
+    const hoja = screen.getByRole('dialog', { name: 'Ajustar Banco Prueba' });
+    expect(within(hoja).getByText('Ajuste por saldo real de otro')).toBeInTheDocument();
+  });
+
+  it('añadir banco con fecha de inicio anterior a hoy la envía como p_fecha_inicial', async () => {
+    db.rpc.mockResolvedValue({ data: 'nuevo-id', error: null });
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: '+ Añadir banco' }));
+    const hoja = screen.getByRole('dialog', { name: 'Añadir banco' });
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Elegir ING' }));
+    await userEvent.type(within(hoja).getByLabelText(/Fecha de inicio/), '2026-09-01');
+    const saldo = within(hoja).getByLabelText('Saldo al empezar el 01/09/2026');
+    await userEvent.type(saldo, '300');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Añadir banco' }));
+    await waitFor(() =>
+      expect(db.rpc).toHaveBeenCalledWith('crear_banco', {
+        p_entidad: 'ing',
+        p_nombre: 'ING',
+        p_color: null,
+        p_saldo: '300.00',
+        p_fecha_inicial: '2026-09-01',
+      }),
     );
-    expect(screen.getByText('40,00 €')).toBeInTheDocument();
+  });
+
+  it('una fecha de inicio futura no se envía', async () => {
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: '+ Añadir banco' }));
+    const hoja = screen.getByRole('dialog', { name: 'Añadir banco' });
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Elegir ING' }));
+    await userEvent.type(within(hoja).getByLabelText(/Fecha de inicio/), '2999-01-01');
+    await userEvent.type(within(hoja).getByLabelText(/Saldo/), '0');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Añadir banco' }));
+    expect(within(hoja).getByText('La fecha de inicio no puede ser posterior a hoy.')).toBeInTheDocument();
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it('leerFechaInicial: vacío = hoy (null); no futura ni mal formada', () => {
+    expect(leerFechaInicial('', '2026-10-26')).toBeNull();
+    expect(leerFechaInicial('2026-09-01', '2026-10-26')).toBe('2026-09-01');
+    expect(leerFechaInicial('2026-10-26', '2026-10-26')).toBe('2026-10-26');
+    expect(leerFechaInicial('2026-10-27', '2026-10-26')).toBe('invalida');
+    expect(leerFechaInicial('01/09/2026', '2026-10-26')).toBe('invalida');
   });
 
   it('leerSaldo admite 0 pero no signos ni textos vacíos', () => {
@@ -488,6 +555,44 @@ describe('Objetivos', () => {
     await userEvent.click(within(hoja).getByRole('button', { name: 'Guardar' }));
     await waitFor(() => expect(escrituras('objetivos')).toHaveLength(1));
     expect(escrituras('objetivos')[0]).toMatchObject({ valores: { importe: '650.50' }, filtros: [['id', 'o1']] });
+  });
+
+  it('modal plano: sin «Volver a la lista» y con el título de cada vista', async () => {
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
+    const hoja = screen.getByRole('dialog', { name: 'Objetivos' });
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Cambiar importe de Ahorro mensual' }));
+    expect(screen.getByRole('dialog', { name: 'Ahorro mensual' })).toBe(hoja);
+    expect(within(hoja).queryByText('Volver a la lista')).not.toBeInTheDocument();
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Cancelar' }));
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Quitar Ahorro mensual' }));
+    expect(screen.getByRole('dialog', { name: 'Quitar objetivo' })).toBe(hoja);
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Cancelar' }));
+    await userEvent.click(within(hoja).getByRole('button', { name: '+ Añadir objetivo' }));
+    expect(screen.getByRole('dialog', { name: 'Nuevo objetivo' })).toBe(hoja);
+    expect(within(hoja).getByText('Formulario de objetivo (plano)')).toBeInTheDocument();
+    expect(within(hoja).queryByText('Volver a la lista')).not.toBeInTheDocument();
+  });
+
+  it('al crear un límite muestra la media mensual de la categoría, calculada en SQL', async () => {
+    const select = vi.fn().mockResolvedValue({ data: [{ media: '280.3333333333', meses: 3 }], error: null });
+    db.rpc.mockReturnValue({ select });
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Añadir objetivo' }));
+    expect(await screen.findByText('Media de Ocio: 280 €/mes (meses completos: 3)')).toBeInTheDocument();
+    expect(db.rpc).toHaveBeenCalledWith('media_gasto_categoria', { p_categoria: 'c1', p_meses: 3 });
+    expect(select).toHaveBeenCalledWith('media::text, meses');
+  });
+
+  it('sin meses completos lo dice en vez de inventar una media', async () => {
+    db.rpc.mockReturnValue({ select: vi.fn().mockResolvedValue({ data: [{ media: null, meses: 0 }], error: null }) });
+    renderPagina();
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Añadir objetivo' }));
+    expect(
+      await screen.findByText('Todavía no hay meses completos para calcular la media de Ocio.'),
+    ).toBeInTheDocument();
   });
 
   it('«Quitar» desactiva el objetivo', async () => {

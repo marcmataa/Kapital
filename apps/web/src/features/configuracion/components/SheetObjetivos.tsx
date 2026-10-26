@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { FormObjetivo } from '@/features/inicio/components/FormObjetivo';
 import {
   useActualizarImporteObjetivoMutation,
@@ -14,6 +14,7 @@ import { formatearEuros, importePositivo } from '@/shared/lib/dinero';
 import { Button, MoneyInput, Sheet, importeParaEditar } from '@/shared/ui';
 import { claveError } from '../api/errores';
 import { AlertaError } from './AlertaError';
+import { MediaCategoria } from './MediaCategoria';
 import { etiquetaObjetivo } from './objetivos';
 
 type Vista =
@@ -30,7 +31,10 @@ interface Props {
 
 const CLASE_ICONO = 'rounded-lg p-2 text-apagado transition-colors hover:bg-superficie-2 hover:text-texto';
 
-function EditarImporte({ objetivo, etiqueta, onHecho }: { objetivo: Objetivo; etiqueta: string; onHecho: () => void }) {
+/** Botones de un formulario del modal: apilados a ancho completo en móvil, en línea desde `sm`. */
+const CLASE_BOTONES = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end';
+
+function EditarImporte({ objetivo, onHecho }: { objetivo: Objetivo; onHecho: () => void }) {
   const t = useT('configuracion');
   const tc = useT('common');
   const { locale } = useIdioma();
@@ -59,14 +63,13 @@ function EditarImporte({ objetivo, etiqueta, onHecho }: { objetivo: Objetivo; et
 
   return (
     <form onSubmit={(e) => void enviar(e)} noValidate className="flex flex-col gap-4">
-      <p className="font-medium text-texto">{etiqueta}</p>
       <MoneyInput label={t('objetivos.importe')} value={texto} onChange={setTexto} error={errorCampo} />
       <AlertaError mensaje={error} />
-      <div className="flex justify-end gap-2">
-        <Button variante="secundario" onClick={onHecho}>
+      <div className={CLASE_BOTONES}>
+        <Button variante="secundario" anchoCompleto className="sm:w-auto" onClick={onHecho}>
           {t('accion.cancelar')}
         </Button>
-        <Button type="submit" cargando={isLoading}>
+        <Button type="submit" anchoCompleto className="sm:w-auto" cargando={isLoading}>
           {t('accion.guardar')}
         </Button>
       </div>
@@ -74,7 +77,11 @@ function EditarImporte({ objetivo, etiqueta, onHecho }: { objetivo: Objetivo; et
   );
 }
 
-/** Objetivos activos: cambiar importe, quitar (se desactiva y conserva historia) y añadir. */
+/**
+ * Objetivos activos: cambiar importe, quitar (se desactiva y conserva historia) y añadir.
+ * Modal plano: cada vista ocupa el modal entero con su propio título y vuelve a la lista al
+ * cancelar o guardar (sin «Volver a la lista» ni tarjeta dentro de la tarjeta).
+ */
 export function SheetObjetivos({ objetivos, categorias, onCerrar }: Props) {
   const t = useT('configuracion');
   const { locale } = useIdioma();
@@ -95,33 +102,27 @@ export function SheetObjetivos({ objetivos, categorias, onCerrar }: Props) {
     }
   };
 
+  const titulo =
+    vista.modo === 'nuevo'
+      ? t('objetivos.nuevo')
+      : vista.modo === 'editar'
+        ? etiquetaObjetivo(vista.objetivo, categorias, t, nombreCategoria)
+        : vista.modo === 'quitar'
+          ? t('objetivos.quitarTitulo')
+          : t('objetivos.titulo');
+
   return (
-    <Sheet
-      abierto
-      onCerrar={onCerrar}
-      titulo={vista.modo === 'nuevo' ? t('objetivos.nuevo') : t('objetivos.titulo')}
-    >
-      {vista.modo !== 'lista' && (
-        <Button
-          variante="fantasma"
-          tamano="sm"
-          className="mb-4"
-          icono={<ArrowLeft aria-hidden="true" className="size-4" />}
-          onClick={aLista}
-        >
-          {t('categorias.volver')}
-        </Button>
-      )}
-
-      {vista.modo === 'nuevo' && <FormObjetivo onHecho={aLista} onCancelar={aLista} />}
-
-      {vista.modo === 'editar' && (
-        <EditarImporte
-          objetivo={vista.objetivo}
-          etiqueta={etiquetaObjetivo(vista.objetivo, categorias, t, nombreCategoria)}
+    <Sheet abierto onCerrar={onCerrar} titulo={titulo}>
+      {vista.modo === 'nuevo' && (
+        <FormObjetivo
+          plano
           onHecho={aLista}
+          onCancelar={aLista}
+          ayudaCategoria={(id) => <MediaCategoria categoriaId={id} categorias={categorias} />}
         />
       )}
+
+      {vista.modo === 'editar' && <EditarImporte objetivo={vista.objetivo} onHecho={aLista} />}
 
       {vista.modo === 'quitar' && (
         <div className="flex flex-col gap-4">
@@ -129,12 +130,18 @@ export function SheetObjetivos({ objetivos, categorias, onCerrar }: Props) {
             {t('objetivos.quitarConfirmar', { objetivo: etiquetaObjetivo(vista.objetivo, categorias, t, nombreCategoria) })}
           </p>
           <AlertaError mensaje={error} />
-          <div className="flex flex-wrap gap-2">
-            <Button variante="peligro" cargando={estadoQuitar.isLoading} onClick={() => void quitar(vista.objetivo)}>
-              {t('objetivos.quitarSi')}
-            </Button>
-            <Button variante="secundario" onClick={aLista}>
+          <div className={CLASE_BOTONES}>
+            <Button variante="secundario" anchoCompleto className="sm:w-auto" onClick={aLista}>
               {t('accion.cancelar')}
+            </Button>
+            <Button
+              variante="peligro"
+              anchoCompleto
+              className="sm:w-auto"
+              cargando={estadoQuitar.isLoading}
+              onClick={() => void quitar(vista.objetivo)}
+            >
+              {t('objetivos.quitarSi')}
             </Button>
           </div>
         </div>

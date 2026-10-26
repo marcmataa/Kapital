@@ -688,6 +688,18 @@ describe('FormObjetivo', () => {
     return { onHecho, onCancelar };
   };
 
+  it('el ahorro lleva un ejemplo en el campo («200,00»)', async () => {
+    pintarForm();
+    expect(await screen.findByLabelText('Ahorro al mes')).toHaveAttribute('placeholder', '200,00');
+  });
+
+  it('plano (en un modal): sin tarjeta propia y con botones de tamaño normal', async () => {
+    renderConApp(<FormObjetivo plano onHecho={vi.fn()} onCancelar={vi.fn()} />, { sesion: sesionFalsa('u1') });
+    const form = await screen.findByRole('form');
+    expect(form.className).not.toContain('rounded-xl');
+    expect(screen.getByRole('button', { name: 'Guardar' }).className).toContain('h-11');
+  });
+
   it('crea un ahorro mensual con el importe normalizado', async () => {
     const { onHecho } = pintarForm();
     await userEvent.type(await screen.findByLabelText('Ahorro al mes'), '150');
