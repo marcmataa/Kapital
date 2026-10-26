@@ -22,9 +22,9 @@ export default {
   'diario.tituloGastos': 'Gasto por día · {mes}',
   'diario.tituloIngresos': 'Ingresos y devoluciones por día · {mes}',
   'diario.nota':
-    'Gasto neto de cada día: gastos menos devoluciones. Pasa el ratón o el dedo por el gráfico, o usa las flechas del teclado, para ver cada día y sus gastos. Los días futuros quedan vacíos; el de hoy es provisional.',
+    'Gasto neto de cada día: gastos menos devoluciones. Los días futuros quedan vacíos; el de hoy es provisional.',
   'diario.notaIngresos':
-    'Las devoluciones no son ingresos: restan del gasto de su categoría y no se suman a ningún total de ingresos. Pasa el ratón o el dedo por el gráfico, o usa las flechas del teclado, para ver cada día.',
+    'Las devoluciones no son ingresos: restan del gasto de su categoría y no se suman a ningún total de ingresos.',
   'diario.hoy': 'hoy, provisional',
   'diario.control': 'Día del gráfico',
   'diario.leyenda.ingresos': 'Ingresos',
@@ -63,7 +63,7 @@ export default {
   'metodo.sin': 'Sin método',
   'meses.titulo': 'Últimos 6 meses',
   'meses.control': 'Mes del gráfico de gasto',
-  'meses.ayuda': 'Gasto neto de cada mes. Pasa el ratón o el dedo por las barras, o usa las flechas del teclado.',
+  'meses.ayuda': 'Gasto neto de cada mes; el mes en curso es provisional.',
   'meses.lectura.enCurso': '{mes} · hasta hoy (provisional)',
   'ingresos.titulo': 'Ingresos por categoría',
   'ingresos.vacio': 'No hay ingresos en este periodo.',
@@ -72,7 +72,6 @@ export default {
   'balance.hastaHoy': 'hasta hoy',
   'balanceMeses.titulo': 'Últimos 6 meses',
   'balanceMeses.control': 'Mes del gráfico de balance',
-  'balanceMeses.ayuda': 'Pasa el ratón o el dedo por el gráfico, o usa las flechas del teclado, para ver cada mes.',
   'balanceMeses.balance': 'balance',
   'balanceMeses.ingresos': 'Ingresos {importe}',
   'balanceMeses.gastos': 'Gastos netos {importe}',

@@ -53,6 +53,10 @@ export function ComparativaMes({ periodos, datos, modo }: Props) {
   const actual = gastos ? datos.gastos_netos : datos.ingresos;
   const anterior = gastos ? datos.gastos_netos_anterior : datos.ingresos_anterior;
   const variacion = gastos ? datos.variacion_gastos : datos.variacion_ingresos;
+  const mayor =
+    datos.mayor_concepto !== null && datos.mayor_importe !== null
+      ? t('comparativa.mayor', { concepto: datos.mayor_concepto, importe: euros(datos.mayor_importe) })
+      : t('comparativa.sinMayor');
 
   return (
     <Card titulo={titulo}>
@@ -66,10 +70,9 @@ export function ComparativaMes({ periodos, datos, modo }: Props) {
         {gastos && (
           <Tarjeta etiqueta={t('comparativa.medioDiario')} valor={euros(datos.gasto_medio_diario)}>
             <p className="text-xs text-apagado sm:text-sm">{t('comparativa.dias', { dias: String(datos.dias) })}</p>
-            <p className="min-w-0 truncate text-xs text-apagado sm:text-sm">
-              {datos.mayor_concepto !== null && datos.mayor_importe !== null
-                ? t('comparativa.mayor', { concepto: datos.mayor_concepto, importe: euros(datos.mayor_importe) })
-                : t('comparativa.sinMayor')}
+            {/* Concepto largo: hasta dos líneas y el texto completo en el title, nunca «Ave Madrid Champio…». */}
+            <p data-testid="mayor-gasto" title={mayor} className="line-clamp-2 min-w-0 text-xs break-words text-apagado sm:text-sm">
+              {mayor}
             </p>
           </Tarjeta>
         )}

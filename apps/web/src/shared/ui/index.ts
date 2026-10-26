@@ -1,5 +1,6 @@
 export { AyudaGrafico } from './AyudaGrafico';
 export { Badge, type TonoBadge } from './Badge';
+export { EtiquetasEje, LineasEje } from './EjeGrafico';
 export { BankLogo } from './BankLogo';
 export { Button, clasesBoton, type ButtonProps, type VarianteBoton, type TamanoBoton } from './Button';
 export { Card } from './Card';

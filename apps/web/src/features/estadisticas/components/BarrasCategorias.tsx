@@ -66,7 +66,9 @@ export function BarrasCategorias({ filas, etiqueta }: Props) {
               <span className="flex justify-between gap-3">
                 <span className="flex min-w-0 items-center gap-2">
                   <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
-                  <span className={cx('truncate text-texto', i === indice && 'font-semibold')}>{f.nombre}</span>
+                  <span title={f.nombre} className={cx('truncate text-texto', i === indice && 'font-semibold')}>
+                    {f.nombre}
+                  </span>
                 </span>
                 <span className="cifras shrink-0 text-texto">
                   {valor(f)} · {formatearPorcentaje(f.porcentaje, locale)}

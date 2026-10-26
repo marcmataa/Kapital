@@ -120,7 +120,7 @@ export function DesgloseBalance(props: Props) {
         {grupoB.length === 0 ? (
           <p className="text-sm text-apagado">{t('desglose.sinFuera')}</p>
         ) : (
-          <FilasComparadas filas={grupoB} etiqueta={t('desglose.fuera')} etiquetaAnterior={t('desglose.antes')} />
+          <FilasComparadas filas={grupoB} etiqueta={t('desglose.fuera')} etiquetaAnterior={t('desglose.antes')} leyenda={false} />
         )}
       </section>
     </Card>
