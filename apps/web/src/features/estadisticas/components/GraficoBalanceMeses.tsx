@@ -1,8 +1,8 @@
 import { AyudaGrafico, Card, EmptyState, EtiquetasEje, LecturaGrafico, LineasEje } from '@/shared/ui';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { useSeleccionGrafico } from '@/shared/hooks/useSeleccionGrafico';
-import { formatearEuros, formatearPorcentaje } from '@/shared/lib/dinero';
-import { escalaDeImportes, posicionEnEje, tramoBarra } from '@/shared/lib/ejes';
+import { aCentimos, formatearEuros, formatearPorcentaje } from '@/shared/lib/dinero';
+import { escalaDeImportes, formatearEurosEje, tramoBarra } from '@/shared/lib/ejes';
 import { inicioDeMes } from '@/shared/lib/fechas';
 import { cx } from '@/shared/lib/cx';
 import type { ResumenMes } from '../api/estadisticasApi';
@@ -14,15 +14,21 @@ interface Props {
   hoy: string;
 }
 
-/** Ancho fijo de la columna de etiquetas: las dos franjas (barras y balance) quedan alineadas. */
-const ANCHO_ETIQUETAS = 'w-16 min-w-16';
+/** Ancho fijo de la columna de etiquetas del eje: la fila de meses queda alineada con las barras. */
+const ANCHO_ETIQUETAS = 'w-14 min-w-14';
+
+/** '99000' céntimos → '+990 €'; '-50000' → '-500 €'. Sin decimales: es la etiqueta de la barra. */
+function etiquetaBarra(balance: string, locale: string): string {
+  const c = aCentimos(balance);
+  return `${c > 0n ? '+' : ''}${formatearEurosEje(c, locale)}`;
+}
 
 /**
- * Últimos meses: ingresos y gastos netos en barras, una al lado de otra, y debajo el balance de
- * cada mes en su propia franja con su propio eje (así un mes a medias no parece «caer a cero» en
- * la escala de los ingresos). Todo calculado en SQL (resumen_mensual, sección 3); aquí solo se
- * dibuja. El mes en curso es provisional: barras con relleno rayado y su balance escrito junto al
- * punto. Ahorro «—» si no hay ingresos. Se recorre mes a mes con ratón, dedo o teclado.
+ * Lo que te quedó cada mes, como en la app de un banco: una barra por mes desde el cero, verde
+ * hacia arriba si ahorraste y roja hacia abajo si gastaste más de lo que entró, con la cifra en la
+ * barra. Al elegir un mes se leen sus ingresos, gastos netos y ahorro. Todo calculado en SQL
+ * (resumen_mensual, sección 3); aquí solo se dibuja. El mes en curso es provisional (rayado).
+ * Ahorro «—» si no hay ingresos. Se recorre mes a mes con ratón, dedo o teclado.
  */
 export function GraficoBalanceMeses({ meses, hoy }: Props) {
   const t = useT('estadisticas');
@@ -32,14 +38,9 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
   const { indice, superficie, alTeclado } = useSeleccionGrafico({ total: meses.length, inicial: meses.length - 1 });
   const elegido = meses[indice];
 
-  const escalaBarras = escalaDeImportes(meses.flatMap((m) => [m.ingresos, m.gastos_netos]));
-  const escalaBalance = escalaDeImportes(
-    meses.map((m) => m.balance),
-    { marcas: 3 },
-  );
+  // Con el cero siempre dentro: los meses en negativo quedan por debajo.
+  const escala = escalaDeImportes(meses.map((m) => m.balance));
   const n = meses.length;
-  const x = (i: number) => ((i + 0.5) / n) * 100;
-  const y = (v: string) => (1 - posicionEnEje(v, escalaBalance)) * 100;
 
   const lectura = (m: ResumenMes) => {
     const titulo = m.mes === mesActual ? t('meses.lectura.enCurso', { mes: etiquetaMes(m.mes, locale) }) : etiquetaMes(m.mes, locale);
@@ -52,8 +53,6 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
     return { titulo, valor, detalle };
   };
   const sel = elegido ? lectura(elegido) : null;
-  const indiceEnCurso = meses.findIndex((m) => m.mes === mesActual);
-  const enCurso = meses[indiceEnCurso];
 
   return (
     <Card titulo={t('balanceMeses.titulo')} accion={<AyudaGrafico unidad="mes" />}>
@@ -64,15 +63,11 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
           <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-apagado sm:text-sm" aria-hidden="true">
             <span className="flex items-center gap-1.5">
               <span className="size-2.5 rounded-sm bg-positivo" />
-              {t('balanceMeses.leyenda.ingresos')}
+              {t('balanceMeses.leyenda.ahorro')}
             </span>
             <span className="flex items-center gap-1.5">
               <span className="size-2.5 rounded-sm bg-negativo" />
-              {t('balanceMeses.leyenda.gastos')}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-[3px] w-4 rounded-sm bg-morado" />
-              {t('balanceMeses.leyenda.balance')}
+              {t('balanceMeses.leyenda.deficit')}
             </span>
           </span>
           <LecturaGrafico data-testid="lectura-balance" titulo={`${sel.titulo} · ${t('balanceMeses.balance')}`} valor={sel.valor}>
@@ -89,114 +84,55 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
             onKeyDown={alTeclado}
             className="flex flex-col gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
           >
-            {/* Franja 1: ingresos y gastos netos. */}
-            <div className="flex gap-2">
-              <EtiquetasEje escala={escalaBarras} locale={locale} className={cx('h-44', ANCHO_ETIQUETAS)} />
+            {/* Margen arriba y abajo: las cifras de la barra más alta y de la más baja caben. */}
+            <div className="flex gap-2 py-6">
+              <EtiquetasEje escala={escala} locale={locale} className={cx('h-56', ANCHO_ETIQUETAS)} />
               <div
                 aria-hidden="true"
                 data-testid="superficie-balance"
-                className="relative flex h-44 min-w-0 flex-1 cursor-crosshair touch-pan-y select-none"
+                className="relative flex h-56 min-w-0 flex-1 cursor-crosshair touch-pan-y select-none"
                 {...superficie}
               >
-                <LineasEje escala={escalaBarras} />
+                <LineasEje escala={escala} />
                 {meses.map((m, i) => {
                   const provisional = m.mes === mesActual;
                   const esElegido = i === indice;
-                  const barra = (valor: string, color: 'positivo' | 'negativo') => {
-                    const { abajo, alto } = tramoBarra(valor, escalaBarras);
-                    return (
-                      <span className="relative h-full min-w-0 flex-1">
-                        <span
-                          data-provisional={provisional ? 'true' : undefined}
-                          className={cx(
-                            'absolute inset-x-0 rounded-sm',
-                            provisional ? cx('relleno-provisional', TEXTO[color]) : FONDO[color],
-                            !esElegido && !provisional && 'opacity-70',
-                          )}
-                          style={{ bottom: `${abajo}%`, height: `${alto}%` }}
-                        />
-                      </span>
-                    );
-                  };
+                  const negativo = aCentimos(m.balance) < 0n;
+                  const color = negativo ? 'negativo' : 'positivo';
+                  const { abajo, alto } = tramoBarra(m.balance, escala);
                   return (
                     <div
                       key={m.mes}
-                      className={cx('relative flex h-full min-w-0 flex-1 justify-center rounded-md px-1.5', esElegido && 'bg-superficie-2')}
+                      className={cx('relative flex h-full min-w-0 flex-1 justify-center rounded-md px-2', esElegido && 'bg-superficie-2')}
                     >
-                      <div className="flex h-full w-full max-w-20 gap-1">
-                        {barra(m.ingresos, 'positivo')}
-                        {barra(m.gastos_netos, 'negativo')}
+                      <div className="relative h-full w-full max-w-14">
+                        <span
+                          data-provisional={provisional ? 'true' : undefined}
+                          data-balance={m.balance}
+                          className={cx(
+                            'absolute inset-x-0',
+                            negativo ? 'rounded-b-md' : 'rounded-t-md',
+                            provisional ? cx('relleno-provisional', TEXTO[color]) : FONDO[color],
+                            !esElegido && !provisional && 'opacity-80',
+                          )}
+                          style={{ bottom: `${abajo}%`, height: `${alto}%` }}
+                        />
+                        {/* La cifra, encima de la barra si es positiva y debajo si es negativa. */}
+                        <span
+                          className={cx(
+                            'cifras absolute inset-x-0 -mx-2 text-center text-[11px] font-semibold whitespace-nowrap sm:text-xs',
+                            negativo ? 'text-negativo' : 'text-positivo',
+                            // Con `bottom`, la etiqueta queda encima del punto; la negativa se baja su alto.
+                            negativo ? 'translate-y-full pt-1' : 'pb-1',
+                          )}
+                          style={negativo ? { bottom: `${abajo}%` } : { bottom: `${abajo + alto}%` }}
+                        >
+                          {etiquetaBarra(m.balance, locale)}
+                        </span>
                       </div>
                     </div>
                   );
                 })}
-              </div>
-            </div>
-
-            {/*
-              Franja 2: balance, con su propio eje y su línea del cero. Separada de las barras y con su
-              título: son dos escalas distintas y pegadas parecían un solo gráfico.
-            */}
-            <p aria-hidden="true" className="mt-2 border-t border-borde pt-3 text-xs font-medium text-apagado first-letter:uppercase">
-              {t('balanceMeses.balance')}
-            </p>
-            <div className="flex gap-2">
-              <EtiquetasEje escala={escalaBalance} locale={locale} className={cx('h-24', ANCHO_ETIQUETAS)} />
-              <div
-                aria-hidden="true"
-                data-testid="franja-balance"
-                className="relative h-24 min-w-0 flex-1 cursor-crosshair touch-pan-y select-none"
-                {...superficie}
-              >
-                <LineasEje escala={escalaBalance} />
-                {meses.map((m, i) => (
-                  <span
-                    key={m.mes}
-                    className={cx('absolute inset-y-0 rounded-md', i === indice && 'bg-superficie-2/60')}
-                    style={{ left: `${(i / n) * 100}%`, width: `${100 / n}%` }}
-                  />
-                ))}
-                <svg
-                  viewBox="0 0 100 100"
-                  preserveAspectRatio="none"
-                  className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-                >
-                  <polyline
-                    data-testid="linea-balance"
-                    points={meses.map((m, i) => `${x(i).toFixed(2)},${y(m.balance).toFixed(2)}`).join(' ')}
-                    fill="none"
-                    className="stroke-morado"
-                    strokeWidth={2.5}
-                    strokeLinejoin="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </svg>
-                {meses.map((m, i) => (
-                  <span
-                    key={m.mes}
-                    className={cx(
-                      'pointer-events-none absolute size-2.5 -translate-x-1/2 translate-y-1/2 rounded-full border-2 border-morado',
-                      i === indice ? 'bg-morado' : m.mes === mesActual ? 'relleno-provisional text-morado' : 'bg-superficie',
-                    )}
-                    style={{ left: `${x(i)}%`, bottom: `${100 - y(m.balance)}%` }}
-                  />
-                ))}
-                {enCurso && (
-                  <span
-                    data-testid="valor-mes-en-curso"
-                    className={cx(
-                      'cifras pointer-events-none absolute text-xs font-semibold whitespace-nowrap text-texto',
-                      indiceEnCurso > n / 2 ? '-translate-x-full pr-2.5' : 'pl-2.5',
-                      posicionEnEje(enCurso.balance, escalaBalance) > 0.5 && 'translate-y-full',
-                    )}
-                    style={{
-                      left: `${x(indiceEnCurso)}%`,
-                      bottom: `${100 - y(enCurso.balance)}%`,
-                    }}
-                  >
-                    {formatearEuros(enCurso.balance, locale, { signo: 'siempre' })}
-                  </span>
-                )}
               </div>
             </div>
 

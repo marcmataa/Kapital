@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderConApp } from '@/test/render';
 import type { ResumenMes } from '../api/estadisticasApi';
@@ -89,22 +89,26 @@ describe('GraficoMeses · pocos meses', () => {
   });
 });
 
-describe('GraficoBalanceMeses · balance en su franja', () => {
+describe('GraficoBalanceMeses · una barra de balance por mes', () => {
   const meses = [
     mes('2026-08-01', '1420.00', '1190.40', '229.60'),
     mes('2026-09-01', '1508.00', '1168.28', '339.72'),
     mes('2026-10-01', '0.00', '50.00', '-50.00'),
   ];
 
-  it('el balance tiene su propio eje con el cero, y el mes en curso muestra su valor', () => {
+  it('verde hacia arriba si ahorraste, roja bajo el cero si no; cada barra con su cifra', () => {
     renderConApp(<GraficoBalanceMeses hoy="2026-10-19" meses={meses} />);
-    const franja = screen.getByTestId('franja-balance');
-    expect(etiquetasEje(franja)).toContain('0 €');
-    expect(etiquetasEje(franja).length).toBeLessThanOrEqual(3);
-    expect(normal(within(franja).getByTestId('valor-mes-en-curso').textContent)).toBe('-50,00 €');
-    const barras = screen.getByTestId('superficie-balance').querySelectorAll('[data-provisional="true"]');
-    expect(barras).toHaveLength(2);
-    barras.forEach((b) => expect(b).toHaveClass('relleno-provisional'));
+    const superficie = screen.getByTestId('superficie-balance');
+    expect(etiquetasEje(superficie)).toContain('0 €');
+    const barras = Array.from(superficie.querySelectorAll('[data-balance]'));
+    expect(barras.map((b) => b.getAttribute('data-balance'))).toEqual(['229.60', '339.72', '-50.00']);
+    expect(barras[0]).toHaveClass('bg-positivo', 'rounded-t-md');
+    // El mes en curso: provisional (rayado) y, al ser negativo, rojo y bajo el cero.
+    expect(barras[2]).toHaveAttribute('data-provisional', 'true');
+    expect(barras[2]).toHaveClass('relleno-provisional', 'text-negativo', 'rounded-b-md');
+    expect(normal(superficie.textContent)).toContain('+230 €');
+    expect(normal(superficie.textContent)).toContain('+340 €');
+    expect(normal(superficie.textContent)).toContain('-50 €');
   });
 });
 

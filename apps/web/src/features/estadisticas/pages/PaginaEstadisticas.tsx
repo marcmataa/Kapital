@@ -186,13 +186,19 @@ export default function PaginaEstadisticas() {
 
         {verIngresos && (
           <>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/*
+              La comparativa de ingresos es corta: el reparto por categoría va debajo, en su columna.
+              items-start: cada columna mide lo suyo (el gráfico no se estira con hueco abajo).
+            */}
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
               {graficoDiario('ingresos')}
-              {bloqueComparativa('ingresos')}
+              <div className="flex flex-col gap-4">
+                {bloqueComparativa('ingresos')}
+                <EstadoConsulta datos={ingresos.data} {...estado(ingresos)}>
+                  {(filas) => <IngresosPorCategoria key={mes} ingresos={repartirIngresos(filas)} />}
+                </EstadoConsulta>
+              </div>
             </div>
-            <EstadoConsulta datos={ingresos.data} {...estado(ingresos)}>
-              {(filas) => <IngresosPorCategoria key={mes} ingresos={repartirIngresos(filas)} />}
-            </EstadoConsulta>
           </>
         )}
 

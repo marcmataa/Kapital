@@ -140,6 +140,8 @@ export default {
   'atajo.tokenEtiqueta': 'Token del atajo',
   'atajo.copiar': 'Copiar token',
   'atajo.copiado': 'Copiado',
+  'atajo.copiarUrl': 'Copiar URL',
+  'atajo.urlCopiada': 'URL copiada',
   'atajo.copiarError': 'No se ha podido copiar. Selecciónalo y cópialo a mano.',
   'atajo.hecho': 'Ya lo he copiado',
   'atajo.instrucciones': 'Cómo configurar el atajo',

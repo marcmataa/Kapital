@@ -141,6 +141,8 @@ export default {
   'atajo.tokenEtiqueta': 'Shortcut token',
   'atajo.copiar': 'Copy token',
   'atajo.copiado': 'Copied',
+  'atajo.copiarUrl': 'Copy URL',
+  'atajo.urlCopiada': 'URL copied',
   'atajo.copiarError': 'It could not be copied. Select it and copy it manually.',
   'atajo.hecho': "I've copied it",
   'atajo.instrucciones': 'How to set up the shortcut',

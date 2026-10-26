@@ -29,7 +29,7 @@ describe('Sidebar · bloque de cuenta', () => {
     const cuenta = screen.getByRole('region', { name: 'Tu cuenta' });
     expect(within(cuenta).getByText('Lucía Prueba Gómez')).toHaveAttribute('title', 'Lucía Prueba Gómez');
     expect(within(cuenta).getByText('lucia.prueba@ejemplo.com')).toHaveAttribute('title', 'lucia.prueba@ejemplo.com');
-    expect(within(cuenta).getByRole('radiogroup', { name: 'Tema' })).toBeInTheDocument();
+    expect(within(cuenta).getByRole('button', { name: 'Cambiar tema' })).toBeInTheDocument();
   });
 
   it('sin nombre (email y contraseña) muestra solo el email', () => {
