@@ -70,3 +70,8 @@ export function inicioDeDatos(cuentas: readonly { fecha_inicial: string }[]): st
   for (const c of cuentas) if (min === null || c.fecha_inicial < min) min = c.fecha_inicial;
   return min;
 }
+
+/** Día 1 del último mes cerrado ('YYYY-MM-01'): el anterior al mes de `hoy`. */
+export function ultimoMesCerrado(hoy: string): string {
+  return sumarMeses(inicioDeMes(hoy), -1);
+}

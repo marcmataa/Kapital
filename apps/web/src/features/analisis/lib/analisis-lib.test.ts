@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { FilaAnalisis } from '../schemas/esquemas';
 import { accionAnalisis, estaAtascado } from './acciones';
 import { claveErrorAnalisis, codigoErrorFuncion } from './errores';
-import { entradasMeses, esGenerable, mesDeRuta, rutaDeMes } from './meses';
+import { barrasCascada } from '../components/GraficoCascada';
+import type { PasoCascada } from '../schemas/esquemas';
+import { entradasMeses, esGenerable, mesDeRuta, rutaDeMes, ultimoMesCerrado } from './meses';
 
 const fila = (mes: string, estado: FilaAnalisis['estado'] = 'listo'): FilaAnalisis => ({
   id: `id-${mes}`,
@@ -111,5 +113,57 @@ describe('accionAnalisis (reintentar no consume; regenerar solo si está listo)'
     expect(accionAnalisis(con({ estado: 'pendiente', updated_at: '2026-10-19T09:44:59Z' }), ahora)).toBe('reintentar');
     expect(estaAtascado(con({ estado: 'listo', updated_at: '2020-01-01T00:00:00Z' }), ahora)).toBe(false);
     expect(estaAtascado(con({ estado: 'generando', updated_at: 'no es fecha' }), ahora)).toBe(false);
+  });
+});
+
+describe('ultimoMesCerrado', () => {
+  it('es el mes anterior al de hoy, también en enero', () => {
+    expect(ultimoMesCerrado('2026-10-19')).toBe('2026-09-01');
+    expect(ultimoMesCerrado('2026-10-01')).toBe('2026-09-01');
+    expect(ultimoMesCerrado('2027-01-31')).toBe('2026-12-01');
+  });
+});
+
+describe('barrasCascada', () => {
+  const paso = (tipo: PasoCascada['tipo'], importe: string, inicio: string, fin: string): PasoCascada => ({
+    tipo,
+    nombre: tipo === 'categoria' ? 'Ocio' : null,
+    clave: null,
+    color: null,
+    importe,
+    inicio,
+    fin,
+  });
+
+  it('balance positivo: el eje va de 0 a los ingresos y cada gasto baja desde el acumulado', () => {
+    const { barras, cero } = barrasCascada([
+      paso('ingresos', '1000.00', '0.00', '1000.00'),
+      paso('categoria', '-750.00', '1000.00', '250.00'),
+      paso('balance', '250.00', '0.00', '250.00'),
+    ]);
+    expect(cero).toBe(0);
+    expect(barras.map((b) => b.sentido)).toEqual(['total', 'baja', 'total']);
+    expect(barras[0]).toMatchObject({ abajo: 0, alto: 100 });
+    expect(barras[1]).toMatchObject({ abajo: 25, alto: 75 });
+    expect(barras[2]).toMatchObject({ abajo: 0, alto: 25 });
+  });
+
+  it('balance negativo: el cero queda por encima del fondo y el balance baja por debajo', () => {
+    const { barras, cero } = barrasCascada([
+      paso('ingresos', '300.00', '0.00', '300.00'),
+      paso('categoria', '-400.00', '300.00', '-100.00'),
+      paso('balance', '-100.00', '0.00', '-100.00'),
+    ]);
+    expect(cero).toBe(25);
+    expect(barras[2]).toMatchObject({ abajo: 0, alto: 25 });
+  });
+
+  it('una categoría con más devoluciones que gasto sube', () => {
+    const { barras } = barrasCascada([
+      paso('ingresos', '100.00', '0.00', '100.00'),
+      paso('categoria', '30.00', '100.00', '130.00'),
+      paso('balance', '130.00', '0.00', '130.00'),
+    ]);
+    expect(barras[1]?.sentido).toBe('sube');
   });
 });

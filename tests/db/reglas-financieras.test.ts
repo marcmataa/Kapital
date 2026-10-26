@@ -246,7 +246,7 @@ describe('Sección 5 · variación patrimonial', () => {
     });
   });
 
-  it('la variación siempre se explica: balance + revalorización + ajustes + saldos iniciales de cuentas nuevas', async () => {
+  it('la variación siempre se explica: balance + revalorización + ajustes (el saldo inicial de una cuenta nueva es patrimonio de partida)', async () => {
     const bbva = await crearCuenta(db, u, { nombre: 'BBVA', saldoInicial: '1000.00', fechaInicial: '2026-09-01' });
     const tr = await crearCuenta(db, u, { nombre: 'Trade Republic', tipo: 'inversion', fechaInicial: '2026-09-01' });
     const ocio = await crearCategoria(db, u, 'Ocio', 'gasto');
@@ -258,12 +258,18 @@ describe('Sección 5 · variación patrimonial', () => {
 
     const v = await una<Record<string, string>>(
       db,
-      `select balance::text, revalorizacion::text, ajustes::text, saldos_iniciales::text, variacion::text,
-              (balance + revalorizacion + ajustes + saldos_iniciales)::text as suma
+      `select patrimonio_inicial::text, patrimonio_final::text, balance::text, revalorizacion::text,
+              ajustes::text, saldos_iniciales::text, variacion::text,
+              (balance + revalorizacion + ajustes)::text as suma,
+              (patrimonio_final - patrimonio_inicial)::text as delta
        from variacion_patrimonial('2026-09-30', '2026-10-31')`,
     );
     expect(v).toMatchObject({ balance: '-55.50', revalorizacion: '-20.00', ajustes: '-4.50', saldos_iniciales: '60.00' });
-    expect(v.variacion).toBe('-20.00');
+    // Patrimonio de partida: 1.000 € (BBVA a 30/09) + 60 € de Efectivo en su fecha de partida (10/10).
+    expect(v.patrimonio_inicial).toBe('1060.00');
+    expect(v.patrimonio_final).toBe('980.00');
+    expect(v.variacion).toBe('-80.00');
     expect(v.suma).toBe(v.variacion);
+    expect(v.delta).toBe(v.variacion);
   });
 });

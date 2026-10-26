@@ -87,17 +87,34 @@ export interface MovimientoReciente {
 }
 
 /**
- * Una recomendación es texto; también se acepta un objeto con `texto` (recomendación con acción
- * estructurada) para que Inicio no se rompa si el análisis cambia de forma.
+ * Una recomendación es texto (versión 1) o un objeto con `texto` y acción opcional (versión 2):
+ * en Inicio solo se usa el texto.
  */
 const esquemaRecomendacion = z.union([z.string(), z.object({ texto: z.string() }).transform((r) => r.texto)]);
 
-const esquemaContenido = z.object({
-  resumen: z.string(),
-  destacados: z.array(z.string()),
-  recomendaciones: z.array(esquemaRecomendacion),
-  insights: z.array(z.string()).optional(),
-});
+// Contenido de la IA: versión 2 (observaciones, desde 20261024000002) o versión 1 (destacados).
+// Las observaciones de la versión 2 son los insights: lo que no se ve a simple vista.
+const esquemaContenido = z.union([
+  z
+    .object({
+      version: z.literal(2),
+      resumen: z.string(),
+      observaciones: z.array(z.string()),
+      recomendaciones: z.array(esquemaRecomendacion),
+    })
+    .transform((c) => ({
+      resumen: c.resumen,
+      destacados: [] as string[],
+      recomendaciones: c.recomendaciones,
+      insights: c.observaciones as string[] | undefined,
+    })),
+  z.object({
+    resumen: z.string(),
+    destacados: z.array(z.string()),
+    recomendaciones: z.array(esquemaRecomendacion),
+    insights: z.array(z.string()).optional(),
+  }),
+]);
 
 export interface AnalisisReciente {
   /** Día 1 del mes analizado ('2026-09-01'). */

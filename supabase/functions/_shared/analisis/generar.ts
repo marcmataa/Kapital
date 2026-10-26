@@ -1,7 +1,13 @@
 // Llamada a OpenAI (chat completions, salida JSON estricta) y validación con zod.
 // Los errores llevan solo un código genérico: nunca el texto del proveedor.
-import { contenidoSchema, esquemaRespuestaOpenAI, type ContenidoAnalisis } from './esquemas.ts';
+import {
+  datosAnalisisSchema,
+  esquemaRespuestaOpenAI,
+  respuestaIASchema,
+  type ContenidoAnalisis,
+} from './esquemas.ts';
 import { construirMensajes } from './prompt.ts';
+import { validarContenido } from './validar.ts';
 
 export const URL_OPENAI = 'https://api.openai.com/v1/chat/completions';
 export const MODELO_POR_DEFECTO = 'gpt-4o-mini';
@@ -67,7 +73,8 @@ export async function generarAnalisis(
   deps: DependenciasGenerar,
 ): Promise<ResultadoGenerar> {
   const modelo = deps.modelo ?? MODELO_POR_DEFECTO;
-  const mensajes = construirMensajes(datos);
+  const validos = datosAnalisisSchema.parse(datos);
+  const mensajes = construirMensajes(validos);
   const controlador = new AbortController();
   const temporizador = setTimeout(() => controlador.abort(), deps.timeoutMs ?? TIMEOUT_MS);
 
@@ -84,7 +91,7 @@ export async function generarAnalisis(
           model: modelo,
           messages: mensajes,
           temperature: 0.2,
-          max_tokens: 800,
+          max_tokens: 1000,
           response_format: esquemaRespuestaOpenAI,
         }),
         signal: controlador.signal,
@@ -114,9 +121,12 @@ export async function generarAnalisis(
       throw new AnalisisError('respuesta_invalida');
     }
 
-    const validado = contenidoSchema.safeParse(json);
+    const validado = respuestaIASchema.safeParse(json);
     if (!validado.success) throw new AnalisisError('respuesta_invalida');
-    return { contenido: validado.data, modelo };
+    // Acciones y menciones de límites contra los datos reales del mes.
+    const contenido = validarContenido(validado.data, validos);
+    if (contenido === null) throw new AnalisisError('respuesta_invalida');
+    return { contenido, modelo };
   } finally {
     clearTimeout(temporizador);
   }
