@@ -39,6 +39,9 @@ export default {
   'bancos.cerradoHecho': '{nombre} se ha cerrado.',
   'bancos.cerrarError': 'No se puede cerrar: su saldo de hoy debe ser 0 y no puede tener movimientos con fecha posterior.',
   'bancos.hacerAjuste': 'Hacer un ajuste →',
+  'bancos.ajuste': '¿No cuadra? Hacer un ajuste',
+  'bancos.ajusteDe': '¿No cuadra {nombre}? Hacer un ajuste',
+  'ajuste.titulo': 'Ajustar {nombre}',
 
   'anadir.titulo': 'Añadir banco',
   'anadir.saldo': 'Saldo de hoy',
@@ -50,6 +53,11 @@ export default {
   'anadir.errorLimite': 'Ya tienes 5 bancos abiertos, que es el máximo. Cierra uno para añadir otro.',
   'anadir.errorDuplicado': 'Ya tienes una cuenta con ese nombre.',
   'anadir.errorSaldo': 'El saldo no es válido. Escribe un importe positivo, por ejemplo 1.258,50.',
+  'anadir.fecha': 'Fecha de inicio',
+  'anadir.fechaAyuda': 'Si quieres contar este banco desde antes, elige el día. Vacío = desde hoy.',
+  'anadir.fechaInvalida': 'La fecha de inicio no puede ser posterior a hoy.',
+  'anadir.saldoEn': 'Saldo al empezar el {fecha}',
+  'anadir.saldoEnAyuda': 'Lo que tenías al empezar ese día. Los movimientos desde esa fecha se suman a este saldo.',
 
   'efectivo.titulo': 'Efectivo',
   'efectivo.ajuste': '¿No cuadra? Hacer un ajuste →',
@@ -104,6 +112,9 @@ export default {
   'objetivos.quitado': 'Objetivo quitado.',
   'objetivos.guardado': 'Objetivo guardado.',
   'objetivos.nuevo': 'Nuevo objetivo',
+  'objetivos.quitarTitulo': 'Quitar objetivo',
+  'objetivos.media': 'Media de {categoria}: {importe}/mes (meses completos: {n})',
+  'objetivos.sinMedia': 'Todavía no hay meses completos para calcular la media de {categoria}.',
 
   'atajo.titulo': 'Atajo del iPhone',
   'atajo.descripcion': 'El token se muestra una sola vez al crearlo.',

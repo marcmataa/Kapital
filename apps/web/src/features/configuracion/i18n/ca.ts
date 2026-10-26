@@ -40,6 +40,9 @@ export default {
   'bancos.cerradoHecho': "{nombre} s'ha tancat.",
   'bancos.cerrarError': "No es pot tancar: el saldo d'avui ha de ser 0 i no pot tenir moviments amb data posterior.",
   'bancos.hacerAjuste': 'Fer un ajust →',
+  'bancos.ajuste': 'No quadra? Fes un ajust',
+  'bancos.ajusteDe': 'No quadra {nombre}? Fes un ajust',
+  'ajuste.titulo': 'Ajusta {nombre}',
 
   'anadir.titulo': 'Afegir banc',
   'anadir.saldo': "Saldo d'avui",
@@ -51,6 +54,11 @@ export default {
   'anadir.errorLimite': "Ja tens 5 bancs oberts, que és el màxim. Tanca'n un per afegir-ne un altre.",
   'anadir.errorDuplicado': 'Ja tens un compte amb aquest nom.',
   'anadir.errorSaldo': 'El saldo no és vàlid. Escriu un import positiu, per exemple 1.258,50.',
+  'anadir.fecha': 'Data d’inici',
+  'anadir.fechaAyuda': 'Si vols comptar aquest banc des d’abans, tria el dia. Buit = des d’avui.',
+  'anadir.fechaInvalida': 'La data d’inici no pot ser posterior a avui.',
+  'anadir.saldoEn': 'Saldo en començar el {fecha}',
+  'anadir.saldoEnAyuda': 'El que tenies en començar aquell dia. Els moviments des d’aquella data se sumen a aquest saldo.',
 
   'efectivo.titulo': 'Efectiu',
   'efectivo.ajuste': 'No quadra? Fer un ajust →',
@@ -105,6 +113,9 @@ export default {
   'objetivos.quitado': 'Objectiu tret.',
   'objetivos.guardado': 'Objectiu desat.',
   'objetivos.nuevo': 'Nou objectiu',
+  'objetivos.quitarTitulo': 'Treu l’objectiu',
+  'objetivos.media': 'Mitjana de {categoria}: {importe}/mes (mesos complets: {n})',
+  'objetivos.sinMedia': 'Encara no hi ha mesos complets per calcular la mitjana de {categoria}.',
 
   'atajo.titulo': "Drecera de l'iPhone",
   'atajo.descripcion': 'El token només es mostra una vegada, en crear-lo.',

@@ -61,6 +61,8 @@ export default {
   'selector.color': 'Color',
   'selector.nombreVacio': 'Escribe el nombre del banco.',
   'selector.nombreOcupado': 'Ya tienes una cuenta con ese nombre.',
+  'selector.buscar': 'Buscar banco',
+  'selector.sinResultados': 'Ningún banco coincide. Si no está, elige «Otro banco».',
 
   'color.verde': 'Verde',
   'color.azul': 'Azul',

@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 import type { Categoria, Cuenta, Objetivo } from '@/shared/api/catalogos';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
 import { Card } from '@/shared/ui';
 import { resumenObjetivo } from './objetivos';
-import { rutaAjuste } from './rutas';
+import { SheetAjuste } from './SheetAjuste';
 import { SheetCategorias } from './SheetCategorias';
 import { SheetObjetivos } from './SheetObjetivos';
 
@@ -23,7 +22,7 @@ export function SeccionResumen({ cuentas, categorias, objetivos }: Props) {
   const t = useT('configuracion');
   const { locale } = useIdioma();
   const nombreCategoria = useNombreCategoria();
-  const [hoja, setHoja] = useState<'categorias' | 'objetivos' | null>(null);
+  const [hoja, setHoja] = useState<'categorias' | 'objetivos' | 'ajuste' | null>(null);
 
   const efectivo = cuentas.find((c) => c.tipo === 'efectivo' && c.fecha_cierre === null) ?? null;
   const activas = categorias.filter((c) => !c.archivada);
@@ -47,9 +46,9 @@ export function SeccionResumen({ cuentas, categorias, objetivos }: Props) {
             <span className="text-2xl font-bold text-texto tabular-nums">
               {efectivo.valor === null ? t('bancos.sinValor') : formatearEuros(efectivo.valor, locale)}
             </span>
-            <Link to={rutaAjuste(efectivo.id)} className={CLASE_ENLACE}>
+            <button type="button" className={CLASE_ENLACE} onClick={() => setHoja('ajuste')}>
               {t('efectivo.ajuste')}
-            </Link>
+            </button>
           </>
         )}
       </Card>
@@ -74,6 +73,9 @@ export function SeccionResumen({ cuentas, categorias, objetivos }: Props) {
         </button>
       </Card>
 
+      {hoja === 'ajuste' && efectivo !== null && (
+        <SheetAjuste cuenta={efectivo} cuentas={cuentas} onCerrar={() => setHoja(null)} />
+      )}
       {hoja === 'categorias' && <SheetCategorias categorias={categorias} onCerrar={() => setHoja(null)} />}
       {hoja === 'objetivos' && (
         <SheetObjetivos objetivos={objetivos} categorias={categorias} onCerrar={() => setHoja(null)} />

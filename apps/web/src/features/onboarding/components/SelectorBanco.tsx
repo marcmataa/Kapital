@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { Check, Plus } from 'lucide-react';
+import { Check, Plus, Search } from 'lucide-react';
 import { useT } from '@/shared/i18n';
 import { ENTIDADES, NOMBRE_ENTIDAD, type Entidad } from '@/shared/lib/bancos';
 import { cx } from '@/shared/lib/cx';
@@ -17,6 +17,8 @@ export interface PropsSelectorBanco {
   valor: BancoElegido | null;
   /** null = nada elegido o banco «Otro» con datos no válidos todavía. */
   onCambio: (b: BancoElegido | null) => void;
+  /** Muestra un buscador que filtra la rejilla por nombre (sin tildes ni mayúsculas). */
+  buscador?: boolean;
 }
 
 /** Paleta de colores para bancos «Otro». Todos dan contraste ≥ 4,5:1 con las iniciales en blanco. */
@@ -43,9 +45,32 @@ export function validarNombreBanco(nombre: string, ocupados: readonly string[] =
   return ocupados.some((o) => o.trim().toLocaleLowerCase() === clave) ? 'ocupado' : null;
 }
 
+/** «Caixa» encuentra «CaixaBank»; «sabadéll», «Banco Sabadell». */
+export function normalizarBusqueda(texto: string): string {
+  return texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase().trim();
+}
+
+/** Entidades cuyo nombre contiene la búsqueda (todas si está vacía). */
+export function filtrarEntidades(entidades: readonly Entidad[], busqueda: string): Entidad[] {
+  const q = normalizarBusqueda(busqueda);
+  return q === '' ? [...entidades] : entidades.filter((e) => normalizarBusqueda(NOMBRE_ENTIDAD[e]).includes(q));
+}
+
+/** Marca de seleccionado: check sobre el borde verde (además de aria-pressed). */
+function MarcaElegido() {
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute top-1.5 right-1.5 inline-flex size-5 items-center justify-center rounded-full bg-acento text-sobre-acento"
+    >
+      <Check className="size-3.5" strokeWidth={3} />
+    </span>
+  );
+}
+
 const clasesTarjeta = (activa: boolean) =>
   cx(
-    'flex min-h-23 flex-col items-center justify-center gap-2 rounded-2xl border-2 px-1.5 py-2.5 text-center text-xs leading-tight text-texto transition-colors',
+    'relative flex min-h-23 flex-col items-center justify-center gap-2 rounded-2xl border-2 px-1.5 py-2.5 text-center text-xs leading-tight text-texto transition-colors',
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento',
     activa ? 'border-acento bg-acento-suave font-semibold' : 'border-borde bg-superficie hover:border-borde-fuerte',
   );
@@ -54,7 +79,7 @@ const clasesTarjeta = (activa: boolean) =>
  * Rejilla de bancos del catálogo con logo + «Otro banco» (formulario en línea: nombre y color).
  * La usan el onboarding y Configuración.
  */
-export function SelectorBanco({ excluir = [], nombresOcupados = [], valor, onCambio }: PropsSelectorBanco) {
+export function SelectorBanco({ excluir = [], nombresOcupados = [], valor, onCambio, buscador = false }: PropsSelectorBanco) {
   const t = useT('onboarding');
   const idColor = useId();
   const [otroAbierto, setOtroAbierto] = useState(valor !== null && valor.entidad === null);
@@ -63,6 +88,9 @@ export function SelectorBanco({ excluir = [], nombresOcupados = [], valor, onCam
     valor !== null && valor.entidad === null ? valor.color : COLOR_POR_DEFECTO,
   );
   const [tocado, setTocado] = useState(false);
+  // «Escribe el nombre del banco» solo cuando ya se ha escrito algo y se ha borrado (no al abrir).
+  const [escrito, setEscrito] = useState(nombre !== '');
+  const [busqueda, setBusqueda] = useState('');
   const refNombre = useRef<HTMLInputElement>(null);
   const enfocarNombre = useRef(false);
   const refColores = useRef<(HTMLButtonElement | null)[]>([]);
@@ -74,7 +102,10 @@ export function SelectorBanco({ excluir = [], nombresOcupados = [], valor, onCam
     }
   }, [otroAbierto]);
 
-  const disponibles = ENTIDADES.filter((e) => !excluir.includes(e));
+  const disponibles = filtrarEntidades(
+    ENTIDADES.filter((e) => !excluir.includes(e)),
+    buscador ? busqueda : '',
+  );
   const errorNombre = validarNombreBanco(nombre, nombresOcupados);
 
   const emitirOtro = (n: string, c: string) => {
@@ -99,6 +130,7 @@ export function SelectorBanco({ excluir = [], nombresOcupados = [], valor, onCam
 
   const cambiarNombre = (n: string) => {
     setNombre(n);
+    if (n !== '') setEscrito(true);
     emitirOtro(n, color);
   };
 
@@ -120,16 +152,33 @@ export function SelectorBanco({ excluir = [], nombresOcupados = [], valor, onCam
   };
 
   const mensajeNombre =
-    tocado || nombre !== ''
-      ? errorNombre === 'vacio'
+    errorNombre === 'ocupado'
+      ? t('selector.nombreOcupado')
+      : errorNombre === 'vacio' && escrito && tocado
         ? t('selector.nombreVacio')
-        : errorNombre === 'ocupado'
-          ? t('selector.nombreOcupado')
-          : undefined
-      : undefined;
+        : undefined;
 
   return (
     <div className="flex flex-col gap-4">
+      {buscador && (
+        <div className="flex flex-col gap-1.5">
+          <Input
+            type="search"
+            label={t('selector.buscar')}
+            etiquetaOculta
+            placeholder={t('selector.buscar')}
+            value={busqueda}
+            autoComplete="off"
+            sufijo={<Search aria-hidden="true" className="size-4" />}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+          {disponibles.length === 0 && (
+            <p role="status" className="text-xs text-apagado">
+              {t('selector.sinResultados')}
+            </p>
+          )}
+        </div>
+      )}
       <div role="group" aria-label={t('selector.etiqueta')} className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
         {disponibles.map((entidad) => {
           const activa = !otroAbierto && valor?.entidad === entidad;
@@ -142,12 +191,14 @@ export function SelectorBanco({ excluir = [], nombresOcupados = [], valor, onCam
               onClick={() => elegirEntidad(entidad)}
               className={clasesTarjeta(activa)}
             >
+              {activa && <MarcaElegido />}
               <BankLogo entidad={entidad} nombre={NOMBRE_ENTIDAD[entidad]} className="pointer-events-none" />
               <span>{NOMBRE_ENTIDAD[entidad]}</span>
             </button>
           );
         })}
         <button type="button" aria-pressed={otroAbierto} onClick={abrirOtro} className={clasesTarjeta(otroAbierto)}>
+          {otroAbierto && <MarcaElegido />}
           <span
             aria-hidden="true"
             className="inline-flex size-10 items-center justify-center rounded-xl bg-superficie-3 text-texto"

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -7,7 +7,8 @@ import { useCrearObjetivoMutation, useListarCategoriasQuery, useListarObjetivosQ
 import { useIdioma, useT } from '@/shared/i18n';
 import { nombreCategoria } from '@/shared/lib/categorias';
 import { esquemaImporte } from '@/shared/lib/esquemas';
-import { Button, MoneyInput, SegmentedControl, Select } from '@/shared/ui';
+import { cx } from '@/shared/lib/cx';
+import { Button, MoneyInput, SegmentedControl, Select, importeParaEditar } from '@/shared/ui';
 
 type TipoObjetivo = 'ahorro_mensual' | 'limite_categoria';
 
@@ -15,6 +16,10 @@ interface Props {
   /** Se llama tras crear el objetivo (la lista se refresca sola por la etiqueta 'Objetivos'). */
   onHecho: () => void;
   onCancelar: () => void;
+  /** Sin tarjeta propia y con botones de tamaño normal (dentro de un modal). */
+  plano?: boolean;
+  /** Información extra bajo la categoría de un límite (en Configuración, su media mensual). */
+  ayudaCategoria?: (categoriaId: string) => ReactNode;
 }
 
 function esErrorApi(e: unknown): e is ErrorApi {
@@ -27,7 +32,7 @@ function esErrorApi(e: unknown): e is ErrorApi {
  * responde 23505 (ya hay uno activo del mismo tipo/categoría), muestra un aviso amable.
  * La usa también Configuración.
  */
-export function FormObjetivo({ onHecho, onCancelar }: Props) {
+export function FormObjetivo({ onHecho, onCancelar, plano = false, ayudaCategoria }: Props) {
   const t = useT('inicio');
   const tc = useT('common');
   const { locale } = useIdioma();
@@ -73,6 +78,8 @@ export function FormObjetivo({ onHecho, onCancelar }: Props) {
     },
   });
   const tipo = useWatch({ control, name: 'tipo' });
+  const categoriaId = useWatch({ control, name: 'categoria_id' });
+  const tamanoBoton = plano ? 'md' : 'sm';
 
   const enviar = handleSubmit(async (v) => {
     setErrorEnvio(null);
@@ -104,7 +111,7 @@ export function FormObjetivo({ onHecho, onCancelar }: Props) {
       noValidate
       aria-label={t('form.titulo')}
       onSubmit={(e) => void enviar(e)}
-      className="flex flex-col gap-3 rounded-xl border border-borde-input bg-superficie-2 p-3.5"
+      className={cx('flex flex-col', plano ? 'gap-4' : 'gap-3 rounded-xl border border-borde-input bg-superficie-2 p-3.5')}
     >
       <Controller
         control={control}
@@ -128,14 +135,17 @@ export function FormObjetivo({ onHecho, onCancelar }: Props) {
         (disponibles.length === 0 && !categorias.isLoading ? (
           <p className="text-sm text-apagado">{t('form.sinCategorias')}</p>
         ) : (
-          <Select label={t('form.categoria')} error={formState.errors.categoria_id?.message} {...register('categoria_id')}>
-            <option value="">{t('form.categoriaElegir')}</option>
-            {disponibles.map((c) => (
-              <option key={c.id} value={c.id}>
-                {nombreCategoria(c, tc)}
-              </option>
-            ))}
-          </Select>
+          <div className="flex flex-col gap-1.5">
+            <Select label={t('form.categoria')} error={formState.errors.categoria_id?.message} {...register('categoria_id')}>
+              <option value="">{t('form.categoriaElegir')}</option>
+              {disponibles.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {nombreCategoria(c, tc)}
+                </option>
+              ))}
+            </Select>
+            {ayudaCategoria !== undefined && categoriaId !== '' && ayudaCategoria(categoriaId)}
+          </div>
         ))}
 
       <Controller
@@ -150,6 +160,7 @@ export function FormObjetivo({ onHecho, onCancelar }: Props) {
             name={field.name}
             ref={field.ref}
             error={fieldState.error?.message}
+            {...(tipo === 'ahorro_mensual' ? { placeholder: importeParaEditar('200.00', locale) } : {})}
           />
         )}
       />
@@ -160,11 +171,11 @@ export function FormObjetivo({ onHecho, onCancelar }: Props) {
         </p>
       )}
 
-      <div className="flex justify-end gap-2">
-        <Button variante="secundario" tamano="sm" onClick={onCancelar}>
+      <div className={cx('flex gap-2', plano ? 'flex-col-reverse sm:flex-row sm:justify-end' : 'justify-end')}>
+        <Button variante="secundario" tamano={tamanoBoton} anchoCompleto={plano} className="sm:w-auto" onClick={onCancelar}>
           {tc('accion.cancelar')}
         </Button>
-        <Button type="submit" tamano="sm" cargando={isLoading}>
+        <Button type="submit" tamano={tamanoBoton} anchoCompleto={plano} className="sm:w-auto" cargando={isLoading}>
           {tc('accion.guardar')}
         </Button>
       </div>
