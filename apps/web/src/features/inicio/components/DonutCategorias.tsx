@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { useT, useIdioma } from '@/shared/i18n';
 import { aCentimos, desdeCentimos, formatearEuros, formatearPorcentaje } from '@/shared/lib/dinero';
 import { fraccion, porcentajeSobre } from '../lib/calculos';
@@ -16,6 +18,11 @@ interface Props {
   totalGastoNeto: string;
   /** Texto bajo el total. Por defecto «gasto neto». */
   etiquetaTotal?: string;
+  /**
+   * Si se pasa, cada categoría (fila de la leyenda y su arco) enlaza a esta ruta, p. ej.
+   * Movimientos filtrado por la categoría y el mes.
+   */
+  enlace?: ((categoriaId: string) => string) | undefined;
 }
 
 const RADIO = 60;
@@ -46,8 +53,10 @@ function calcularArcos(positivas: readonly Fila[], total: bigint) {
  * - Una categoría en negativo se lista en rojo con su importe, pero no entra en el donut
  *   (solo admite valores positivos). Las de 0 € no se muestran.
  * Los importes se muestran desde sus strings; los arcos se calculan en céntimos (bigint).
+ * Móvil: donut pequeño a la izquierda y la leyenda a la derecha. Con `enlace`, cada categoría es
+ * un enlace (la fila de la leyenda para teclado y lectores; el arco, atajo para ratón o dedo).
  */
-export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal }: Props) {
+export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enlace }: Props) {
   const t = useT('inicio');
   const { locale } = useIdioma();
 
@@ -66,29 +75,36 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal }: P
   const etiqueta = etiquetaTotal ?? t('categorias.gastoNeto');
 
   return (
-    <div className="flex flex-wrap items-center gap-6">
+    <div className="flex items-center gap-4 sm:flex-wrap sm:gap-6">
       <svg
-        width={LADO}
-        height={LADO}
         viewBox={`0 0 ${LADO} ${LADO}`}
         role="img"
         aria-label={`${t('categorias.grafico')}: ${total} ${etiqueta}`}
-        className="mx-auto shrink-0 sm:mx-0"
+        className="size-28 shrink-0 sm:size-[170px]"
       >
         <g transform={`rotate(-90 ${LADO / 2} ${LADO / 2})`} fill="none" strokeWidth={GROSOR}>
           <circle cx={LADO / 2} cy={LADO / 2} r={RADIO} className="stroke-superficie-3" />
-          {arcos.map((a) => (
-            <circle
-              key={a.id}
-              data-testid="arco-donut"
-              cx={LADO / 2}
-              cy={LADO / 2}
-              r={RADIO}
-              stroke={a.color}
-              strokeDasharray={`${a.largo.toFixed(2)} ${CIRCUNFERENCIA.toFixed(2)}`}
-              strokeDashoffset={(-a.inicio).toFixed(2)}
-            />
-          ))}
+          {arcos.map((a) => {
+            const arco = (
+              <circle
+                key={a.id}
+                data-testid="arco-donut"
+                cx={LADO / 2}
+                cy={LADO / 2}
+                r={RADIO}
+                stroke={a.color}
+                strokeDasharray={`${a.largo.toFixed(2)} ${CIRCUNFERENCIA.toFixed(2)}`}
+                strokeDashoffset={(-a.inicio).toFixed(2)}
+              />
+            );
+            return enlace ? (
+              <Link key={a.id} to={enlace(a.id)} tabIndex={-1} aria-hidden="true" className="cursor-pointer">
+                {arco}
+              </Link>
+            ) : (
+              arco
+            );
+          })}
         </g>
         <text
           x={LADO / 2}
@@ -103,11 +119,14 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal }: P
         </text>
       </svg>
 
-      <ul aria-label={t('categorias.lista')} className="flex min-w-40 flex-1 flex-col gap-2.5 text-sm">
+      <ul
+        aria-label={t('categorias.lista')}
+        className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm sm:min-w-40 sm:gap-2"
+      >
         {filas.map((f) => {
           const negativa = f.centimos < 0n;
-          return (
-            <li key={f.id} className="flex items-start justify-between gap-3">
+          const contenido: ReactNode = (
+            <>
               <span className="flex min-w-0 items-center gap-2">
                 <span
                   aria-hidden="true"
@@ -123,11 +142,27 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal }: P
                 </span>
               ) : (
                 <span className="flex shrink-0 gap-2">
-                  <span className="cifras text-apagado">{formatearEuros(f.gasto, locale)}</span>
+                  <span className="cifras hidden text-apagado min-[420px]:inline">{formatearEuros(f.gasto, locale)}</span>
                   <span className="cifras w-14 text-right text-texto">
                     {formatearPorcentaje(porcentajeSobre(f.gasto, basePorcentajes), locale)}
                   </span>
                 </span>
+              )}
+            </>
+          );
+          const clases = 'flex items-start justify-between gap-3';
+          return (
+            <li key={f.id}>
+              {enlace ? (
+                <Link
+                  to={enlace(f.id)}
+                  title={t('categorias.verMovimientos', { categoria: f.nombre })}
+                  className={`${clases} -mx-1.5 rounded-lg px-1.5 py-0.5 hover:bg-superficie-2 focus-visible:outline-2 focus-visible:outline-acento`}
+                >
+                  {contenido}
+                </Link>
+              ) : (
+                <div className={clases}>{contenido}</div>
               )}
             </li>
           );

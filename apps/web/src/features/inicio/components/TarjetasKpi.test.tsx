@@ -17,8 +17,8 @@ describe('TarjetasKpi', () => {
         hoy="2026-10-19"
         patrimonioHoy="2458.32"
         patrimonioAnterior="1975.00"
-        resumenActual={{ ingresos: '3420.00', gastos_netos: '961.68', balance: '2458.32' }}
-        resumenAnterior={{ ingresos: '3042.70', gastos_netos: '1037.40', balance: '2005.30' }}
+        resumenActual={{ ingresos: '3420.00', gastos_netos: '961.68', balance: '2458.32', ahorro_pct: null }}
+        resumenAnterior={{ ingresos: '3042.70', gastos_netos: '1037.40', balance: '2005.30', ahorro_pct: null }}
       />,
     );
     const patrimonio = tarjeta('Patrimonio a 19/10/2026');
@@ -37,8 +37,8 @@ describe('TarjetasKpi', () => {
         hoy="2026-10-19"
         patrimonioHoy="2458.32"
         patrimonioAnterior="1975.00"
-        resumenActual={{ ingresos: '3420.00', gastos_netos: '961.68', balance: '2458.32' }}
-        resumenAnterior={{ ingresos: '0.00', gastos_netos: '900.00', balance: '-900.00' }}
+        resumenActual={{ ingresos: '3420.00', gastos_netos: '961.68', balance: '2458.32', ahorro_pct: null }}
+        resumenAnterior={{ ingresos: '0.00', gastos_netos: '900.00', balance: '-900.00', ahorro_pct: null }}
       />,
     );
     const ingresos = tarjeta('Ingresos · 1–19 oct');
@@ -52,8 +52,8 @@ describe('TarjetasKpi', () => {
         hoy="2026-10-19"
         patrimonioHoy="1000.00"
         patrimonioAnterior="1200.00"
-        resumenActual={{ ingresos: '1100.00', gastos_netos: '961.68', balance: '138.32' }}
-        resumenAnterior={{ ingresos: '1000.00', gastos_netos: '900.00', balance: '100.00' }}
+        resumenActual={{ ingresos: '1100.00', gastos_netos: '961.68', balance: '138.32', ahorro_pct: null }}
+        resumenAnterior={{ ingresos: '1000.00', gastos_netos: '900.00', balance: '100.00', ahorro_pct: null }}
       />,
     );
     // Gastos: +6,9 % → rojo.
@@ -73,8 +73,8 @@ describe('TarjetasKpi', () => {
         hoy="2026-10-19"
         patrimonioHoy="1000.00"
         patrimonioAnterior="1000.00"
-        resumenActual={{ ingresos: '1000.00', gastos_netos: '800.00', balance: '200.00' }}
-        resumenAnterior={{ ingresos: '1000.00', gastos_netos: '1000.00', balance: '0.00' }}
+        resumenActual={{ ingresos: '1000.00', gastos_netos: '800.00', balance: '200.00', ahorro_pct: null }}
+        resumenAnterior={{ ingresos: '1000.00', gastos_netos: '1000.00', balance: '0.00', ahorro_pct: null }}
       />,
     );
     const gastos = within(tarjeta('Gastos netos · 1–19 oct')).getByText('-20,0 %');
@@ -88,8 +88,8 @@ describe('TarjetasKpi', () => {
         mes="2026-09-01"
         patrimonioHoy="2327.44"
         patrimonioAnterior="2000.00"
-        resumenActual={{ ingresos: '1508.00', gastos_netos: '1168.28', balance: '339.72' }}
-        resumenAnterior={{ ingresos: '1400.00', gastos_netos: '1000.00', balance: '400.00' }}
+        resumenActual={{ ingresos: '1508.00', gastos_netos: '1168.28', balance: '339.72', ahorro_pct: null }}
+        resumenAnterior={{ ingresos: '1400.00', gastos_netos: '1000.00', balance: '400.00', ahorro_pct: null }}
       />,
     );
     const patrimonio = tarjeta('Patrimonio a 30/09/2026');
@@ -106,7 +106,7 @@ describe('TarjetasKpi', () => {
         mes="2026-10-01"
         patrimonioHoy="1000.00"
         patrimonioAnterior="1000.00"
-        resumenActual={{ ingresos: '0.00', gastos_netos: '0.00', balance: '0.00' }}
+        resumenActual={{ ingresos: '0.00', gastos_netos: '0.00', balance: '0.00', ahorro_pct: null }}
         resumenAnterior={null}
       />,
     );
@@ -120,7 +120,7 @@ describe('TarjetasKpi', () => {
         hoy="2026-10-19"
         patrimonioHoy="1000.00"
         patrimonioAnterior={null}
-        resumenActual={{ ingresos: '0.00', gastos_netos: '0.00', balance: '0.00' }}
+        resumenActual={{ ingresos: '0.00', gastos_netos: '0.00', balance: '0.00', ahorro_pct: null }}
         resumenAnterior={null}
       />,
     );
@@ -129,7 +129,7 @@ describe('TarjetasKpi', () => {
 });
 
 describe('TarjetasKpi · desglose por cuenta', () => {
-  const RESUMEN = { ingresos: '0.00', gastos_netos: '0.00', balance: '0.00' };
+  const RESUMEN = { ingresos: '0.00', gastos_netos: '0.00', balance: '0.00', ahorro_pct: null };
   const base = {
     tipo: 'banco' as const,
     entidad: null,
@@ -195,5 +195,59 @@ describe('TarjetasKpi · desglose por cuenta', () => {
     unmount();
     renderConApp(<TarjetasKpi {...props} resumenAnterior={null} />);
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
+  });
+});
+
+describe('TarjetasKpi · balance del mes (sección 3)', () => {
+  it('mes sin ingresos (sección 11): balance negativo en rojo con signo y ahorro «—»', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-10-19"
+        patrimonioHoy="1000.00"
+        patrimonioAnterior={null}
+        resumenActual={{ ingresos: '0.00', gastos_netos: '900.00', balance: '-900.00', ahorro_pct: null }}
+        resumenAnterior={null}
+      />,
+    );
+    const balance = tarjeta('Balance · 1–19 oct');
+    expect(within(balance).getByText(/^-900,00\s€$/)).toHaveClass('text-negativo');
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Ahorro —');
+    expect(within(balance).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+  });
+
+  it('balance negativo: el ahorro también sale negativo (−15,0 %)', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-10-19"
+        patrimonioHoy="1000.00"
+        patrimonioAnterior={null}
+        resumenActual={{ ingresos: '1000.00', gastos_netos: '1150.00', balance: '-150.00', ahorro_pct: '-15.0000000000000000' }}
+        resumenAnterior={{ ingresos: '1000.00', gastos_netos: '900.00', balance: '100.00', ahorro_pct: '10.0' }}
+      />,
+    );
+    const balance = tarjeta('Balance · 1–19 oct');
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Ahorro -15,0 %');
+    // 100 → −150: −250,0 %, que baje el balance es rojo.
+    expect(within(balance).getByText('-250,0 %').parentElement).toHaveClass('text-negativo');
+  });
+
+  it('top 3: solo categorías con importe positivo, de mayor a menor y como mucho 3', () => {
+    const fila = (id: string, importe: string) => ({ id, nombre: id, color: '#000000', importe });
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-10-19"
+        patrimonioHoy="1000.00"
+        patrimonioAnterior={null}
+        resumenActual={{ ingresos: '0.00', gastos_netos: '0.00', balance: '0.00', ahorro_pct: null }}
+        resumenAnterior={null}
+        topGastos={[fila('A', '10.00'), fila('B', '-30.00'), fila('C', '99.99'), fila('D', '0.00'), fila('E', '50.00'), fila('F', '20.00')]}
+      />,
+    );
+    const lista = within(tarjeta('Gastos netos · 1–19 oct')).getByRole('list', { name: 'Principales categorías de gasto' });
+    expect(within(lista).getAllByRole('listitem').map((li) => li.textContent?.replace(/\s+/g, ' '))).toEqual([
+      'C99,99 €',
+      'E50,00 €',
+      'F20,00 €',
+    ]);
   });
 });

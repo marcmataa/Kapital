@@ -55,10 +55,20 @@ const SIN_ANTERIOR = {
   variacion_balance: null,
 };
 
+/** Respuesta de ritmo_gasto (SQL): 1–19 oct contra 1–19 sept, mes en curso con proyección. */
+const RITMO = {
+  devoluciones: '60.00',
+  gasto_medio_diario: '61.4884210526315789',
+  gasto_medio_diario_anterior: '54.6563157894736842',
+  variacion_medio_diario: '12.5001',
+  dias_mes: 31,
+  proyeccion_fin_mes: '1906.1410526315789474',
+};
+
 type Rpc = Record<string, (args: Record<string, unknown>) => unknown>;
 
 function servir(rpc: Rpc, inicioDatos = '2026-08-01') {
-  const base: Rpc = { comparativa_estadisticas: () => COMPARATIVA, resumen_periodo: () => CEROS };
+  const base: Rpc = { comparativa_estadisticas: () => COMPARATIVA, resumen_periodo: () => CEROS, ritmo_gasto: () => RITMO };
   estado.responder = (ll: Llamada): Respuesta => {
     if (ll.origen === 'rpc') {
       const f = rpc[ll.nombre] ?? base[ll.nombre];
@@ -114,10 +124,30 @@ describe('Estadísticas: gastos', () => {
     const tarjetas = screen.getByTestId('comparativa-gastos');
     expect(within(tarjetas).getByText('1.168,28 €')).toBeInTheDocument();
     // Suben los gastos (+12,5 %, de SQL) → rojo.
-    expect(within(tarjetas).getByText('+12,5 %').parentElement).toHaveClass('text-negativo');
-    expect(within(tarjetas).getByText('antes 1.038,47 €')).toBeInTheDocument();
+    // (el gasto medio diario sube lo mismo: mismos días en los dos tramos).
+    for (const pct of within(tarjetas).getAllByText('+12,5 %')) expect(pct.parentElement).toHaveClass('text-negativo');
+    // «X vs Y el mes pasado», con el % aparte (nada de «antes»).
+    expect(within(tarjetas).getByText('1.168,28 € vs 1.038,47 € el mes pasado')).toBeInTheDocument();
+    expect(within(tarjetas).queryByText(/antes/)).not.toBeInTheDocument();
     expect(within(tarjetas).getByText('Gasto medio diario')).toBeInTheDocument();
     expect(within(tarjetas).getByText('61,49 €')).toBeInTheDocument();
+    // Gasto diario comparado con el del mes anterior (ritmo_gasto).
+    expect(within(tarjetas).getByTestId('medio-diario-anterior')).toHaveTextContent('vs 54,66 €/día el mes pasado');
+    // Proyección a fin de mes (SQL), redondeada al mostrar.
+    const proyeccion = within(tarjetas).getByTestId('proyeccion-fin-mes');
+    expect(proyeccion).toHaveTextContent('Proyección a fin de mes');
+    expect(proyeccion).toHaveTextContent('1.906,14 €');
+    expect(proyeccion).toHaveTextContent('los 31 días del mes');
+    // Devoluciones: ahora en Gastos (decisión del usuario).
+    expect(screen.getByTestId('devoluciones-mes')).toHaveTextContent('Te devolvieron 60,00 € este mes');
+    expect(llamadas('ritmo_gasto')).toContainEqual(
+      expect.objectContaining({
+        args: { p_desde: '2026-10-01', p_hasta: '2026-10-19', p_desde_ant: '2026-09-01', p_hasta_ant: '2026-09-19' },
+      }),
+    );
+    expect(columnas(llamadas('ritmo_gasto')[0] as Llamada)).toBe(
+      'devoluciones::text, gasto_medio_diario::text, gasto_medio_diario_anterior::text, variacion_medio_diario::text, dias_mes, proyeccion_fin_mes::text',
+    );
     expect(within(tarjetas).getByText('Mayor: Alquiler (700,00 €)')).toBeInTheDocument();
     expect(within(tarjetas).queryByText('Ingresos')).not.toBeInTheDocument();
     expect(within(tarjetas).queryByText('Ahorro')).not.toBeInTheDocument();
@@ -129,12 +159,18 @@ describe('Estadísticas: gastos', () => {
   });
 
   it('mes cerrado: «con agosto completo», mes entero contra mes entero; bajan los gastos → verde', async () => {
-    servir({ comparativa_estadisticas: () => ({ ...COMPARATIVA, variacion_gastos: '-1.8582', gastos_netos_anterior: '1190.40' }) });
+    servir({
+      comparativa_estadisticas: () => ({ ...COMPARATIVA, variacion_gastos: '-1.8582', gastos_netos_anterior: '1190.40' }),
+      // Mes cerrado: ritmo_gasto no proyecta.
+      ritmo_gasto: () => ({ ...RITMO, proyeccion_fin_mes: null, dias_mes: 30 }),
+    });
     montar();
     await elegirMes('Septiembre de 2026');
     expect(await screen.findByText('Comparativa con agosto completo')).toBeInTheDocument();
     const tarjetas = screen.getByTestId('comparativa-gastos');
     expect(within(tarjetas).getByText('-1,9 %').parentElement).toHaveClass('text-positivo');
+    expect(within(tarjetas).queryByTestId('proyeccion-fin-mes')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('devoluciones-mes')).toHaveTextContent('Te devolvieron 60,00 € en septiembre');
     expect(llamadas('comparativa_estadisticas')).toContainEqual(
       expect.objectContaining({
         args: { p_desde: '2026-09-01', p_hasta: '2026-09-30', p_desde_ant: '2026-08-01', p_hasta_ant: '2026-08-31' },
@@ -144,11 +180,19 @@ describe('Estadísticas: gastos', () => {
 
   it('datos desde el 25/09: el 27/10 no hay tramo anterior ni % («Sin datos del mes anterior»)', async () => {
     vi.setSystemTime(new Date('2026-10-27T10:00:00Z'));
-    servir({ comparativa_estadisticas: () => SIN_ANTERIOR }, '2026-09-25');
+    servir(
+      {
+        comparativa_estadisticas: () => SIN_ANTERIOR,
+        ritmo_gasto: () => ({ ...RITMO, devoluciones: '0.00', gasto_medio_diario_anterior: null, variacion_medio_diario: null }),
+      },
+      '2026-09-25',
+    );
     montar();
     const tarjetas = await screen.findByTestId('comparativa-gastos');
     expect(within(tarjetas).getByText('Sin datos del mes anterior')).toBeInTheDocument();
-    expect(within(tarjetas).queryByText(/^antes/)).not.toBeInTheDocument();
+    expect(within(tarjetas).queryByText(/el mes pasado/)).not.toBeInTheDocument();
+    // Sin devoluciones no hay línea «Te devolvieron…».
+    expect(screen.queryByTestId('devoluciones-mes')).not.toBeInTheDocument();
     expect(llamadas('comparativa_estadisticas').every((l) => !('p_desde_ant' in (l.args ?? {})))).toBe(true);
   });
 
@@ -193,8 +237,10 @@ describe('Estadísticas: gastos', () => {
     control.focus();
     await userEvent.keyboard('{Home}{ArrowRight}{ArrowRight}');
     const lectura = normal(screen.getByTestId('lectura-diario').textContent);
-    expect(lectura).toContain('Gastos 50,00 € · Devoluciones 10,00 € · Neto 40,00 €');
+    expect(lectura).toContain('Gastos 50,00 € · Devoluciones -10,00 € · Neto 40,00 €');
     expect(lectura).toContain('Cena');
+    const devolucion = within(screen.getByTestId('lectura-diario')).getByText('Ana').closest('li');
+    expect(devolucion).toHaveClass('text-positivo');
   });
 
   it('categorías este mes vs anterior; la negativa aparte; método de pago en filas; últimos 6 meses', async () => {
@@ -238,7 +284,7 @@ describe('Estadísticas: gastos', () => {
 });
 
 describe('Estadísticas: ingresos', () => {
-  it('ingresos y devoluciones por día, comparativa solo de ingresos e ingresos por categoría', async () => {
+  it('solo ingresos reales por día (sin devoluciones), comparativa solo de ingresos e ingresos por categoría', async () => {
     servir({
       ingresos_por_categoria: () => [
         { categoria_id: 'nomina', nombre: 'Nómina', color: '#5fd3a0', icono: null, ingreso: '1258.00' },
@@ -246,12 +292,15 @@ describe('Estadísticas: ingresos', () => {
     });
     montar();
     await userEvent.click(await screen.findByRole('radio', { name: 'Ingresos' }));
-    expect(await screen.findByRole('heading', { name: 'Ingresos y devoluciones por día · Octubre de 2026' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Ingresos por día · Octubre de 2026' })).toBeInTheDocument();
     const tarjetas = await screen.findByTestId('comparativa-ingresos');
     expect(within(tarjetas).getByText('1.508,00 €')).toBeInTheDocument();
     expect(within(tarjetas).getByText('+6,2 %').parentElement).toHaveClass('text-positivo');
-    expect(within(tarjetas).getByText('antes 1.420,00 €')).toBeInTheDocument();
+    expect(within(tarjetas).getByText('1.508,00 € vs 1.420,00 € el mes pasado')).toBeInTheDocument();
     expect(within(tarjetas).queryByText('Gasto medio diario')).not.toBeInTheDocument();
+    // Ni gráfico, ni leyenda, ni notas de devoluciones en la pestaña Ingresos.
+    expect(screen.queryByText(/[Dd]evoluci/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('devoluciones-mes')).not.toBeInTheDocument();
     const lista = await screen.findByRole('list', { name: 'Ingresos por categoría' });
     expect(within(lista).getByText('1.258,00 € · 100,0 %')).toBeInTheDocument();
     expect(columnas(llamadas('ingresos_por_categoria')[0] as Llamada)).toBe('categoria_id, nombre, color, ingreso::text');

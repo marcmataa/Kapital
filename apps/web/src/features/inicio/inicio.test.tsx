@@ -74,6 +74,14 @@ interface Escenario {
   saldos?: unknown[];
   /** Respuesta de valores_cuentas por p_fecha. */
   valoresCierre?: Record<string, unknown[]>;
+  /** Filas de progreso_objetivos (SQL). */
+  progreso?: unknown[];
+  /** Filas de peso_otros_gastos (SQL). */
+  pesoOtros?: unknown[];
+  /** Filas de ingresos_por_categoria (SQL). */
+  ingresosCategorias?: unknown[];
+  /** Filas de `categorias` (por defecto, CATEGORIAS). */
+  categorias?: unknown[];
 }
 
 function escenario({
@@ -85,6 +93,10 @@ function escenario({
   cuentas,
   saldos = [],
   valoresCierre = {},
+  progreso = [],
+  pesoOtros = [],
+  ingresosCategorias = [],
+  categorias = CATEGORIAS,
 }: Escenario = {}) {
   sb.responder = (l) => {
     switch (l.origen) {
@@ -94,12 +106,18 @@ function escenario({
         );
       case 'v_saldos':
         return ok(saldos);
+      case 'rpc:progreso_objetivos':
+        return ok(progreso);
+      case 'rpc:peso_otros_gastos':
+        return ok(pesoOtros);
+      case 'rpc:ingresos_por_categoria':
+        return ok(ingresosCategorias);
       case 'rpc:valores_cuentas':
         return ok(valoresCierre[String(l.args?.p_fecha)] ?? []);
       case 'perfiles':
         return ok(PERFIL);
       case 'categorias':
-        return ok(CATEGORIAS);
+        return ok(categorias);
       case 'objetivos':
         return l.insert ? { data: null, error: insertError } : ok(objetivos);
       case 'movimientos':
@@ -109,14 +127,14 @@ function escenario({
       case 'rpc:resumen_periodo':
         // Meses completos (selector de mes): septiembre (sección 3) y agosto.
         if (l.args?.p_desde === '2026-09-01' && l.args.p_hasta === '2026-09-30') {
-          return ok([{ ingresos: '1508.00', gastos_netos: '1168.28', balance: '339.72' }]);
+          return ok([{ ingresos: '1508.00', gastos_netos: '1168.28', balance: '339.72', ahorro_pct: '22.5278514588859416' }]);
         }
         if (l.args?.p_desde === '2026-08-01' && l.args.p_hasta === '2026-08-31') {
-          return ok([{ ingresos: '1400.00', gastos_netos: '1000.00', balance: '400.00' }]);
+          return ok([{ ingresos: '1400.00', gastos_netos: '1000.00', balance: '400.00', ahorro_pct: '28.5714285714285714' }]);
         }
         return l.args?.p_desde === '2026-10-01'
-          ? ok([{ ingresos: '3420.00', gastos_netos: '961.68', balance: '342.00' }])
-          : ok([{ ingresos: '0.00', gastos_netos: '900.00', balance: '-900.00' }]);
+          ? ok([{ ingresos: '3420.00', gastos_netos: '961.68', balance: '342.00', ahorro_pct: '10.0000000000000000' }])
+          : ok([{ ingresos: '0.00', gastos_netos: '900.00', balance: '-900.00', ahorro_pct: null }]);
       case 'rpc:serie_patrimonio': {
         const mes = String(l.args?.p_desde).slice(0, 7);
         const dias = mes === '2026-10' ? 19 : 30;
@@ -158,11 +176,17 @@ describe('PaginaInicio · datos', () => {
     await waitFor(() => expect(sb.llamadas.some((l) => l.origen === 'movimientos')).toBe(true));
 
     const de = (origen: string) => sb.llamadas.filter((l) => l.origen === origen);
-    for (const l of de('rpc:resumen_periodo')) expect(l.select).toBe('ingresos::text, gastos_netos::text, balance::text');
+    for (const l of de('rpc:resumen_periodo')) {
+      expect(l.select).toBe('ingresos::text, gastos_netos::text, balance::text, ahorro_pct::text');
+    }
+    expect(de('rpc:progreso_objetivos')[0]?.select).toBe(
+      'objetivo_id, tipo, categoria_id, importe::text, actual::text, exceso::text, restante::text, dias_restantes, ahorro_diario_necesario::text',
+    );
+    expect(de('rpc:peso_otros_gastos')[0]?.select).toBe('categoria_id, gasto::text, porcentaje::text, supera_umbral');
+    expect(de('rpc:ingresos_por_categoria')[0]?.select).toBe('categoria_id, nombre, color, ingreso::text');
     for (const l of de('rpc:serie_patrimonio')) expect(l.select).toBe('fecha, patrimonio::text, provisional');
     for (const l of de('rpc:gasto_por_categoria')) expect(l.select).toBe('categoria_id, nombre, color, gasto::text');
     expect(de('movimientos')[0]?.select).toContain('importe::text');
-    expect(de('objetivos')[0]?.select).toContain('importe::text');
     expect(de('analisis_mensuales')[0]?.select).toBe('mes, contenido');
     // Nunca la función escalar patrimonio() (devolvería un número JSON).
     expect(sb.llamadas.some((l) => l.origen === 'rpc:patrimonio')).toBe(false);
@@ -255,24 +279,61 @@ describe('PaginaInicio · análisis bajo el donut', () => {
     expect(screen.queryByRole('link', { name: 'Ver el análisis completo →' })).not.toBeInTheDocument();
   });
 
-  it('con análisis listo muestra 2 destacados como texto y enlaza a /analisis/YYYY-MM', async () => {
+  it('con análisis listo muestra UN consejo (su primera recomendación) como texto y enlaza a /analisis/YYYY-MM', async () => {
     escenario({
       analisis: {
         mes: '2026-09-01',
         contenido: {
           resumen: 'Buen mes.',
-          destacados: ['Restaurantes fue tu primera categoría.', '<b>Ahorraste</b> un 22,5 %.', 'Tercero.'],
-          recomendaciones: ['Uno.', 'Dos.'],
+          destacados: ['Restaurantes fue tu primera categoría.', 'Ahorraste un 22,5 %.'],
+          recomendaciones: ['<b>Pon</b> un límite de 250 € a Restaurantes.', 'Dos.'],
         },
       },
     });
     pintar();
     expect(await screen.findByText('De tu análisis de septiembre')).toBeInTheDocument();
-    expect(screen.getByText('Restaurantes fue tu primera categoría.')).toBeInTheDocument();
-    // Texto plano: el HTML no se interpreta.
-    expect(screen.getByText('<b>Ahorraste</b> un 22,5 %.')).toBeInTheDocument();
-    expect(screen.queryByText('Tercero.')).not.toBeInTheDocument();
+    // Texto plano: el HTML no se interpreta. Las cifras repetidas (destacados) ya no salen.
+    expect(screen.getByTestId('consejo-analisis')).toHaveTextContent('<b>Pon</b> un límite de 250 € a Restaurantes.');
+    expect(screen.queryByText('Restaurantes fue tu primera categoría.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Dos.')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ver el análisis completo →' })).toHaveAttribute('href', '/analisis/2026-09');
+  });
+
+  it('sin recomendaciones muestra su primer destacado; con insights, el primer insight', async () => {
+    escenario({
+      analisis: { mes: '2026-09-01', contenido: { resumen: 'Bien.', destacados: ['Destacado.'], recomendaciones: [] } },
+    });
+    const { unmount } = pintar();
+    expect(await screen.findByTestId('consejo-analisis')).toHaveTextContent('Destacado.');
+    unmount();
+    escenario({
+      analisis: {
+        mes: '2026-09-01',
+        contenido: {
+          resumen: 'Bien.',
+          destacados: ['Destacado.'],
+          recomendaciones: ['Recomendación.'],
+          insights: ['El 40 % del ocio fue en fin de semana.'],
+        },
+      },
+    });
+    pintar();
+    expect(await screen.findByTestId('consejo-analisis')).toHaveTextContent('El 40 % del ocio fue en fin de semana.');
+  });
+
+  it('una recomendación estructurada ({ texto, accion }) se muestra por su texto', async () => {
+    escenario({
+      analisis: {
+        mes: '2026-09-01',
+        contenido: {
+          resumen: 'Bien.',
+          destacados: ['Destacado.'],
+          recomendaciones: [{ texto: 'Pon un límite a Ocio.', accion: { tipo: 'crear_limite' } }],
+        },
+      },
+    });
+    pintar();
+    expect(await screen.findByTestId('consejo-analisis')).toHaveTextContent('Pon un límite a Ocio.');
   });
 
   it('si el contenido no tiene la forma esperada (zod), se trata como sin análisis', async () => {
@@ -431,12 +492,13 @@ describe('PaginaInicio · selector de mes', () => {
   });
 
   it('los objetivos siguen siendo del mes en curso aunque se mire un mes cerrado', async () => {
-    escenario({ objetivos: [{ id: 'o1', tipo: 'ahorro_mensual', categoria_id: null, importe: '500.00' }] });
+    escenario({ progreso: [PROGRESO_AHORRO] });
     pintarEn('/?mes=2026-09');
     expect(await screen.findByText('Objetivos · octubre')).toBeInTheDocument();
-    const ahorro = await screen.findByRole('progressbar', { name: /^Ahorrar 500,00\s€ al mes$/ });
-    // Balance de 1–19 oct (342,00 €), no el de septiembre.
-    expect((ahorro.getAttribute('aria-valuetext') ?? '').replace(/\s+/g, ' ')).toBe('342,00 € / 500,00 €');
+    await screen.findByRole('progressbar', { name: /^Ahorrar 500,00\s€ al mes$/ });
+    // progreso_objetivos se pide con hoy (19/10), no con el mes que se mira.
+    const llamadas = sb.llamadas.filter((l) => l.origen === 'rpc:progreso_objetivos');
+    expect(llamadas.map((l) => l.args)).toEqual([{ p_hoy: '2026-10-19' }]);
   });
 });
 
@@ -531,24 +593,49 @@ describe('PaginaInicio · patrimonio por cuenta', () => {
   });
 });
 
+const PROGRESO_AHORRO = {
+  objetivo_id: 'o1', tipo: 'ahorro_mensual', categoria_id: null, importe: '500.00', actual: '342.00', exceso: null,
+  restante: '158.00', dias_restantes: 13, ahorro_diario_necesario: '12.1538461538461538',
+};
+const PROGRESO_LIMITE = {
+  objetivo_id: 'o2', tipo: 'limite_categoria', categoria_id: 'ocio', importe: '200.00', actual: '215.00',
+  exceso: '15.00', restante: null, dias_restantes: 13, ahorro_diario_necesario: null,
+};
+
 describe('PaginaInicio · objetivos y movimientos', () => {
-  it('ahorro mensual = balance del mes frente al objetivo; un límite superado sale en rojo', async () => {
-    escenario({
-      objetivos: [
-        { id: 'o1', tipo: 'ahorro_mensual', categoria_id: null, importe: '500.00' },
-        { id: 'o2', tipo: 'limite_categoria', categoria_id: 'ocio', importe: '200.00' },
-      ],
-    });
+  it('ahorro: balance frente al objetivo con los días que quedan y el ahorro diario (SQL); límite superado: cuánto', async () => {
+    escenario({ progreso: [PROGRESO_AHORRO, PROGRESO_LIMITE] });
     pintar();
     expect(await screen.findByText('Objetivos · octubre')).toBeInTheDocument();
     const ahorro = await screen.findByRole('progressbar', { name: /^Ahorrar 500,00\s€ al mes$/ });
     expect(ahorro).toHaveAttribute('aria-valuenow', '68');
-    expect((ahorro.getAttribute('aria-valuetext') ?? '').replace(/\s+/g, ' ')).toBe('342,00 € / 500,00 €');
+    const sinEspacios = (t: string | null | undefined) => (t ?? '').replace(/\s+/g, ' ');
+    // 158 € en 13 días (19..31): 12,153846… → 12,15 €/día, redondeado solo al mostrar.
+    expect(sinEspacios(ahorro.getAttribute('aria-valuetext'))).toBe(
+      '342,00 € / 500,00 € · Te quedan 13 días · necesitas ahorrar 12,15 €/día',
+    );
 
     const limite = screen.getByRole('progressbar', { name: /^Ocio por debajo de 200,00\s€$/ });
     expect(limite).toHaveAttribute('aria-valuenow', '100');
     expect(limite.firstElementChild).toHaveClass('bg-negativo');
     expect(screen.getByText('Superado')).toHaveClass('text-negativo');
+    const detalles = screen.getAllByTestId('detalle-objetivo').map((d) => sinEspacios(d.textContent));
+    expect(detalles).toEqual(['Te quedan 13 días · necesitas ahorrar 12,15 €/día', 'Superado en 15,00 €']);
+  });
+
+  it('ahorro conseguido: «Conseguido» y sin proyección; último día: «hoy»', async () => {
+    escenario({ progreso: [{ ...PROGRESO_AHORRO, actual: '600.00', restante: null, ahorro_diario_necesario: null }] });
+    const { unmount } = pintar();
+    expect(await screen.findByText('Conseguido')).toHaveClass('text-positivo');
+    expect(screen.queryByTestId('detalle-objetivo')).not.toBeInTheDocument();
+    unmount();
+    escenario({
+      progreso: [{ ...PROGRESO_AHORRO, dias_restantes: 1, ahorro_diario_necesario: '158.0000000000000000' }],
+    });
+    pintar();
+    expect((await screen.findByTestId('detalle-objetivo')).textContent?.replace(/\s+/g, ' ')).toBe(
+      'Queda 1 día · necesitas ahorrar 158,00 € hoy',
+    );
   });
 
   it('últimos movimientos: signo por tipo y traspaso neutro', async () => {
@@ -639,5 +726,103 @@ describe('FormObjetivo', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
     expect(await screen.findByText('Elige una categoría.')).toBeInTheDocument();
     expect(sb.llamadas.some((l) => l.insert)).toBe(false);
+  });
+});
+
+describe('PaginaInicio · balance del mes, top 3 y enlaces', () => {
+  it('cuarta cifra: balance de 1..hoy con su ahorro (SQL)', async () => {
+    pintar();
+    const balance = (await screen.findByRole('heading', { name: 'Balance · 1–19 oct' })).closest('article');
+    if (!balance) throw new Error('sin tarjeta');
+    expect(within(balance).getByText(/^\+342,00\s€$/)).toBeInTheDocument();
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Ahorro 10,0 %');
+  });
+
+  it('mes cerrado: balance del mes completo con el ahorro de la sección 3 (22,5 %)', async () => {
+    pintarEn('/?mes=2026-09');
+    const balance = (await screen.findByRole('heading', { name: 'Balance · 1–30 sept' })).closest('article');
+    if (!balance) throw new Error('sin tarjeta');
+    expect(within(balance).getByText(/^\+339,72\s€$/)).toBeInTheDocument();
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Ahorro 22,5 %');
+    // 400,00 → 339,72: −15,1 %; que baje el balance es rojo.
+    expect(within(balance).getByText('-15,1 %').parentElement).toHaveClass('text-negativo');
+  });
+
+  it('top 3 de categorías de gasto y de ingreso, de mayor a menor', async () => {
+    escenario({
+      ingresosCategorias: [{ categoria_id: 'nomina', nombre: 'Nómina', color: '#5fd3a0', ingreso: '3420.00' }],
+    });
+    pintar();
+    const gastos = await screen.findByRole('list', { name: 'Principales categorías de gasto' });
+    expect(within(gastos).getAllByRole('listitem').map((li) => li.textContent?.replace(/\s+/g, ' '))).toEqual([
+      'Transporte746,68 €',
+      'Ocio215,00 €',
+    ]);
+    const ingresos = await screen.findByRole('list', { name: 'Principales categorías de ingreso' });
+    expect(within(ingresos).getByText('Nómina')).toBeInTheDocument();
+  });
+
+  it('cada categoría del donut abre Movimientos filtrado por esa categoría y el tramo del mes', async () => {
+    pintar();
+    const lista = await screen.findByRole('list', { name: 'Gasto neto por categoría' });
+    expect(within(lista).getByRole('link', { name: /Ocio/ })).toHaveAttribute(
+      'href',
+      '/movimientos?categoria=ocio&desde=2026-10-01&hasta=2026-10-19',
+    );
+  });
+
+  it('mes cerrado: el enlace del donut lleva el mes completo', async () => {
+    pintarEn('/?mes=2026-09');
+    const lista = await screen.findByRole('list', { name: 'Gasto neto por categoría' });
+    expect(within(lista).getByRole('link', { name: /Transporte/ })).toHaveAttribute(
+      'href',
+      '/movimientos?categoria=trans&desde=2026-09-01&hasta=2026-09-30',
+    );
+  });
+});
+
+describe('PaginaInicio · aviso de «Otros gastos»', () => {
+  const OTROS = {
+    id: 'otros', nombre: 'Otros gastos', tipo: 'gasto', color: '#8f9bbd', icono: null, orden: 9, archivada: false,
+    clave: 'otros_gastos',
+  };
+
+  it('si pasa del 20 % avisa con su % y su importe, y «Recategorizar» abre Movimientos filtrado', async () => {
+    escenario({
+      pesoOtros: [{ categoria_id: 'otros', gasto: '250.00', porcentaje: '25.9961000000000000', supera_umbral: true }],
+      categorias: [...CATEGORIAS, OTROS],
+    });
+    pintar();
+    const aviso = await screen.findByTestId('aviso-otros-gastos');
+    await waitFor(() =>
+      expect(aviso.textContent?.replace(/\s+/g, ' ')).toContain('«Otros gastos» es el 26,0 % de tu gasto del mes (250,00 €)'),
+    );
+    expect(within(aviso).getByRole('link', { name: 'Recategorizar' })).toHaveAttribute(
+      'href',
+      '/movimientos?categoria=otros&desde=2026-10-01&hasta=2026-10-19',
+    );
+    expect(sb.llamadas.filter((l) => l.origen === 'rpc:peso_otros_gastos').map((l) => l.args)).toContainEqual({
+      p_desde: '2026-10-01',
+      p_hasta: '2026-10-19',
+    });
+  });
+
+  it('en inglés usa el nombre traducido por su clave', async () => {
+    escenario({
+      pesoOtros: [{ categoria_id: 'otros', gasto: '250.00', porcentaje: '25.0', supera_umbral: true }],
+      categorias: [...CATEGORIAS, OTROS],
+    });
+    renderConApp(<PaginaInicio />, { sesion: sesionFalsa('u1'), idioma: 'en' });
+    const aviso = await screen.findByTestId('aviso-otros-gastos');
+    await waitFor(() => expect(aviso.textContent).toMatch(/“Other expenses” is 25\.0\s?%/));
+    expect(within(aviso).getByRole('link', { name: 'Recategorise' })).toBeInTheDocument();
+  });
+
+  it('20 % o menos: sin aviso', async () => {
+    escenario({ pesoOtros: [{ categoria_id: 'otros', gasto: '20.00', porcentaje: '20.0', supera_umbral: false }] });
+    pintar();
+    await screen.findByText('Patrimonio a 19/10/2026');
+    await waitFor(() => expect(sb.llamadas.some((l) => l.origen === 'rpc:peso_otros_gastos')).toBe(true));
+    expect(screen.queryByTestId('aviso-otros-gastos')).not.toBeInTheDocument();
   });
 });
