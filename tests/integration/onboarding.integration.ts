@@ -28,7 +28,7 @@ describe.skipIf(sinStack)('onboarding (PostgREST)', () => {
     ]);
 
     const categorias = await u.cliente.from('categorias').select('nombre');
-    expect(categorias.data).toHaveLength(8);
+    expect(categorias.data).toHaveLength(15);
   });
 
   it('no se puede desmarcar el onboarding ni repetirlo', async () => {
