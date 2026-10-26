@@ -34,6 +34,11 @@ interface Fila extends CategoriaDonut {
   centimos: bigint;
 }
 
+/** Categorías que se ven una a una; a partir de ahí, el resto se suma en «Otras». */
+export const MAX_CATEGORIAS_VISIBLES = 6;
+const ID_OTRAS = '__otras__';
+const COLOR_OTRAS = '#8a958f';
+
 /** Arcos del donut (en píxeles de la circunferencia), acumulando en céntimos exactos. */
 function calcularArcos(positivas: readonly Fila[], total: bigint) {
   const arcos: { id: string; color: string; inicio: number; largo: number }[] = [];
@@ -53,8 +58,10 @@ function calcularArcos(positivas: readonly Fila[], total: bigint) {
  * - Una categoría en negativo se lista en rojo con su importe, pero no entra en el donut
  *   (solo admite valores positivos). Las de 0 € no se muestran.
  * Los importes se muestran desde sus strings; los arcos se calculan en céntimos (bigint).
- * Móvil: donut pequeño a la izquierda y la leyenda a la derecha. Con `enlace`, cada categoría es
- * un enlace (la fila de la leyenda para teclado y lectores; el arco, atajo para ratón o dedo).
+ * Las MAX_CATEGORIAS_VISIBLES con más gasto se ven una a una; el resto se suma (en céntimos) en
+ * «Otras (n)», para que la tarjeta no crezca con cada categoría nueva.
+ * Con `enlace`, cada categoría es un enlace (la fila de la leyenda para teclado y lectores; el
+ * arco, atajo para ratón o dedo). «Otras» no enlaza: son varias.
  */
 export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enlace }: Props) {
   const t = useT('inicio');
@@ -68,7 +75,25 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enl
   const positivas = filas.filter((f) => f.centimos > 0n);
   const totalPositivo = positivas.reduce((s, f) => s + f.centimos, 0n);
 
-  const arcos = calcularArcos(positivas, totalPositivo);
+  const resto = positivas.slice(MAX_CATEGORIAS_VISIBLES);
+  const otras = resto.reduce((s, f) => s + f.centimos, 0n);
+  // Agrupar una sola categoría no ahorra nada: solo con dos o más.
+  const visibles: Fila[] =
+    resto.length > 1
+      ? [
+          ...positivas.slice(0, MAX_CATEGORIAS_VISIBLES),
+          {
+            id: ID_OTRAS,
+            nombre: t('categorias.otras', { n: resto.length }),
+            color: COLOR_OTRAS,
+            gasto: desdeCentimos(otras),
+            centimos: otras,
+          },
+        ]
+      : positivas;
+  const leyenda = [...visibles, ...filas.filter((f) => f.centimos < 0n)];
+
+  const arcos = calcularArcos(visibles, totalPositivo);
   const basePorcentajes = desdeCentimos(totalPositivo);
 
   const total = formatearEuros(totalGastoNeto, locale);
@@ -98,7 +123,7 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enl
                 strokeDashoffset={(-a.inicio).toFixed(2)}
               />
             );
-            return enlace ? (
+            return enlace && a.id !== ID_OTRAS ? (
               <Link key={a.id} to={enlace(a.id)} tabIndex={-1} aria-hidden="true" className="cursor-pointer">
                 {arco}
               </Link>
@@ -124,7 +149,7 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enl
         aria-label={t('categorias.lista')}
         className="flex w-full min-w-0 flex-col gap-1.5 text-sm sm:gap-2"
       >
-        {filas.map((f) => {
+        {leyenda.map((f) => {
           const negativa = f.centimos < 0n;
           const contenido: ReactNode = (
             <>
@@ -154,7 +179,7 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enl
           const clases = 'flex items-start justify-between gap-3';
           return (
             <li key={f.id}>
-              {enlace ? (
+              {enlace && f.id !== ID_OTRAS ? (
                 <Link
                   to={enlace(f.id)}
                   title={t('categorias.verMovimientos', { categoria: f.nombre })}

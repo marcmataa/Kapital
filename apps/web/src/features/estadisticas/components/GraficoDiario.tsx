@@ -67,9 +67,8 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
   const tituloCard = t(gastos ? 'diario.tituloGastos' : 'diario.tituloIngresos', { mes: nombreMes });
 
   return (
-    // El gráfico crece con la tarjeta (la de al lado, la comparativa, suele ser más alta): sin hueco abajo.
-    <Card titulo={tituloCard} accion={<AyudaGrafico unidad="dia" />} className="flex flex-col">
-      <div className="flex flex-1 flex-col gap-3">
+    <Card titulo={tituloCard} accion={<AyudaGrafico unidad="dia" />}>
+      <div className="flex flex-col gap-3">
         {elegido && (
           <LecturaGrafico data-testid="lectura-diario" titulo={titulo(elegido)} valor={valor(elegido)}>
             {detalle(elegido).length > 0 && (
@@ -90,14 +89,13 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
               : undefined
           }
           onKeyDown={alTeclado}
-          className="flex min-h-56 flex-1 gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+          className="flex gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
         >
-          {/* Mismo alto que el área de barras: todo menos la fila de días (h-4) y su separación (gap-1.5). */}
-          <EtiquetasEje escala={escala} locale={locale} className="mb-5.5 self-stretch" />
+          <EtiquetasEje escala={escala} locale={locale} className="h-48" />
           <div aria-hidden="true" className="flex min-w-0 flex-1 flex-col gap-1.5">
             <div
               data-testid="superficie-diario"
-              className="relative flex min-h-48 flex-1 cursor-crosshair touch-pan-y gap-[2px] select-none"
+              className="relative flex h-48 cursor-crosshair touch-pan-y gap-[2px] select-none"
               {...superficie}
             >
               <LineasEje escala={escala} />

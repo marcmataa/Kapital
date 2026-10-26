@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { Copy } from 'lucide-react';
 import { useIdioma, useT } from '@/shared/i18n';
 import { configApp } from '@/shared/lib/env';
 import { formatearFechaHora } from '@/shared/lib/fechas';
@@ -145,10 +146,29 @@ export function SeccionAtajo() {
         <ol className="mt-3 flex list-decimal flex-col gap-2 pl-5 text-sm text-apagado">
           <li>{t('atajo.paso1')}</li>
           <li>
-            {t('atajo.paso2')}{' '}
-            <code className="rounded bg-superficie-2 px-1.5 py-0.5 font-mono text-xs break-all text-texto">
-              {urlAtajo()}
-            </code>
+            {t('atajo.paso2')}
+            {/* La URL se copia con el botón o seleccionándola a mano (select-all: un toque la marca entera). */}
+            <span className="mt-1.5 flex flex-wrap items-center gap-2">
+              <code
+                data-testid="url-atajo"
+                className="rounded bg-superficie-2 px-1.5 py-0.5 font-mono text-xs break-all text-texto select-all"
+              >
+                {urlAtajo()}
+              </code>
+              <Button
+                variante="secundario"
+                tamano="sm"
+                icono={<Copy aria-hidden="true" className="size-4" />}
+                onClick={() => {
+                  navigator.clipboard.writeText(urlAtajo()).then(
+                    () => toast.success(t('atajo.urlCopiada')),
+                    () => toast.error(t('atajo.copiarError')),
+                  );
+                }}
+              >
+                {t('atajo.copiarUrl')}
+              </Button>
+            </span>
           </li>
           <li>{t('atajo.paso3')}</li>
           <li>

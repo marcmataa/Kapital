@@ -209,7 +209,7 @@ describe('GraficoBalanceMeses', () => {
     // Sección 11: 1.508,00 − 1.168,28 = 339,72 € y ahorro 22,5 %.
     expect(lectura()).toContain('Septiembre de 2026 · balance · +339,72 €');
     expect(lectura()).toContain('Ingresos 1.508,00 € · Gastos netos 1.168,28 € · Ahorro 22,5 %');
-    expect((screen.getByTestId('linea-balance').getAttribute('points') ?? '').split(' ')).toHaveLength(3);
+    expect(screen.getByTestId('superficie-balance').querySelectorAll('[data-balance]')).toHaveLength(3);
     const superficie = screen.getByTestId('superficie-balance');
     expect(superficie).toHaveClass('touch-pan-y');
     conTamano(superficie, 300, 208);

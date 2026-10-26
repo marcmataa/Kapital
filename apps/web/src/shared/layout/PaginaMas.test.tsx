@@ -35,7 +35,7 @@ describe('Más (móvil)', () => {
     expect(botones[botones.length - 1]).toHaveAccessibleName('Cerrar sesión');
   });
 
-  it('el tema es el mismo estado que el del menú lateral', async () => {
+  it('el tema es el mismo estado que el del botón del menú lateral', async () => {
     renderConApp(
       <>
         <PaginaMas />
@@ -43,11 +43,13 @@ describe('Más (móvil)', () => {
       </>,
       { sesion: sesionFalsa() },
     );
-    const [mas, lateral] = screen.getAllByRole('radiogroup', { name: 'Tema' });
-    if (!mas || !lateral) throw new Error('faltan selectores de tema');
+    const mas = screen.getByRole('radiogroup', { name: 'Tema' });
     await userEvent.click(within(mas).getByRole('radio', { name: 'Claro' }));
-    expect(within(lateral).getByRole('radio', { name: 'Claro' })).toHaveAttribute('aria-checked', 'true');
     expect(document.documentElement).toHaveAttribute('data-theme', 'light');
+    // El botón del menú lateral alterna sobre ese mismo estado.
+    await userEvent.click(screen.getByRole('button', { name: 'Cambiar tema' }));
+    expect(document.documentElement).toHaveAttribute('data-theme', 'dark');
+    expect(within(mas).getByRole('radio', { name: 'Oscuro' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('«Cerrar sesión» cierra la sesión', async () => {

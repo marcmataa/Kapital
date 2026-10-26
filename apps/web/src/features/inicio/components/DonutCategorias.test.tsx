@@ -61,4 +61,23 @@ describe('DonutCategorias', () => {
     expect(screen.queryByText('Viajes')).not.toBeInTheDocument();
     expect(within(fila('Ocio')).getByText('100,0 %')).toBeInTheDocument();
   });
+
+  it('a partir de la 7.ª categoría, el resto se suma en «Otras (n)» (sin enlace) y la tarjeta no crece', () => {
+    const importes = ['90.00', '80.00', '70.00', '60.00', '50.00', '40.00', '30.00', '20.00', '10.00'];
+    const categorias: CategoriaDonut[] = importes.map((gasto, i) => ({ id: `c${i}`, nombre: `Cat ${i}`, color: '#123456', gasto }));
+    renderConApp(
+      <DonutCategorias categorias={categorias} totalGastoNeto="450.00" enlace={(id) => `/movimientos?categoria=${id}`} />,
+    );
+
+    const lista = screen.getByRole('list', { name: 'Gasto neto por categoría' });
+    expect(within(lista).getAllByRole('listitem')).toHaveLength(7);
+    expect(within(lista).queryByText('Cat 6')).not.toBeInTheDocument();
+    // 30 + 20 + 10 = 60 € sobre 450 €: 13,3 %.
+    const otras = fila('Otras (3)');
+    expect(otras).toHaveTextContent(/60,00\s€/);
+    expect(otras).toHaveTextContent('13,3 %');
+    expect(within(otras).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(fila('Cat 0')).getByRole('link')).toHaveAttribute('href', '/movimientos?categoria=c0');
+    expect(screen.getAllByTestId('arco-donut')).toHaveLength(7);
+  });
 });

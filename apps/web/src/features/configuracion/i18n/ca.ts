@@ -141,6 +141,8 @@ export default {
   'atajo.tokenEtiqueta': 'Token de la drecera',
   'atajo.copiar': 'Copiar token',
   'atajo.copiado': 'Copiat',
+  'atajo.copiarUrl': 'Copia la URL',
+  'atajo.urlCopiada': 'URL copiada',
   'atajo.copiarError': "No s'ha pogut copiar. Selecciona'l i copia'l a mà.",
   'atajo.hecho': "Ja l'he copiat",
   'atajo.instrucciones': 'Com configurar la drecera',

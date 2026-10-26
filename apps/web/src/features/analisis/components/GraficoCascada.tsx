@@ -130,22 +130,13 @@ export function GraficoCascada({ pasos }: { pasos: readonly PasoCascada[] }) {
               </span>
             ))}
           </div>
-          {/*
-            Nombres bajo cada barra. En el móvil no caben en horizontal (se partían en sílabas): van en
-            vertical, enteros, y el gráfico es el mismo que en el ordenador.
-          */}
-          <div aria-hidden="true" className="mt-1.5 flex text-[11px] text-apagado sm:text-xs">
+          <div aria-hidden="true" className="mt-1.5 flex text-[10px] text-apagado sm:text-xs">
             {barras.map((b, i) => (
               <span
                 key={`${b.paso.tipo}-${i}`}
-                className={cx(
-                  'flex min-w-0 flex-1 justify-center px-0.5 text-center sm:line-clamp-2 sm:block sm:break-words',
-                  i === indice && 'font-semibold text-texto',
-                )}
+                className={cx('line-clamp-2 min-w-0 flex-1 px-0.5 text-center break-words', i === indice && 'font-semibold text-texto')}
               >
-                <span className="whitespace-nowrap [writing-mode:vertical-rl] rotate-180 sm:whitespace-normal sm:[writing-mode:horizontal-tb] sm:rotate-0">
-                  {etiquetaPaso(b.paso, t, nombreDe)}
-                </span>
+                {etiquetaPaso(b.paso, t, nombreDe)}
               </span>
             ))}
           </div>

@@ -52,6 +52,7 @@ export default {
   'categorias.vacioCerrado': 'No vas tenir despeses a {mes}.',
   'categorias.grafico': 'Gràfic circular de la despesa neta per categoria',
   'categorias.lista': 'Despesa neta per categoria',
+  'categorias.otras': 'Altres ({n})',
   'categorias.negativa': "T'han retornat més del que vas gastar: no entra al gràfic.",
   'categorias.verMovimientos': 'Veure els moviments de {categoria} d’aquest mes',
 

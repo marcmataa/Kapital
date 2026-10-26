@@ -83,7 +83,8 @@ export function KpiMes({
             <Flecha aria-hidden="true" className="size-3.5" />
             <span className="cifras">{variacion.texto}</span>
           </span>
-          {variacion.contexto !== undefined && <span className="text-apagado">{variacion.contexto}</span>}
+          {/* «vs 1–26 sept»: en el móvil se quita para que las cifras respiren; en escritorio, sí. */}
+          {variacion.contexto !== undefined && <span className="hidden text-apagado lg:inline">{variacion.contexto}</span>}
         </p>
       ) : (
         pie !== undefined && <p className="mt-1 text-xs text-apagado">{pie}</p>

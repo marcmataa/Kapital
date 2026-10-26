@@ -113,7 +113,7 @@ export function TarjetasKpi({
   return (
     <section
       aria-label={t('kpi.region')}
-      className="grid grid-cols-3 gap-x-3 gap-y-4 rounded-2xl border border-borde bg-superficie p-4 shadow-tarjeta lg:grid-cols-2 lg:gap-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+      className="grid grid-cols-3 gap-x-5 gap-y-5 rounded-2xl border border-borde bg-superficie p-4 shadow-tarjeta lg:grid-cols-2 lg:gap-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
     >
       <KpiMes
         titulo={t('kpi.patrimonio', { fecha: formatearFecha(fecha, locale, 'corta') })}
