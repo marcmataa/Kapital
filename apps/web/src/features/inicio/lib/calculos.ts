@@ -10,65 +10,6 @@ function valorAbsoluto(n: bigint): bigint {
   return n < 0n ? -n : n;
 }
 
-/** División entera redondeando hacia −∞ (la de bigint trunca hacia 0). */
-function dividirHaciaAbajo(a: bigint, b: bigint): bigint {
-  const q = a / b;
-  return a % b !== 0n && a < 0n !== b < 0n ? q - 1n : q;
-}
-
-function dividirHaciaArriba(a: bigint, b: bigint): bigint {
-  return -dividirHaciaAbajo(-a, b);
-}
-
-/** Paso «bonito» ≥ `bruto` de la forma {1, 2, 5} × 10^k céntimos, con un mínimo de 1 € (100). */
-function pasoBonito(bruto: bigint): bigint {
-  let potencia = 100n;
-  for (;;) {
-    for (const factor of [1n, 2n, 5n]) {
-      if (factor * potencia >= bruto) return factor * potencia;
-    }
-    potencia *= 10n;
-  }
-}
-
-export interface EscalaEje {
-  /** Límite inferior del eje (céntimos). */
-  min: bigint;
-  /** Límite superior del eje (céntimos). */
-  max: bigint;
-  /** Distancia entre marcas (céntimos, euros enteros). */
-  paso: bigint;
-  /** Marcas de min a max, todas a la misma distancia. */
-  ticks: bigint[];
-}
-
-/**
- * Eje Y del gráfico de capital: escalones iguales sobre valores redondos ajustados a los datos
- * (no empieza en 0). Todas las marcas son euros enteros para poder mostrarlas sin decimales.
- *   escalaEje(180000n, 245832n) → 1.800 €, 2.000 €, 2.200 €, 2.400 €, 2.600 €
- */
-export function escalaEje(minCentimos: bigint, maxCentimos: bigint, objetivoTicks = 5): EscalaEje {
-  const lo = minCentimos <= maxCentimos ? minCentimos : maxCentimos;
-  const hi = minCentimos <= maxCentimos ? maxCentimos : minCentimos;
-  const intervalos = BigInt(Math.max(1, Math.trunc(objetivoTicks) - 1));
-  let rango = hi - lo;
-  if (rango === 0n) {
-    // Serie plana: un rango alrededor del valor (10 % de su magnitud, mínimo 10 €).
-    const magnitud = valorAbsoluto(hi) / 10n;
-    rango = magnitud > 1000n ? magnitud : 1000n;
-  }
-  const paso = pasoBonito(dividirHaciaArriba(rango, intervalos));
-  let min = dividirHaciaAbajo(lo, paso) * paso;
-  let max = dividirHaciaArriba(hi, paso) * paso;
-  if (min === max) {
-    min -= paso;
-    max += paso;
-  }
-  const ticks: bigint[] = [];
-  for (let v = min; v <= max; v += paso) ticks.push(v);
-  return { min, max, paso, ticks };
-}
-
 /**
  * Posición relativa de `valor` en [min, max] como fracción 0..1, para píxeles.
  * Única conversión de importes a `number` permitida (coordenadas del gráfico).
@@ -133,15 +74,4 @@ export function mesLargo(fecha: string, locale: string): string {
 /** 'octubre' → 'Octubre'. */
 export function capitalizar(texto: string, locale: string): string {
   return texto.charAt(0).toLocaleUpperCase(locale) + texto.slice(1);
-}
-
-/** Etiqueta del eje Y: euros enteros sin decimales ('2.600 €'). Exacto: formatea el string. */
-export function formatearEurosEje(centimos: bigint, locale: string): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-    useGrouping: 'always',
-  }).format(desdeCentimos(centimos) as Intl.StringNumericLiteral);
 }

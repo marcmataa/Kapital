@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import toast from 'react-hot-toast';
 import { Scale } from 'lucide-react';
 import type { Cuenta } from '@/shared/api/catalogos';
+import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
@@ -33,6 +34,7 @@ export function cuentaAjustable(c: Cuenta | undefined): c is Cuenta {
 export function AjusteSaldoReal({ cuentas, cuentaInicial, onGuardado, onCancelar }: Props) {
   const t = useT('movimientos');
   const { locale } = useIdioma();
+  const nombreCuenta = useNombreCuenta();
   const ajustables = cuentas.filter(cuentaAjustable);
   const [cuentaId, setCuentaId] = useState(
     ajustables.some((c) => c.id === cuentaInicial) ? cuentaInicial : (ajustables[0]?.id ?? ''),
@@ -127,13 +129,13 @@ export function AjusteSaldoReal({ cuentas, cuentaInicial, onGuardado, onCancelar
       <Select label={t('form.cuentaAjuste')} value={cuentaId} onChange={(e) => setCuentaId(e.target.value)}>
         {ajustables.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.valor === null ? c.nombre : `${c.nombre} · ${formatearEuros(c.valor, locale)}`}
+            {c.valor === null ? nombreCuenta(c) : `${nombreCuenta(c)} · ${formatearEuros(c.valor, locale)}`}
           </option>
         ))}
       </Select>
 
       <MoneyInput
-        label={t('ajuste.pregunta', { cuenta: cuenta?.nombre ?? '' })}
+        label={t('ajuste.pregunta', { cuenta: cuenta ? nombreCuenta(cuenta) : '' })}
         ayuda={t('ajuste.preguntaAyuda')}
         value={texto}
         onChange={(v) => {

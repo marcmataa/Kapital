@@ -1,69 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-  escalaEje,
   formatearDiaMes,
-  formatearEurosEje,
   fraccion,
   porcentajeSobre,
   progresoBarra,
   restarImportes,
 } from './calculos';
-
-const pasos = (ticks: bigint[]) => ticks.slice(1).map((v, i) => v - (ticks[i] ?? 0n));
-
-describe('escalaEje', () => {
-  it('ajusta el eje a los datos con escalones redondos e iguales (no desde 0)', () => {
-    // Patrimonio de la maqueta: de 1.800,00 € a 2.458,32 €.
-    const e = escalaEje(180000n, 245832n, 5);
-    expect(e.ticks).toEqual([180000n, 200000n, 220000n, 240000n, 260000n]);
-    expect(e.paso).toBe(20000n);
-    expect(e.min).toBeLessThanOrEqual(180000n);
-    expect(e.max).toBeGreaterThanOrEqual(245832n);
-  });
-
-  it('todos los escalones miden lo mismo y son euros enteros', () => {
-    for (const [min, max] of [
-      [12345n, 98765n],
-      [1n, 7n],
-      [-50000n, 120000n],
-      [99999999n, 100000001n],
-    ] as const) {
-      const e = escalaEje(min, max, 5);
-      expect(new Set(pasos(e.ticks)).size).toBe(1);
-      expect(e.ticks.every((t) => t % 100n === 0n)).toBe(true);
-      expect(e.min).toBeLessThanOrEqual(min);
-      expect(e.max).toBeGreaterThanOrEqual(max);
-      expect(e.ticks.length).toBeGreaterThanOrEqual(2);
-      expect(e.ticks.length).toBeLessThanOrEqual(7);
-    }
-  });
-
-  it('usa pasos 1, 2 o 5 × 10^n', () => {
-    expect(escalaEje(0n, 100000n, 5).paso).toBe(50000n); // 0..1.000 € → 500 €
-    expect(escalaEje(100000n, 130000n, 5).paso).toBe(10000n); // 300 € de rango → 100 €
-  });
-
-  it('una serie plana tiene un rango alrededor del valor', () => {
-    const e = escalaEje(250000n, 250000n, 5);
-    expect(e.min).toBeLessThan(250000n);
-    expect(e.max).toBeGreaterThan(250000n);
-    expect(new Set(pasos(e.ticks)).size).toBe(1);
-  });
-
-  it('funciona con valores negativos (deudas)', () => {
-    const e = escalaEje(-123456n, -23456n, 5);
-    expect(e.min).toBeLessThanOrEqual(-123456n);
-    expect(e.max).toBeGreaterThanOrEqual(-23456n);
-    expect(e.ticks.every((t) => t % 100n === 0n)).toBe(true);
-  });
-});
-
-describe('formatearEurosEje', () => {
-  it('muestra euros sin decimales', () => {
-    expect(formatearEurosEje(260000n, 'es-ES').replace(/\s/g, ' ')).toBe('2.600 €');
-    expect(formatearEurosEje(-50000n, 'es-ES').replace(/\s/g, ' ')).toBe('-500 €');
-  });
-});
 
 describe('porcentajeSobre', () => {
   it('calcula el % sobre los gastos netos con 4 decimales exactos', () => {
