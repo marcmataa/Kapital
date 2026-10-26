@@ -14,18 +14,23 @@ interface Props {
   hoy: string;
 }
 
-type Estado = 'normal' | 'cerca' | 'superado' | 'conseguido';
+type Estado = 'normal' | 'cerca' | 'superado' | 'conseguido' | 'desviado';
 
 const COLOR_BARRA: Record<Estado, string> = {
   normal: 'bg-acento',
   conseguido: 'bg-positivo',
   cerca: 'bg-aviso',
   superado: 'bg-negativo',
+  desviado: 'bg-negativo',
 };
 
 /** Estado visual de un objetivo. Las cifras (exceso, restante) vienen de SQL; aquí solo se compara. */
 function estadoDe(o: ProgresoObjetivo): Estado {
-  if (o.tipo === 'ahorro_mensual') return o.restante === null ? 'conseguido' : 'normal';
+  if (o.tipo === 'ahorro_mensual') {
+    if (o.restante === null) return 'conseguido';
+    // Balance del mes en negativo: no es que vaya lento, es que va en sentido contrario.
+    return aCentimos(o.actual) < 0n ? 'desviado' : 'normal';
+  }
   if (o.exceso !== null) return 'superado';
   return aCentimos(o.actual) * 10n >= aCentimos(o.importe) * 8n ? 'cerca' : 'normal';
 }
@@ -111,6 +116,14 @@ export function TarjetaObjetivos({ hoy }: Props) {
                     <span className="flex items-center gap-2">
                       {estado === 'superado' && (
                         <span className="font-semibold text-negativo">{t('objetivos.superado')}</span>
+                      )}
+                      {estado === 'desviado' && (
+                        <span
+                          data-testid="estado-desviado"
+                          className="rounded-full bg-negativo-suave px-2 py-0.5 text-[13px] font-semibold text-negativo"
+                        >
+                          {t('objetivos.desviado')}
+                        </span>
                       )}
                       {estado === 'conseguido' && (
                         <span className="font-semibold text-positivo">{t('objetivos.conseguido')}</span>

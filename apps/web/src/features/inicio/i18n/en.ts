@@ -25,7 +25,6 @@ export default {
   'kpi.ahorro': 'Savings {porcentaje}',
 
   'grafico.titulo': 'How your wealth is evolving',
-  'grafico.ejeX': 'Day of the month',
   'grafico.hoy': '{fecha} (today)',
   'grafico.control': 'Wealth chart day',
   'grafico.alternativa':
@@ -50,7 +49,7 @@ export default {
   'categorias.gastoNeto': 'net spending',
   'categorias.vacio': 'You have no spending this month yet.',
   'categorias.vacioCerrado': 'You had no spending in {mes}.',
-  'categorias.grafico': 'Donut chart of net spending by category',
+  'categorias.grafico': 'Net spending split by category',
   'categorias.lista': 'Net spending by category',
   'categorias.otras': 'Others ({n})',
   'categorias.negativa': 'You got back more than you spent: not included in the chart.',
@@ -81,6 +80,7 @@ export default {
   'objetivos.progreso': '{actual} / {objetivo}',
   'objetivos.superado': 'Exceeded',
   'objetivos.conseguido': 'Achieved',
+  'objetivos.desviado': 'Off track',
   'objetivos.superadoEn': 'Exceeded by {importe}',
   'objetivos.margen': '{importe} left this month',
   'objetivos.proyeccion': '{dias} days left · you need to save {importe}/day',

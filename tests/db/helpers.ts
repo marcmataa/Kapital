@@ -26,6 +26,8 @@ export const MIGRACION_ANALISIS_CONFIG = leer('supabase/migrations/2026102400000
 export const ROLLBACK_ANALISIS_CONFIG = leer('supabase/rollback/20261024000002_analisis_config.down.sql');
 export const MIGRACION_INICIO_ESTADISTICAS = leer('supabase/migrations/20261024000003_inicio_estadisticas.sql');
 export const ROLLBACK_INICIO_ESTADISTICAS = leer('supabase/rollback/20261024000003_inicio_estadisticas.down.sql');
+export const MIGRACION_COLORES_CATEGORIAS = leer('supabase/migrations/20261027000000_colores_categorias.sql');
+export const ROLLBACK_COLORES_CATEGORIAS = leer('supabase/rollback/20261027000000_colores_categorias.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
 export const MIGRACIONES = [
   MIGRACION,
@@ -38,9 +40,11 @@ export const MIGRACIONES = [
   MIGRACION_MOVIMIENTOS_UX,
   MIGRACION_ANALISIS_CONFIG,
   MIGRACION_INICIO_ESTADISTICAS,
+  MIGRACION_COLORES_CATEGORIAS,
 ];
 /** Todos los rollbacks, en orden inverso. */
 export const ROLLBACKS = [
+  ROLLBACK_COLORES_CATEGORIAS,
   ROLLBACK_INICIO_ESTADISTICAS,
   ROLLBACK_ANALISIS_CONFIG,
   ROLLBACK_MOVIMIENTOS_UX,

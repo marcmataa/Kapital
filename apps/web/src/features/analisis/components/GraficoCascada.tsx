@@ -1,9 +1,8 @@
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
-import { useSeleccionGrafico } from '@/shared/hooks/useSeleccionGrafico';
 import { useT, type FuncionT } from '@/shared/i18n';
 import { aCentimos, formatearEuros } from '@/shared/lib/dinero';
 import { cx } from '@/shared/lib/cx';
-import { Card, EmptyState, LecturaGrafico } from '@/shared/ui';
+import { Card, EmptyState } from '@/shared/ui';
 import { useLocale } from '../hooks/useLocale';
 import type { PasoCascada } from '../schemas/esquemas';
 
@@ -15,16 +14,18 @@ function fraccion(c: bigint, min: bigint, max: bigint): number {
 
 export interface BarraCascada {
   paso: PasoCascada;
-  /** Tramo vertical en % desde abajo. */
+  /** Tramo horizontal en % desde la izquierda: empieza en `abajo` y mide `alto`. */
   abajo: number;
   alto: number;
+  /** Posición (%) donde termina el paso: de ahí sale la línea que lo une con el siguiente. */
+  fin: number;
   /** ¿Sube (ingresos, categoría en negativo) o baja (gasto)? Los totales son 'total'. */
   sentido: 'total' | 'sube' | 'baja';
 }
 
 /**
  * Geometría de la cascada a partir de los pasos de SQL (inicio y fin exactos). El eje incluye
- * siempre el 0; un balance negativo baja por debajo de la línea del cero.
+ * siempre el 0; un balance negativo queda a la izquierda de la línea del cero.
  */
 export function barrasCascada(pasos: readonly PasoCascada[]): { barras: BarraCascada[]; cero: number } {
   const valores = pasos.flatMap((p) => [aCentimos(p.inicio), aCentimos(p.fin)]);
@@ -38,6 +39,7 @@ export function barrasCascada(pasos: readonly PasoCascada[]): { barras: BarraCas
       paso,
       abajo: Math.min(a, b),
       alto: Math.max(Math.abs(b - a), 0.6),
+      fin: b,
       sentido: total ? ('total' as const) : aCentimos(paso.fin) >= aCentimos(paso.inicio) ? ('sube' as const) : ('baja' as const),
     };
   });
@@ -66,19 +68,20 @@ const COLOR: Record<BarraCascada['sentido'], string> = {
 };
 
 /**
- * Cascada del mes: Ingresos → gasto de cada categoría → Balance. Los pasos, sus acumulados y el
- * balance salen de SQL (`cascada_analisis`); aquí solo se dibujan. Se recorre con ratón, dedo o
- * teclado, y la tabla oculta da las cifras exactas a los lectores de pantalla.
+ * Cascada del mes en horizontal: una fila por paso (etiqueta, barra, importe), de Ingresos a
+ * Balance, con una línea fina que une el final de cada paso con el comienzo del siguiente. En
+ * horizontal las etiquetas caben enteras (sin partir palabras) en el móvil y en la media columna
+ * del escritorio, y cada importe se lee sin pasar el ratón. Los pasos, sus acumulados y el
+ * balance salen de SQL (`cascada_analisis`); aquí solo se dibujan. La tabla oculta da las cifras
+ * exactas a los lectores de pantalla.
  */
 export function GraficoCascada({ pasos }: { pasos: readonly PasoCascada[] }) {
   const t = useT('analisis');
   const locale = useLocale();
   const nombreDe = useNombreCategoria();
   const { barras, cero } = barrasCascada(pasos);
-  const n = barras.length;
-  const { indice, superficie, alTeclado } = useSeleccionGrafico({ total: Math.max(n, 1), inicial: Math.max(n - 1, 0) });
 
-  if (n === 0) {
+  if (barras.length === 0) {
     return (
       <Card titulo={t('cascada.titulo')}>
         <EmptyState titulo={t('cascada.vacio')} className="py-6" />
@@ -86,62 +89,54 @@ export function GraficoCascada({ pasos }: { pasos: readonly PasoCascada[] }) {
     );
   }
 
-  const elegida = barras[Math.min(indice, n - 1)];
   const importeDe = (p: PasoCascada) =>
-    p.tipo === 'ingresos' || p.tipo === 'balance'
-      ? formatearEuros(p.importe, locale, p.tipo === 'balance' ? { signo: 'siempre' } : {})
-      : formatearEuros(p.importe, locale, { signo: 'siempre' });
+    p.tipo === 'ingresos' ? formatearEuros(p.importe, locale) : formatearEuros(p.importe, locale, { signo: 'siempre' });
 
   return (
     <Card titulo={t('cascada.titulo')}>
       <div className="flex flex-col gap-3">
-        {elegida && (
-          <LecturaGrafico data-testid="lectura-cascada" titulo={etiquetaPaso(elegida.paso, t, nombreDe)} valor={importeDe(elegida.paso)}>
-            {elegida.sentido !== 'total' && (
-              <span className="cifras text-xs text-apagado sm:text-sm">
-                {t('cascada.acumulado', { importe: formatearEuros(elegida.paso.fin, locale) })}
-              </span>
-            )}
-          </LecturaGrafico>
-        )}
-        <div
-          role="slider"
-          tabIndex={0}
-          aria-label={t('cascada.control')}
-          aria-valuemin={1}
-          aria-valuemax={n}
-          aria-valuenow={indice + 1}
-          aria-valuetext={elegida ? `${etiquetaPaso(elegida.paso, t, nombreDe)} ${importeDe(elegida.paso)}` : ''}
-          onKeyDown={alTeclado}
-          className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
-        >
-          <div aria-hidden="true" className="relative flex h-52 cursor-crosshair touch-pan-y select-none" {...superficie}>
-            <span className="absolute inset-x-0 border-t border-borde-fuerte" style={{ bottom: `${cero}%` }} />
-            {barras.map((b, i) => (
-              <span
-                key={`${b.paso.tipo}-${i}`}
-                className={cx('relative h-full min-w-0 flex-1 rounded-md px-[3px] sm:px-1.5', i === indice && 'bg-superficie-2')}
-              >
+        <div aria-hidden="true" className="grid grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-stretch gap-x-3">
+          {barras.map((b, i) => {
+            const total = b.sentido === 'total';
+            const siguiente = i < barras.length - 1;
+            return (
+              <div key={`${b.paso.tipo}-${i}`} className="contents">
                 <span
-                  data-testid="barra-cascada"
-                  className={cx('absolute inset-x-[3px] rounded-sm sm:inset-x-1.5', COLOR[b.sentido], i !== indice && 'opacity-75')}
-                  style={{ bottom: `${b.abajo}%`, height: `${b.alto}%` }}
-                />
-              </span>
-            ))}
-          </div>
-          <div aria-hidden="true" className="mt-1.5 flex text-[10px] text-apagado sm:text-xs">
-            {barras.map((b, i) => (
-              <span
-                key={`${b.paso.tipo}-${i}`}
-                className={cx('line-clamp-2 min-w-0 flex-1 px-0.5 text-center break-words', i === indice && 'font-semibold text-texto')}
-              >
-                {etiquetaPaso(b.paso, t, nombreDe)}
-              </span>
-            ))}
-          </div>
+                  className={cx(
+                    'self-center py-1 text-sm leading-tight [overflow-wrap:normal] [word-break:normal]',
+                    total ? 'font-semibold text-texto' : 'text-apagado',
+                  )}
+                >
+                  {etiquetaPaso(b.paso, t, nombreDe)}
+                </span>
+                <span className="relative min-h-8">
+                  {cero > 0 && <span className="absolute inset-y-0 border-l border-borde-fuerte" style={{ left: `${cero}%` }} />}
+                  <span
+                    data-testid="barra-cascada"
+                    className={cx('absolute inset-y-1.5 rounded-sm', COLOR[b.sentido])}
+                    style={{ left: `${b.abajo}%`, width: `${b.alto}%` }}
+                  />
+                  {siguiente && (
+                    <span
+                      className="absolute top-[calc(100%-0.375rem)] h-3 border-l border-dashed border-tenue"
+                      style={{ left: `${b.fin}%` }}
+                    />
+                  )}
+                </span>
+                <span
+                  className={cx(
+                    'cifras self-center text-right text-sm whitespace-nowrap',
+                    total ? 'font-semibold' : 'text-apagado',
+                    b.paso.tipo === 'balance' && (aCentimos(b.paso.importe) < 0n ? 'text-negativo' : 'text-positivo'),
+                  )}
+                >
+                  {importeDe(b.paso)}
+                </span>
+              </div>
+            );
+          })}
         </div>
-        <div className="flex flex-wrap gap-4 text-xs text-apagado sm:text-sm" aria-hidden="true">
+        <div className="flex flex-wrap gap-4 text-sm text-apagado" aria-hidden="true">
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-sm bg-acento" />
             {t('cascada.leyendaTotal')}

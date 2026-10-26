@@ -16,7 +16,7 @@ import {
 } from '../api/inicioApi';
 import { AnalisisDestacado } from '../components/AnalisisDestacado';
 import { AvisoOtrosGastos } from '../components/AvisoOtrosGastos';
-import { DonutCategorias } from '../components/DonutCategorias';
+import { RepartoCategorias } from '../components/RepartoCategorias';
 import { ErrorCarga, Esqueleto } from '../components/Estados';
 import { GraficoCapital } from '../components/GraficoCapital';
 import { SelectorMes } from '../components/SelectorMes';
@@ -46,7 +46,7 @@ const pendiente = (q: EstadoConsulta) => !q.isUninitialized && !q.isError && q.c
  * la misma función que Estadísticas; las cifras, de las RPC (nada de dinero calculado aquí).
  * - Resumen: Patrimonio · Ingresos · Gastos netos · Balance (con su ahorro, sección 3).
  * - Aviso si «Otros gastos» pasa del 20 % del gasto del mes (peso_otros_gastos).
- * - Gráfico de capital (serie diaria), donut de categorías (cada una abre Movimientos con ese
+ * - Gráfico de capital (serie diaria), reparto por categoría (cada una abre Movimientos con ese
  *   filtro y el mes) y un consejo del análisis del mes.
  * - Últimos movimientos y objetivos (progreso_objetivos): siempre del mes en curso.
  */
@@ -172,7 +172,7 @@ export default function PaginaInicio() {
             ) : categorias.isError || resumen.isError || !datosCategorias || !datosResumen ? (
               <ErrorCarga onReintentar={reintentar(categorias, resumen)} />
             ) : datosCategorias.some((c) => c.gasto !== '0.00') ? (
-              <DonutCategorias
+              <RepartoCategorias
                 categorias={datosCategorias.map((c) => ({
                   id: c.categoria_id,
                   nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),

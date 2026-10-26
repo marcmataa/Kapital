@@ -178,3 +178,14 @@ export function compararImportes(a: string, b: string): -1 | 0 | 1 {
   const cb = aCentimos(b);
   return ca < cb ? -1 : ca > cb ? 1 : 0;
 }
+
+/**
+ * Cifras de un texto libre (el de la IA) con el separador decimal del idioma. La IA recibe los
+ * importes ya formateados, pero a veces los reescribe con punto decimal: «23.4 %», «38.50 €».
+ * En es / ca se cambia ese punto por coma solo cuando le siguen 1 o 2 cifras y un % o €: nunca es
+ * un separador de miles (esos van seguidos de 3 cifras: «1.258 €»). En inglés no se toca nada.
+ */
+export function normalizarCifrasTexto(texto: string, locale: string): string {
+  if (separadorDecimal(locale) !== ',') return texto;
+  return texto.replace(/(\d)\.(\d{1,2})(?!\d)(\s?[%€])/g, '$1,$2$3');
+}

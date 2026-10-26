@@ -116,13 +116,12 @@ describe('GraficoCapital', () => {
     expect((screen.getByTestId('linea-actual').getAttribute('points') ?? '').trim().split(/\s+/)).toHaveLength(10);
   });
 
-  it('muestra las marcas del eje X cada 5 días y el título del eje', () => {
+  it('muestra las marcas del eje X cada 5 días, sin título del eje, y más marcas en el eje Y', () => {
     pintar('2026-10-19', serie('2026-10', OCT, '2026-10-19'), serie('2026-09', SEPT));
     for (const d of ['1', '5', '10', '15', '20', '25', '30']) expect(screen.getByText(d)).toBeInTheDocument();
-    expect(screen.getByText('Día del mes')).toBeInTheDocument();
-    // Eje con números redondos (3–4 marcas): 1.500 / 2.000 / 2.500 €.
-    expect(screen.getByText('1.500 €')).toBeInTheDocument();
-    expect(screen.getByText('2.500 €')).toBeInTheDocument();
+    expect(screen.queryByText('Día del mes')).not.toBeInTheDocument();
+    // Eje con números redondos y más líneas de referencia (hasta 6 marcas): 1.800 a 2.600 € de 200 en 200.
+    for (const e of ['1.800 €', '2.000 €', '2.200 €', '2.400 €', '2.600 €']) expect(screen.getByText(e)).toBeInTheDocument();
   });
 
   it('mes cerrado: llega al último día, punto lleno de cierre y sin «hoy» ni «provisional»', () => {

@@ -15,8 +15,8 @@ interface Props {
   /** El patrimonio: ocupa toda la fila en móvil y su cifra es la protagonista. */
   destacado?: boolean;
   /**
-   * Una fila de la tarjeta del mes en escritorio (Ingresos − Gastos netos = Balance): título y
-   * variación a la izquierda, cifra a la derecha. En el móvil, igual que el resto.
+   * Una fila de la tarjeta del mes (Ingresos − Gastos netos = Balance): título y variación a la
+   * izquierda, cifra a la derecha. Igual en el móvil (lista vertical compacta) y en escritorio.
    */
   agrupado?: boolean;
   /** El balance: resultado de la tarjeta del mes, separado de las filas de arriba con una línea más marcada. */
@@ -33,8 +33,9 @@ function colorVariacion({ tendencia, subirEsBueno = true }: VariacionStat): stri
 
 /**
  * Una cifra del resumen de Inicio.
- * - Móvil: las cuatro viven dentro de UNA tarjeta (la de `TarjetasKpi`): el patrimonio a todo el
- *   ancho y, debajo, Ingresos · Gastos · Balance en tres columnas compactas.
+ * - Móvil: las cuatro viven dentro de UNA tarjeta (la de `TarjetasKpi`): el patrimonio arriba y,
+ *   debajo, Ingresos · Gastos · Balance como lista compacta (una fila cada una; en tres columnas
+ *   quedaban apretadas).
  * - Escritorio (lg): el patrimonio es su propia tarjeta; las otras tres son filas de la tarjeta
  *   del mes (`agrupado`).
  */
@@ -53,41 +54,41 @@ export function KpiMes({
   return (
     <article
       className={cx(
-        'flex min-w-0 flex-col',
+        'min-w-0',
         agrupado
           ? // Rejilla de dos columnas: [título / variación / extra] | cifra a la derecha.
             cx(
-              'col-span-1 lg:grid lg:grid-cols-[1fr_auto] lg:items-center lg:gap-x-4 lg:border-t lg:py-4 lg:first:border-t-0',
-              resultado ? 'lg:border-borde-fuerte' : 'lg:border-borde',
+              'grid grid-cols-[1fr_auto] items-center gap-x-4 border-t py-3 first:border-t-0 lg:py-4',
+              resultado ? 'border-borde-fuerte' : 'border-borde',
             )
-          : 'lg:rounded-2xl lg:border lg:border-borde lg:bg-superficie lg:p-5 lg:shadow-tarjeta',
-        destacado ? 'col-span-3 border-b border-borde pb-4 lg:col-span-1 lg:pb-5' : !agrupado && 'col-span-1',
+          : 'flex flex-col lg:rounded-2xl lg:border lg:border-borde lg:bg-superficie lg:p-5 lg:shadow-tarjeta',
+        destacado && 'border-b border-borde pb-4 lg:border-b-0 lg:pb-5',
       )}
     >
-      <h3 className={cx('text-apagado', destacado ? 'text-sm' : 'text-xs leading-snug lg:text-sm', agrupado && 'lg:col-start-1')}>
+      <h3 className={cx('text-sm text-apagado', agrupado && 'col-start-1')}>
         {titulo}
       </h3>
       <p
         className={cx(
-          'cifras mt-1 font-semibold tracking-tight lg:text-2xl xl:text-3xl',
-          agrupado && 'lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0 lg:text-right',
-          destacado ? 'truncate text-4xl' : 'text-sm break-words min-[400px]:text-base sm:text-lg',
+          'cifras font-semibold tracking-tight lg:text-2xl xl:text-3xl',
+          agrupado ? 'col-start-2 row-span-3 row-start-1 text-right' : 'mt-1',
+          destacado ? 'truncate text-4xl' : 'text-lg',
           tonoValor === 'negativo' ? 'text-negativo' : 'text-texto',
         )}
       >
         {valor}
       </p>
       {variacion ? (
-        <p className="mt-1 flex flex-wrap items-center gap-x-1 text-xs">
+        <p className="mt-1 flex flex-wrap items-center gap-x-1 text-[13px]">
           <span className={cx('inline-flex items-center gap-0.5 font-medium', colorVariacion(variacion))}>
             <Flecha aria-hidden="true" className="size-3.5" />
             <span className="cifras">{variacion.texto}</span>
           </span>
-          {/* «vs 1–26 sept»: en el móvil se quita para que las cifras respiren; en escritorio, sí. */}
-          {variacion.contexto !== undefined && <span className="hidden text-apagado lg:inline">{variacion.contexto}</span>}
+          {/* «vs 27/09», «vs 1–26 sept»: siempre, también en el móvil; un «−7,8 %» solo no se entiende. */}
+          {variacion.contexto !== undefined && <span className="text-apagado">{variacion.contexto}</span>}
         </p>
       ) : (
-        pie !== undefined && <p className="mt-1 text-xs text-apagado">{pie}</p>
+        pie !== undefined && <p className="mt-1 text-[13px] text-apagado">{pie}</p>
       )}
       {children}
     </article>

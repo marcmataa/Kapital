@@ -24,6 +24,15 @@ export function mesCorto(mes: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' }).format(comoUtc(mes));
 }
 
+/**
+ * Mes para «Desde …»: 'septiembre' (es), 'September' (en). En catalán, con su preposición y
+ * la elisión que pide el idioma: 'de setembre', 'd’octubre' (la plantilla ca es «Des {mes}»).
+ */
+export function mesDesde(mes: string, locale: string): string {
+  if (!locale.startsWith('ca')) return nombreMes(mes, locale);
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long', timeZone: 'UTC' }).format(comoUtc(mes)).replace(/^\d+\s+/, '');
+}
+
 /** '2026-10-01' → 'octubre' (es). */
 export function nombreMes(mes: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' }).format(comoUtc(mes));

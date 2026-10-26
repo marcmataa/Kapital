@@ -6,7 +6,7 @@ import { escalaDeImportes, formatearEurosEje, tramoBarra } from '@/shared/lib/ej
 import { inicioDeMes } from '@/shared/lib/fechas';
 import { cx } from '@/shared/lib/cx';
 import type { ResumenMes } from '../api/estadisticasApi';
-import { etiquetaMes, mesCorto } from '../lib/formato';
+import { etiquetaMes, mesCorto, mesDesde } from '../lib/formato';
 
 interface Props {
   /** Meses a dibujar (resumen_mensual), en orden cronológico. */
@@ -34,6 +34,10 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
+  // Con menos de 6 meses de datos, el título dice desde cuándo: «Últimos 6 meses» con 2 barras engaña.
+  const primero = meses[0];
+  const tituloTarjeta =
+    primero !== undefined && meses.length < 6 ? t('meses.tituloDesde', { mes: mesDesde(primero.mes, locale) }) : t('balanceMeses.titulo');
   const mesActual = inicioDeMes(hoy);
   const { indice, superficie, alTeclado } = useSeleccionGrafico({ total: meses.length, inicial: meses.length - 1 });
   const elegido = meses[indice];
@@ -55,7 +59,7 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
   const sel = elegido ? lectura(elegido) : null;
 
   return (
-    <Card titulo={t('balanceMeses.titulo')} accion={<AyudaGrafico unidad="mes" />}>
+    <Card titulo={tituloTarjeta} accion={<AyudaGrafico unidad="mes" />}>
       {!elegido || !sel ? (
         <EmptyState titulo={t('balance.vacio')} className="py-6" />
       ) : (
@@ -105,7 +109,7 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
                       key={m.mes}
                       className={cx('relative flex h-full min-w-0 flex-1 justify-center rounded-md px-2', esElegido && 'bg-superficie-2')}
                     >
-                      <div className="relative h-full w-full max-w-14">
+                      <div className="relative h-full w-full max-w-10">
                         <span
                           data-provisional={provisional ? 'true' : undefined}
                           data-balance={m.balance}
@@ -148,7 +152,7 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
             </div>
           </div>
           <table className="sr-only">
-            <caption>{t('balanceMeses.titulo')}</caption>
+            <caption>{tituloTarjeta}</caption>
             <thead>
               <tr>
                 <th scope="col">{t('tabla.mes')}</th>

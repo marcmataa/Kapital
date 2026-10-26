@@ -6,7 +6,7 @@ import { escalaDeImportes, tramoBarra } from '@/shared/lib/ejes';
 import { inicioDeMes } from '@/shared/lib/fechas';
 import { cx } from '@/shared/lib/cx';
 import type { ResumenMes } from '../api/estadisticasApi';
-import { etiquetaMes, mesCorto } from '../lib/formato';
+import { etiquetaMes, mesCorto, mesDesde } from '../lib/formato';
 
 interface Props {
   /** Meses a dibujar (resumen_mensual), en orden cronológico. */
@@ -24,6 +24,10 @@ export function GraficoMeses({ meses, hoy }: Props) {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
+  // Con menos de 6 meses de datos, el título dice desde cuándo: «Últimos 6 meses» con 2 barras engaña.
+  const primero = meses[0];
+  const tituloTarjeta =
+    primero !== undefined && meses.length < 6 ? t('meses.tituloDesde', { mes: mesDesde(primero.mes, locale) }) : t('meses.titulo');
   const mesActual = inicioDeMes(hoy);
   const escala = escalaDeImportes(meses.map((m) => m.gastos_netos));
   const { indice, superficie, alTeclado } = useSeleccionGrafico({ total: meses.length, inicial: meses.length - 1 });
@@ -32,7 +36,7 @@ export function GraficoMeses({ meses, hoy }: Props) {
     m.mes === mesActual ? t('meses.lectura.enCurso', { mes: etiquetaMes(m.mes, locale) }) : etiquetaMes(m.mes, locale);
 
   return (
-    <Card titulo={t('meses.titulo')} accion={<AyudaGrafico unidad="mes" />}>
+    <Card titulo={tituloTarjeta} accion={<AyudaGrafico unidad="mes" />}>
       {!elegido ? (
         <EmptyState titulo={t('balance.vacio')} className="py-6" />
       ) : (
@@ -71,7 +75,7 @@ export function GraficoMeses({ meses, hoy }: Props) {
                       key={m.mes}
                       className={cx('relative flex h-full min-w-0 flex-1 justify-center rounded-md', esElegido && 'bg-superficie-2')}
                     >
-                      <div className="relative h-full w-full max-w-14">
+                      <div className="relative h-full w-full max-w-10">
                         <span
                           data-provisional={enCurso ? 'true' : undefined}
                           className={cx(
@@ -106,7 +110,24 @@ export function GraficoMeses({ meses, hoy }: Props) {
               </div>
             </div>
           </div>
-          <p className="text-xs text-apagado sm:text-sm">{t('meses.ayuda')}</p>
+          <p className="text-[13px] text-apagado sm:text-sm">{t('meses.ayuda')}</p>
+          <table className="sr-only">
+            <caption>{tituloTarjeta}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('tabla.mes')}</th>
+                <th scope="col">{t('tabla.gastoNeto')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {meses.map((m) => (
+                <tr key={m.mes}>
+                  <th scope="row">{titulo(m)}</th>
+                  <td>{formatearEuros(m.gastos_netos, locale)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </Card>

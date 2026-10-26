@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Sparkles, Target } from 'lucide-react';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useT } from '@/shared/i18n';
-import { formatearEuros } from '@/shared/lib/dinero';
+import { formatearEuros, normalizarCifrasTexto } from '@/shared/lib/dinero';
 import { Button } from '@/shared/ui';
 import { useLocale } from '../hooks/useLocale';
 import type { AccionAnalisis, ContenidoAnalisis } from '../schemas/esquemas';
@@ -40,7 +40,7 @@ export function ComentarioIA({ contenido, pie }: Props) {
       </div>
       <div className="flex flex-col gap-1.5">
         <h3 className={subtitulo}>{t('ia.resumen')}</h3>
-        <p className="max-w-[72ch] text-base leading-relaxed whitespace-pre-line text-texto">{contenido.resumen}</p>
+        <p className="max-w-[72ch] text-base leading-relaxed whitespace-pre-line text-texto">{normalizarCifrasTexto(contenido.resumen, locale)}</p>
       </div>
       <div className={hayObservaciones ? 'grid grid-cols-1 gap-5 md:grid-cols-2' : 'flex flex-col'}>
         {hayObservaciones && (
@@ -48,7 +48,7 @@ export function ComentarioIA({ contenido, pie }: Props) {
             <h3 className={subtitulo}>{t('ia.observaciones')}</h3>
             <ul className="flex list-disc flex-col gap-2 pl-5 text-[15px] leading-normal text-texto">
               {contenido.observaciones.map((o, i) => (
-                <li key={i}>{o}</li>
+                <li key={i}>{normalizarCifrasTexto(o, locale)}</li>
               ))}
             </ul>
           </div>
@@ -58,7 +58,7 @@ export function ComentarioIA({ contenido, pie }: Props) {
           <ul className="flex list-disc flex-col gap-3 pl-5 text-[15px] leading-normal text-texto">
             {contenido.recomendaciones.map((r, i) => (
               <li key={i}>
-                <span>{r.texto}</span>
+                <span>{normalizarCifrasTexto(r.texto, locale)}</span>
                 {r.accion !== null && (
                   <Button
                     variante="secundario"

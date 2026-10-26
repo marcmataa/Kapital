@@ -22,7 +22,7 @@ Los logos son **marcas registradas** de sus titulares. Commons los publica como 
 |---|---|---|---|
 | `caixabank.svg` | [File:Logo CaixaBank.svg](https://commons.wikimedia.org/wiki/File:Logo_CaixaBank.svg) | Dominio público | Símbolo (estrella), sin el texto |
 | `santander.svg` | [File:Banco Santander Logotipo.svg](https://commons.wikimedia.org/wiki/File:Banco_Santander_Logotipo.svg) | Dominio público | Símbolo (llama), recortando el `viewBox` |
-| `bbva.svg` | [File:BBVA logo 2025.svg](https://commons.wikimedia.org/wiki/File:BBVA_logo_2025.svg) | Dominio público | Logotipo completo |
+| `bbva.svg` | [File:BBVA logo 2025.svg](https://commons.wikimedia.org/wiki/File:BBVA_logo_2025.svg) | Dominio público | Baldosa cuadrada: el logotipo completo en blanco sobre su azul (#001391), al 80 % del ancho y centrado (2026-10-27: en la baldosa blanca el logotipo, tan ancho, se veía diminuto) |
 | `sabadell.svg` | [File:Logotipo del Banco Sabadell.svg](https://commons.wikimedia.org/wiki/File:Logotipo_del_Banco_Sabadell.svg) | Dominio público | Símbolo cuadrado «BS» (se corrigió el `viewBox`, que en el original no encuadraba el dibujo) |
 | `bankinter.svg` | [File:Bankinter.svg](https://commons.wikimedia.org/wiki/File:Bankinter.svg) | Dominio público | Logotipo completo (se añadió el `viewBox` 0 0 400 70) |
 | `ing.svg` | [File:ING Group (wordmark).svg](https://commons.wikimedia.org/wiki/File:ING_Group_(wordmark).svg) | Dominio público | Logotipo «ING», sin león: no hay versión del león en Commons |

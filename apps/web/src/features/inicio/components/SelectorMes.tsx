@@ -21,11 +21,11 @@ export function SelectorMes({ mes, anterior, siguiente, onElegir }: Props) {
   const { locale } = useIdioma();
 
   return (
-    // Una sola pieza (‹ mes ›) dentro de un marco: el mes no queda «flotando» entre dos botones sueltos.
+    // Una sola pastilla compacta (‹ mes ›): cabe en la cabecera sin ocupar una fila de tarjeta.
     <div
       role="group"
       aria-label={t('selector.etiqueta')}
-      className="flex w-full max-w-xs items-center justify-between gap-1 rounded-xl border border-borde bg-superficie p-1 sm:w-auto"
+      className="inline-flex items-center gap-0.5 rounded-2xl border border-borde bg-superficie p-0.5"
     >
       <Button
         variante="fantasma"
@@ -39,7 +39,7 @@ export function SelectorMes({ mes, anterior, siguiente, onElegir }: Props) {
         aria-live="polite"
         aria-atomic="true"
         data-testid="mes-seleccionado"
-        className="min-w-40 flex-1 text-center text-sm font-semibold text-texto"
+        className="min-w-34 text-center text-sm font-semibold text-texto"
       >
         {capitalizar(formatearMes(mes, locale), locale)}
       </span>

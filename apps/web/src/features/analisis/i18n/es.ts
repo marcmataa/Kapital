@@ -66,8 +66,6 @@ export default {
   'cascada.otras': 'Otras',
   'cascada.sinCategoria': 'Sin categoría',
   'cascada.vacio': 'No hay datos para este gráfico.',
-  'cascada.control': 'Paso del gráfico en cascada',
-  'cascada.acumulado': 'Queda {importe}',
   'cascada.leyendaTotal': 'Ingresos y balance',
   'cascada.leyendaGasto': 'Gasto por categoría',
   'cascada.paso': 'Paso',

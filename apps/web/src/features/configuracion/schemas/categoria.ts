@@ -18,6 +18,8 @@ export const COLORES_CATEGORIA = [
   '#06b6d4',
   '#84cc16',
   '#d946ef',
+  '#c2885a',
+  '#2dd4bf',
 ] as const;
 
 /** Categoría que usa el atajo para los rendimientos (`registrar_movimiento`, tipo «rendimiento»). */

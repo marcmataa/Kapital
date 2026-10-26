@@ -63,9 +63,11 @@ describe('GraficoDiario · gastos', () => {
   const pintar = () => renderConApp(<GraficoDiario dias={DIAS} modo="gastos" nombreMes="Octubre de 2026" />);
   const lectura = () => normal(screen.getByTestId('lectura-diario').textContent);
 
-  it('por defecto lee hoy, provisional, con sus gastos (sin ingresos)', () => {
+  it('la lectura solo aparece al usar el gráfico; entonces lee hoy, provisional, con sus gastos (sin ingresos)', () => {
     pintar();
     expect(screen.getByRole('heading', { name: 'Gasto por día · Octubre de 2026' })).toBeInTheDocument();
+    expect(screen.queryByTestId('lectura-diario')).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('slider'), { key: 'Shift' });
     expect(lectura()).toContain('19 oct 2026 · hoy (provisional) · 12,35 €');
     expect(lectura()).toContain('Gastos 12,35 € · Neto 12,35 €');
     // El día y su dinero; qué se compró está en Movimientos.
@@ -106,6 +108,19 @@ describe('GraficoDiario · gastos', () => {
     expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '31');
     fireEvent.pointerMove(superficie, { clientX: -40, clientY: 100, pointerType: 'touch' });
     expect(screen.getByRole('slider')).toHaveAttribute('aria-valuenow', '1');
+    // Con el dedo la lectura se queda; con el ratón se va al salir.
+    fireEvent.pointerLeave(superficie, { pointerType: 'touch' });
+    expect(screen.getByTestId('lectura-diario')).toBeInTheDocument();
+    fireEvent.pointerLeave(superficie, { pointerType: 'mouse' });
+    expect(screen.queryByTestId('lectura-diario')).not.toBeInTheDocument();
+  });
+
+  it('línea de referencia con la media diaria (de SQL); sin media no se dibuja', () => {
+    const { unmount } = renderConApp(<GraficoDiario dias={DIAS} modo="gastos" nombreMes="Octubre de 2026" media="40.59" />);
+    expect(normal(screen.getByTestId('media-diaria').textContent)).toBe('media 40,59 €/día');
+    unmount();
+    pintar();
+    expect(screen.queryByTestId('media-diaria')).not.toBeInTheDocument();
   });
 });
 
@@ -115,6 +130,7 @@ describe('GraficoDiario · ingresos', () => {
     expect(screen.getByRole('heading', { name: 'Ingresos por día · Octubre de 2026' })).toBeInTheDocument();
     expect(screen.queryByText(/[Dd]evoluci/)).not.toBeInTheDocument();
     const lectura = () => normal(screen.getByTestId('lectura-diario').textContent);
+    fireEvent.keyDown(screen.getByRole('slider'), { key: 'Shift' });
     expect(lectura()).toContain('19 oct 2026 · hoy (provisional) · 900,00 €');
     expect(lectura()).not.toContain('Nómina');
     // Una sola barra por día (la del ingreso).
@@ -264,8 +280,8 @@ describe('DesgloseBalance', () => {
     const balance = screen.getByTestId('fila-balance');
     expect(within(balance).getByText('+339,72 €')).toHaveClass('text-positivo');
     expect(within(balance).getByText('+48,0 %').parentElement).toHaveClass('text-positivo');
-    // «+339,72 € vs +229,60 € el mes pasado», con el % aparte (nada de «+48,0 % antes»).
-    expect(normal(within(balance).getByTestId('balance-vs').textContent)).toBe('+339,72 € vs +229,60 € el mes pasado');
+    // «vs +229,60 € el mes pasado», con el % aparte (nada de «+48,0 % antes»).
+    expect(normal(within(balance).getByTestId('balance-vs').textContent)).toBe('vs +229,60 € el mes pasado');
     expect(normal(balance.textContent)).not.toContain('antes');
     // Grupo B: traspasos y ajustes, fuera de cualquier total.
     const fuera = screen.getByTestId('fuera-del-balance');
