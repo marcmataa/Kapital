@@ -183,7 +183,6 @@ describe('PaginaInicio · datos', () => {
       'objetivo_id, tipo, categoria_id, importe::text, actual::text, exceso::text, restante::text, dias_restantes, ahorro_diario_necesario::text',
     );
     expect(de('rpc:peso_otros_gastos')[0]?.select).toBe('categoria_id, gasto::text, porcentaje::text, supera_umbral');
-    expect(de('rpc:ingresos_por_categoria')[0]?.select).toBe('categoria_id, nombre, color, ingreso::text');
     for (const l of de('rpc:serie_patrimonio')) expect(l.select).toBe('fecha, patrimonio::text, provisional');
     for (const l of de('rpc:gasto_por_categoria')) expect(l.select).toBe('categoria_id, nombre, color, gasto::text');
     expect(de('movimientos')[0]?.select).toContain('importe::text');
@@ -760,19 +759,6 @@ describe('PaginaInicio · balance del mes, top 3 y enlaces', () => {
     expect(within(balance).getByText('-15,1 %').parentElement).toHaveClass('text-negativo');
   });
 
-  it('top 3 de categorías de gasto y de ingreso, de mayor a menor', async () => {
-    escenario({
-      ingresosCategorias: [{ categoria_id: 'nomina', nombre: 'Nómina', color: '#5fd3a0', ingreso: '3420.00' }],
-    });
-    pintar();
-    const gastos = await screen.findByRole('list', { name: 'Principales categorías de gasto' });
-    expect(within(gastos).getAllByRole('listitem').map((li) => li.textContent?.replace(/\s+/g, ' '))).toEqual([
-      'Transporte746,68 €',
-      'Ocio215,00 €',
-    ]);
-    const ingresos = await screen.findByRole('list', { name: 'Principales categorías de ingreso' });
-    expect(within(ingresos).getByText('Nómina')).toBeInTheDocument();
-  });
 
   it('cada categoría del donut abre Movimientos filtrado por esa categoría y el tramo del mes', async () => {
     pintar();

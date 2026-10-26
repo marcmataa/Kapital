@@ -9,6 +9,18 @@ import { configApp } from '@/shared/lib/env';
 import './index.css';
 
 iniciarTema();
+
+// Cuando una versión nueva de la PWA toma el control (skipWaiting + clientsClaim en vite.config),
+// se recarga una vez para usarla. La primera instalación no recarga: no había versión anterior.
+if ('serviceWorker' in navigator) {
+  const habiaVersion = navigator.serviceWorker.controller !== null;
+  let recargando = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!habiaVersion || recargando) return;
+    recargando = true;
+    window.location.reload();
+  });
+}
 // Antes de renderizar: el router redirige a /login y perdería los parámetros de error OAuth.
 capturarErrorOAuth();
 

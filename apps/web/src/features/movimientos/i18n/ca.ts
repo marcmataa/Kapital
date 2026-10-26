@@ -188,6 +188,7 @@ export default {
   'resumen.categoriaPrincipal': 'Categoria principal',
   'resumen.ajustes': 'Ajustos (no compten en el balanç)',
   'form.sugerida': 'Suggerida',
+  'form.ayudaRendimientos': 'El que et paguen els teus diners invertits: interessos o dividends. Que la teva inversió pugi de valor no és un ingrés: això es veu al patrimoni.',
   'form.categoriaSugeridaAyuda': 'Suggerida pel que sols apuntar amb aquest concepte. La pots canviar.',
   'form.gastoOriginalQueda': "En queden {pendiente} per retornar d'aquesta despesa.",
   'form.atajosFecha': 'Data ràpida',

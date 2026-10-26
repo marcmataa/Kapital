@@ -3,7 +3,9 @@ import { cx } from '@/shared/lib/cx';
 
 /**
  * Marca: la «K» del logo de Kapital (public/brand/kapital-marca-96.png, recorte con fondo
- * transparente de public/brand/kapital-icono.png) + la palabra «Kapital». Sirve en los dos temas.
+ * transparente de public/brand/kapital-icono.png) + el logotipo «KΛPITΛL» de
+ * public/brand/kapital-logo-oscuro.png (mayúsculas espaciadas, la A como «Λ»). Sirve en los dos
+ * temas. Los lectores de pantalla leen «Kapital».
  */
 export function Logo({ className, conTexto = true }: { className?: string; conTexto?: boolean }) {
   const t = useT('common');
@@ -18,7 +20,14 @@ export function Logo({ className, conTexto = true }: { className?: string; conTe
         className="size-8"
         draggable={false}
       />
-      {conTexto && <span className="text-lg tracking-tight">{t('app.nombre')}</span>}
+      {conTexto && (
+        <>
+          <span aria-hidden="true" className="text-base font-medium tracking-[0.32em]">
+            KΛPITΛL
+          </span>
+          <span className="sr-only">{t('app.nombre')}</span>
+        </>
+      )}
     </span>
   );
 }

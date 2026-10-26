@@ -217,6 +217,14 @@
     @apply bg-fondo text-texto font-sans antialiased;
     min-height: 100dvh;
   }
+  /*
+   * Nada desborda en horizontal (p. ej. las tablas sr-only de los gráficos en móvil): sin
+   * desplazamiento lateral de la página. clip, no hidden: no rompe position: sticky.
+   */
+  html,
+  body {
+    overflow-x: clip;
+  }
   :focus-visible {
     outline: 2px solid var(--k-acento);
     outline-offset: 2px;

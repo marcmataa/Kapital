@@ -22,8 +22,6 @@ export default {
   'kpi.cuentas': 'Patrimonio por cuenta',
   'kpi.balance': 'Balance · 1–{dia} {mes}',
   'kpi.ahorro': 'Ahorro {porcentaje}',
-  'kpi.topIngresos': 'Principales categorías de ingreso',
-  'kpi.topGastos': 'Principales categorías de gasto',
 
   'grafico.titulo': 'Evolución de tu capital',
   'grafico.ejeX': 'Día del mes',
@@ -82,6 +80,7 @@ export default {
   'objetivos.superado': 'Superado',
   'objetivos.conseguido': 'Conseguido',
   'objetivos.superadoEn': 'Superado en {importe}',
+  'objetivos.margen': 'Te quedan {importe} este mes',
   'objetivos.proyeccion': 'Te quedan {dias} días · necesitas ahorrar {importe}/día',
   'objetivos.proyeccionUltimoDia': 'Queda 1 día · necesitas ahorrar {importe} hoy',
 

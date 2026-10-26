@@ -103,11 +103,28 @@ const contenidoV2 = z.object({
   recomendaciones: z.array(z.object({ texto: texto(400), accion: accion.nullable() })).min(1).max(3),
 });
 
-export const esquemaContenido = z.union([
+/** Un análisis en un idioma (versiones 1 y 2). */
+const contenidoUnico = z.union([
   contenidoV2.transform(({ resumen, observaciones, recomendaciones }) => ({ resumen, observaciones, recomendaciones })),
   contenidoV1,
 ]);
-export type ContenidoAnalisis = z.infer<typeof esquemaContenido>;
+export type ContenidoAnalisis = z.infer<typeof contenidoUnico>;
+
+/** Versión 3: el mismo análisis generado en es, en y ca (se enseña el del idioma de la interfaz). */
+const contenidoV3 = z.object({
+  version: z.literal(3),
+  idiomas: z.object({ es: contenidoUnico, en: contenidoUnico, ca: contenidoUnico }),
+});
+
+/**
+ * Contenido por idioma. Los análisis anteriores a la versión 3 están en un solo idioma: se usa el
+ * mismo para los tres (no se traduce nada en el cliente).
+ */
+export const esquemaContenido = z.union([
+  contenidoV3.transform((c) => c.idiomas),
+  contenidoUnico.transform((c) => ({ es: c, en: c, ca: c })),
+]);
+export type ContenidoPorIdioma = z.infer<typeof esquemaContenido>;
 
 export const ESTADOS = ['pendiente', 'generando', 'listo', 'error'] as const;
 export type EstadoAnalisis = (typeof ESTADOS)[number];

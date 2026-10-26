@@ -38,8 +38,6 @@ export default {
   'diario.lectura.gastos': 'Spending {importe}',
   'diario.lectura.devoluciones': 'Refunds {importe}',
   'diario.lectura.neto': 'Net {importe}',
-  'diario.lectura.lista': 'Transactions of the day',
-  'diario.lectura.movimientoDevolucion': 'Refund {concepto} · {importe}',
   'tabla.dia': 'Day',
   'tabla.gastoNeto': 'Net spending',
   'tabla.ingresos': 'Income',

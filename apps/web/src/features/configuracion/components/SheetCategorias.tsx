@@ -173,6 +173,9 @@ export function SheetCategorias({ categorias, onCerrar }: Props) {
                         </button>
                       )}
                     </div>
+                    {c.clave === 'rendimientos' && (
+                      <p className="pl-10 text-xs text-apagado">{t('categorias.ayudaRendimientos')}</p>
+                    )}
                     {protegida && <p className="pl-10 text-xs text-apagado">{t('categorias.protegida')}</p>}
                   </li>
                 );

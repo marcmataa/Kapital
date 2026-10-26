@@ -6,7 +6,7 @@ import { cx } from '@/shared/lib/cx';
 import { aCentimos, formatearEuros } from '@/shared/lib/dinero';
 import { Button, Card } from '@/shared/ui';
 import { useInicioProgresoObjetivosQuery, type ProgresoObjetivo } from '../api/inicioApi';
-import { mesLargo, progresoBarra } from '../lib/calculos';
+import { mesLargo, progresoBarra, restarImportes } from '../lib/calculos';
 import { ErrorCarga, Esqueleto } from './Estados';
 import { FormObjetivo } from './FormObjetivo';
 
@@ -55,9 +55,15 @@ export function TarjetaObjetivos({ hoy }: Props) {
       ? t('objetivos.ahorro', { importe: euros(o.importe) })
       : t('objetivos.limite', { categoria: nombreCategoria(o.categoria_id), importe: euros(o.importe) });
 
-  /** Línea bajo la barra: cuánto se ha pasado un límite o cuánto queda por ahorrar al día. */
+  /**
+   * Línea bajo la barra: cuánto se ha pasado un límite, cuánto margen le queda (resta exacta en
+   * céntimos) o cuánto queda por ahorrar al día.
+   */
   const detalle = (o: ProgresoObjetivo): string | null => {
     if (o.exceso !== null) return t('objetivos.superadoEn', { importe: euros(o.exceso) });
+    if (o.tipo === 'limite_categoria') {
+      return t('objetivos.margen', { importe: euros(restarImportes(o.importe, o.actual)) });
+    }
     if (o.tipo === 'ahorro_mensual' && o.restante !== null && o.ahorro_diario_necesario !== null) {
       return t(o.dias_restantes === 1 ? 'objetivos.proyeccionUltimoDia' : 'objetivos.proyeccion', {
         dias: o.dias_restantes,

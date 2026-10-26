@@ -127,7 +127,7 @@ export default function PaginaEstadisticas() {
             etiquetaOculta
             value={mes}
             onChange={(e) => setMes(e.target.value)}
-            className="min-w-56"
+            className="w-full max-w-xs sm:w-auto sm:min-w-56"
           >
             {meses.map((m) => (
               <option key={m} value={m}>
@@ -148,7 +148,9 @@ export default function PaginaEstadisticas() {
             { valor: 'ingresos', etiqueta: t('pestanas.ingresos') },
             { valor: 'balance', etiqueta: t('pestanas.balance') },
           ]}
-          className="self-start"
+          // Móvil: a todo el ancho, con las tres pestañas repartidas y centradas. Escritorio: a la izquierda.
+          anchoCompleto
+          className="sm:w-auto sm:self-start"
         />
 
         {verGastos && (

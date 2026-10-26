@@ -196,6 +196,7 @@ export default {
   'resumen.categoriaPrincipal': 'Categoría principal',
   'resumen.ajustes': 'Ajustes (no cuentan en el balance)',
   'form.sugerida': 'Sugerida',
+  'form.ayudaRendimientos': 'Lo que te paga tu dinero invertido: intereses o dividendos. Que tu inversión suba de valor no es un ingreso: eso se ve en el patrimonio.',
   'form.categoriaSugeridaAyuda': 'Sugerida por lo que sueles apuntar con ese concepto. Puedes cambiarla.',
   'form.gastoOriginalQueda': 'Quedan {pendiente} por devolver de ese gasto.',
   'form.atajosFecha': 'Fecha rápida',

@@ -5,7 +5,7 @@ import { aCentimos, formatearEuros } from '@/shared/lib/dinero';
 import { escalaDeImportes, tramoBarra } from '@/shared/lib/ejes';
 import { formatearFecha } from '@/shared/lib/fechas';
 import { cx } from '@/shared/lib/cx';
-import type { DiaSerie, MovimientoDia } from '../lib/agregaciones';
+import type { DiaSerie } from '../lib/agregaciones';
 
 export type ModoDiario = 'gastos' | 'ingresos';
 
@@ -13,7 +13,7 @@ interface Props {
   dias: readonly DiaSerie[];
   /**
    * gastos: una barra por día con el gasto neto (gastos − devoluciones, sección 3); al elegir un
-   * día, «Gastos X · Devoluciones −Y · Neto Z» y su lista con las devoluciones en verde.
+   * día, «Gastos X · Devoluciones −Y · Neto Z» (el dinero del día, sin la lista de compras).
    * ingresos: una barra por día con los ingresos reales. Las devoluciones nunca salen aquí: restan
    * del gasto de su categoría (sección 2).
    */
@@ -62,40 +62,18 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
       t('diario.lectura.neto', { importe: euros(d.datos.gasto_neto) }),
     ];
   };
-  const lista = (d: DiaSerie): MovimientoDia[] =>
-    (d.datos?.movimientos ?? []).filter((m) => (gastos ? m.tipo !== 'ingreso' : m.tipo === 'ingreso'));
-  const textoMovimiento = (m: MovimientoDia) =>
-    m.tipo === 'devolucion'
-      ? t('diario.lectura.movimientoDevolucion', {
-          concepto: m.concepto,
-          importe: formatearEuros(m.importe, locale, { signo: 'negativo' }),
-        })
-      : `${m.concepto} · ${euros(m.importe)}`;
+  // Al elegir un día se ve el día y su dinero, no qué se compró: eso está en Movimientos.
 
   const tituloCard = t(gastos ? 'diario.tituloGastos' : 'diario.tituloIngresos', { mes: nombreMes });
 
   return (
-    <Card
-      titulo={tituloCard}
-      accion={<AyudaGrafico unidad="dia" />}
-    >
-      <div className="flex flex-col gap-3">
+    // El gráfico crece con la tarjeta (la de al lado, la comparativa, suele ser más alta): sin hueco abajo.
+    <Card titulo={tituloCard} accion={<AyudaGrafico unidad="dia" />} className="flex flex-col">
+      <div className="flex flex-1 flex-col gap-3">
         {elegido && (
           <LecturaGrafico data-testid="lectura-diario" titulo={titulo(elegido)} valor={valor(elegido)}>
             {detalle(elegido).length > 0 && (
               <span className="cifras text-xs text-apagado sm:text-sm">{detalle(elegido).join(' · ')}</span>
-            )}
-            {lista(elegido).length > 0 && (
-              <ul aria-label={t('diario.lectura.lista')} className="mt-1 flex flex-col gap-0.5 text-xs text-texto sm:text-sm">
-                {lista(elegido).map((m) => (
-                  <li key={m.id} className={cx('flex justify-between gap-3', m.tipo === 'devolucion' && 'text-positivo')}>
-                    <span className="min-w-0 truncate">{m.concepto}</span>
-                    <span className="cifras shrink-0">
-                      {formatearEuros(m.importe, locale, m.tipo === 'devolucion' && gastos ? { signo: 'negativo' } : {})}
-                    </span>
-                  </li>
-                ))}
-              </ul>
             )}
           </LecturaGrafico>
         )}
@@ -108,17 +86,18 @@ export function GraficoDiario({ dias, modo, nombreMes }: Props) {
           aria-valuenow={indice + 1}
           aria-valuetext={
             elegido
-              ? [`${titulo(elegido)} · ${valor(elegido)}`, ...detalle(elegido), ...lista(elegido).map(textoMovimiento)].join('. ')
+              ? [`${titulo(elegido)} · ${valor(elegido)}`, ...detalle(elegido)].join('. ')
               : undefined
           }
           onKeyDown={alTeclado}
-          className="flex gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+          className="flex min-h-56 flex-1 gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
         >
-          <EtiquetasEje escala={escala} locale={locale} className="h-48" />
+          {/* Mismo alto que el área de barras: todo menos la fila de días (h-4) y su separación (gap-1.5). */}
+          <EtiquetasEje escala={escala} locale={locale} className="mb-5.5 self-stretch" />
           <div aria-hidden="true" className="flex min-w-0 flex-1 flex-col gap-1.5">
             <div
               data-testid="superficie-diario"
-              className="relative flex h-48 cursor-crosshair touch-pan-y gap-[2px] select-none"
+              className="relative flex min-h-48 flex-1 cursor-crosshair touch-pan-y gap-[2px] select-none"
               {...superficie}
             >
               <LineasEje escala={escala} />

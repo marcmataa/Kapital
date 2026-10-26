@@ -133,13 +133,19 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
               </div>
             </div>
 
-            {/* Franja 2: balance, con su propio eje y su línea del cero. */}
+            {/*
+              Franja 2: balance, con su propio eje y su línea del cero. Separada de las barras y con su
+              título: son dos escalas distintas y pegadas parecían un solo gráfico.
+            */}
+            <p aria-hidden="true" className="mt-2 border-t border-borde pt-3 text-xs font-medium text-apagado first-letter:uppercase">
+              {t('balanceMeses.balance')}
+            </p>
             <div className="flex gap-2">
-              <EtiquetasEje escala={escalaBalance} locale={locale} className={cx('h-20', ANCHO_ETIQUETAS)} />
+              <EtiquetasEje escala={escalaBalance} locale={locale} className={cx('h-24', ANCHO_ETIQUETAS)} />
               <div
                 aria-hidden="true"
                 data-testid="franja-balance"
-                className="relative h-20 min-w-0 flex-1 cursor-crosshair touch-pan-y select-none"
+                className="relative h-24 min-w-0 flex-1 cursor-crosshair touch-pan-y select-none"
                 {...superficie}
               >
                 <LineasEje escala={escalaBalance} />

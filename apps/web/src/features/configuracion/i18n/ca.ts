@@ -75,6 +75,7 @@ export default {
   'categorias.archivadas': 'Arxivades ({n})',
   'categorias.archivadasAyuda': 'Les categories arxivades no apareixen als formularis, però la seva història es conserva.',
   'categorias.subir': 'Pujar {nombre}',
+  'categorias.ayudaRendimientos': 'El que et paguen els teus diners invertits: interessos o dividends. Que la teva inversió pugi de valor no és un ingrés: això es veu al patrimoni.',
   'categorias.bajar': 'Baixar {nombre}',
   'categorias.editar': 'Editar {nombre}',
   'categorias.archivar': 'Arxivar {nombre}',

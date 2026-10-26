@@ -136,6 +136,11 @@ export default defineConfig(({ mode }) => {
           globIgnores: ['brand/kapital-icono.png', 'brand/kapital-marca.png'],
           navigateFallback: 'index.html',
           cleanupOutdatedCaches: true,
+          // La versión nueva toma el control en cuanto se instala: sin esto se queda «esperando»
+          // hasta cerrar todas las pestañas de la PWA (en el iPhone, casi nunca) y se sigue viendo
+          // la versión anterior.
+          skipWaiting: true,
+          clientsClaim: true,
           runtimeCaching: [
             {
               // Datos financieros y auth: nunca se cachean.
