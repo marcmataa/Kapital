@@ -69,7 +69,7 @@ export function Field({ label, error, ayuda, opcional = false, id, className, et
 export const clasesControl = cx(
   'h-11 w-full rounded-xl border border-borde-input bg-superficie-2 px-3 text-base text-texto sm:text-sm',
   'placeholder:text-tenue transition-colors',
-  'focus:border-acento focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-acento-suave',
+  'focus:border-acento focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-acento/45',
   'aria-[invalid=true]:border-negativo',
   'disabled:cursor-not-allowed disabled:opacity-60',
 );

@@ -3,6 +3,14 @@ import type es from './es';
 
 export default {
   'marca.lema': 'Els teus diners, sota control.',
+  'panel.region': 'Què és Kapital',
+  'panel.titulo': 'Les teves finances personals, clares i a la butxaca.',
+  'panel.balance.titulo': 'Saps quant estalvies',
+  'panel.balance.texto': 'Ingressos, despeses netes i balanç de cada mes, amb les devolucions i els traspassos ben comptats.',
+  'panel.patrimonio.titulo': 'Tot el teu patrimoni en un lloc',
+  'panel.patrimonio.texto': 'Comptes, efectiu i inversions, i com evoluciona el teu capital dia a dia.',
+  'panel.atajo.titulo': 'Apunta una despesa en segons',
+  'panel.atajo.texto': 'Des de l’iPhone amb una drecera, o des de l’ordinador. Les teves dades només són teves.',
   'campo.email': 'Correu electrònic',
   'campo.password': 'Contrasenya',
   'campo.passwordNueva': 'Nova contrasenya',

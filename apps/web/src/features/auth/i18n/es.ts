@@ -2,6 +2,14 @@ import type { Mensajes } from '@/shared/i18n/tipos';
 
 export default {
   'marca.lema': 'Tu dinero, bajo control.',
+  'panel.region': 'Qué es Kapital',
+  'panel.titulo': 'Tus finanzas personales, claras y en tu bolsillo.',
+  'panel.balance.titulo': 'Sabes cuánto ahorras',
+  'panel.balance.texto': 'Ingresos, gastos netos y balance de cada mes, con las devoluciones y los traspasos bien contados.',
+  'panel.patrimonio.titulo': 'Todo tu patrimonio en un sitio',
+  'panel.patrimonio.texto': 'Cuentas, efectivo e inversiones, y cómo evoluciona tu capital día a día.',
+  'panel.atajo.titulo': 'Apunta un gasto en segundos',
+  'panel.atajo.texto': 'Desde el iPhone con un atajo, o desde el ordenador. Tus datos solo son tuyos.',
   'campo.email': 'Email',
   'campo.password': 'Contraseña',
   'campo.passwordNueva': 'Nueva contraseña',

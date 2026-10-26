@@ -28,7 +28,7 @@ export default function PaginaConfiguracion() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+    <div className="flex w-full flex-col gap-4">
       <CabeceraPagina titulo={t('titulo')} />
       <SeccionIdioma />
       {cargando ? (

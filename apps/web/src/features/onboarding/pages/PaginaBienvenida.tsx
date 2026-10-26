@@ -11,7 +11,7 @@ import { useIdioma, useT, type Idioma } from '@/shared/i18n';
 import { ENTIDADES, MAX_BANCOS, NOMBRE_ENTIDAD, type Entidad } from '@/shared/lib/bancos';
 import { formatearEuros } from '@/shared/lib/dinero';
 import { ZONA_POR_DEFECTO, formatearFecha, hoy } from '@/shared/lib/fechas';
-import { BotonTema, Logo, useTituloDocumento } from '@/shared/layout';
+import { Logo, SelectorTema, useTituloDocumento } from '@/shared/layout';
 import { BankLogo, Button } from '@/shared/ui';
 import { claveErrorOnboarding, useCompletarOnboardingMutation, type ClaveErrorOnboarding } from '../api/onboardingApi';
 import { SelectorBanco, type BancoElegido } from '../components/SelectorBanco';
@@ -337,7 +337,7 @@ export default function PaginaBienvenida() {
               <span className="text-sm text-apagado" aria-hidden="true">
                 {textoPaso}
               </span>
-              <BotonTema />
+              <SelectorTema compacto />
             </div>
           </div>
           <div
