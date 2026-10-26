@@ -1,4 +1,4 @@
-import { Card, EmptyState } from '@/shared/ui';
+import { AyudaGrafico, Card, EmptyState } from '@/shared/ui';
 import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { useT } from '@/shared/i18n';
 import type { IngresoCategoria } from '../lib/agregaciones';
@@ -9,7 +9,7 @@ export function IngresosPorCategoria({ ingresos }: { ingresos: readonly IngresoC
   const t = useT('estadisticas');
   const nombreCategoria = useNombreCategoriaCatalogo();
   return (
-    <Card titulo={t('ingresos.titulo')}>
+    <Card titulo={t('ingresos.titulo')} accion={ingresos.length > 0 ? <AyudaGrafico unidad="categoria" /> : undefined}>
       <div className="flex flex-col gap-3">
         {ingresos.length === 0 ? (
           <EmptyState titulo={t('ingresos.vacio')} className="py-6" />

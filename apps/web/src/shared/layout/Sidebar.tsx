@@ -26,7 +26,7 @@ export function Sidebar({ className }: { className?: string }) {
                 className={({ isActive }) =>
                   cx(
                     'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
-                    isActive ? 'bg-nav-activo text-texto' : 'text-apagado hover:bg-superficie-2 hover:text-texto',
+                    isActive ? 'bg-nav-activo text-texto' : 'text-apagado hover:bg-texto/5 hover:text-texto',
                   )
                 }
               >

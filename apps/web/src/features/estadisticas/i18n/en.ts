@@ -23,9 +23,9 @@ export default {
   'diario.tituloGastos': 'Spending per day · {mes}',
   'diario.tituloIngresos': 'Income and refunds per day · {mes}',
   'diario.nota':
-    'Net spending each day: spending minus refunds. Move the mouse or your finger over the chart, or use the arrow keys, to see each day and its expenses. Future days stay empty; today is provisional.',
+    'Net spending each day: spending minus refunds. Future days stay empty; today is provisional.',
   'diario.notaIngresos':
-    'Refunds are not income: they reduce the spending of their category and never add to any income total. Move the mouse or your finger over the chart, or use the arrow keys, to see each day.',
+    'Refunds are not income: they reduce the spending of their category and never add to any income total.',
   'diario.hoy': 'today, provisional',
   'diario.control': 'Day of the chart',
   'diario.leyenda.ingresos': 'Income',
@@ -64,7 +64,7 @@ export default {
   'metodo.sin': 'No method',
   'meses.titulo': 'Last 6 months',
   'meses.control': 'Month of the spending chart',
-  'meses.ayuda': 'Net spending each month. Move the mouse or your finger over the bars, or use the arrow keys.',
+  'meses.ayuda': 'Net spending each month; the current month is provisional.',
   'meses.lectura.enCurso': '{mes} · so far (provisional)',
   'ingresos.titulo': 'Income per category',
   'ingresos.vacio': 'No income in this period.',
@@ -73,7 +73,6 @@ export default {
   'balance.hastaHoy': 'so far',
   'balanceMeses.titulo': 'Last 6 months',
   'balanceMeses.control': 'Month of the balance chart',
-  'balanceMeses.ayuda': 'Move the mouse or your finger over the chart, or use the arrow keys, to see each month.',
   'balanceMeses.balance': 'balance',
   'balanceMeses.ingresos': 'Income {importe}',
   'balanceMeses.gastos': 'Net spending {importe}',

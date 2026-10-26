@@ -3,16 +3,10 @@ import { useIdioma, useT } from '@/shared/i18n';
 import { aCentimos, formatearEuros, formatearPorcentaje, variacionPorcentual } from '@/shared/lib/dinero';
 import { componerFecha, diasDelMes, finDeMes, inicioDeMes, mismoDiaMesAnterior, partesDe, sumarMeses } from '@/shared/lib/fechas';
 import { cx } from '@/shared/lib/cx';
+import { escalaRedonda, formatearEurosEje, posicionEnEje } from '@/shared/lib/ejes';
+import { AyudaGrafico } from '@/shared/ui';
 import type { PuntoPatrimonio } from '../api/inicioApi';
-import {
-  capitalizar,
-  escalaEje,
-  formatearDiaMes,
-  formatearEurosEje,
-  fraccion,
-  mesLargo,
-  restarImportes,
-} from '../lib/calculos';
+import { capitalizar, formatearDiaMes, mesLargo, restarImportes } from '../lib/calculos';
 
 interface Props {
   /** Hoy en la zona del usuario ('YYYY-MM-DD'). */
@@ -28,7 +22,8 @@ interface Props {
 
 const ANCHO_POR_DEFECTO = 640;
 const MARCAS_X = [1, 5, 10, 15, 20, 25, 30];
-const MARGEN = { arriba: 18, derecha: 16, abajo: 42 } as const;
+/** Arriba hay sitio para la etiqueta «23 oct (hoy)», fuera del área de la línea. */
+const MARGEN = { arriba: 30, derecha: 16, abajo: 42 } as const;
 
 /** Ancho real del contenedor (ResizeObserver) para que 1 unidad del SVG = 1 px y el texto no encoja. */
 function useAncho(el: HTMLElement | null): number {
@@ -144,7 +139,8 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
   const hayDatos = todos.length > 0;
   const minimo = hayDatos ? todos.reduce((a, b) => (b < a ? b : a)) : 0n;
   const maximo = hayDatos ? todos.reduce((a, b) => (b > a ? b : a)) : 0n;
-  const escala = escalaEje(minimo, maximo, 5);
+  // Números redondos (3–4 marcas); el patrimonio no se fuerza a empezar en 0.
+  const escala = escalaRedonda(minimo, maximo, { incluirCero: false });
   const etiquetasY = escala.ticks.map((c) => ({ c, texto: formatearEurosEje(c, locale) }));
   const largoEtiqueta = Math.max(...etiquetasY.map((e) => e.texto.length));
 
@@ -154,7 +150,7 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
   const anchoPlot = Math.max(1, ancho - izquierda - MARGEN.derecha);
   const altoPlot = alto - MARGEN.arriba - MARGEN.abajo;
   const x = (dia: number) => izquierda + ((dia - 1) / (diasEje - 1)) * anchoPlot;
-  const y = (importe: string) => MARGEN.arriba + (1 - fraccion(aCentimos(importe), escala.min, escala.max)) * altoPlot;
+  const y = (importe: string) => MARGEN.arriba + (1 - posicionEnEje(importe, escala)) * altoPlot;
   const r1 = (n: number) => Math.round(n * 10) / 10;
   const puntos = (m: Map<number, string>) =>
     [...m.entries()]
@@ -174,8 +170,11 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
   const valorHoy = valoresActual.get(refP.dia);
   const xHoy = x(refP.dia);
   const yHoy = valorHoy !== undefined ? y(valorHoy) : 0;
-  const etiquetaHoyALaIzquierda = xHoy > izquierda + anchoPlot * 0.6;
-  const etiquetaHoyDebajo = yHoy < MARGEN.arriba + 22;
+  // Etiqueta «23 oct (hoy)» encima del área del gráfico, centrada sobre su día pero sin salirse
+  // por los lados: así nunca pisa la línea, los puntos ni las marcas de los ejes.
+  const textoHoy = enCurso ? t('grafico.hoy', { fecha: formatearDiaMes(hoy, locale) }) : formatearDiaMes(referencia, locale);
+  const mitadTextoHoy = (textoHoy.length * 7) / 2;
+  const xEtiquetaHoy = Math.min(Math.max(xHoy, izquierda + mitadTextoHoy), ancho - 2 - mitadTextoHoy);
 
   const valorSel = diaSel <= refP.dia ? valoresActual.get(diaSel) : undefined;
   const diaAntSel = partesDe(mismoDiaMesAnterior(fechaDe(diaSel))).dia;
@@ -207,7 +206,10 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
   return (
     <div className={cx('flex flex-col gap-3', className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-texto">{t('grafico.titulo')}</h2>
+        <span className="flex items-center gap-1">
+          <h2 className="text-base font-semibold text-texto">{t('grafico.titulo')}</h2>
+          <AyudaGrafico unidad="dia" />
+        </span>
         <span className="flex gap-3.5 text-xs text-apagado sm:text-sm" aria-hidden="true">
           <span className="flex items-center gap-1.5">
             <span className="h-[3px] w-4 rounded-sm bg-acento" />
@@ -266,7 +268,7 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
             >
               <g className="stroke-borde" strokeWidth={1}>
                 {etiquetasY.map(({ c }) => {
-                  const yy = r1(MARGEN.arriba + (1 - fraccion(c, escala.min, escala.max)) * altoPlot);
+                  const yy = r1(MARGEN.arriba + (1 - posicionEnEje(c, escala)) * altoPlot);
                   return <line key={c.toString()} x1={izquierda} x2={izquierda + anchoPlot} y1={yy} y2={yy} />;
                 })}
               </g>
@@ -275,7 +277,7 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
                   <text
                     key={c.toString()}
                     x={izquierda - 8}
-                    y={r1(MARGEN.arriba + (1 - fraccion(c, escala.min, escala.max)) * altoPlot + 4)}
+                    y={r1(MARGEN.arriba + (1 - posicionEnEje(c, escala)) * altoPlot + 4)}
                   >
                     {texto}
                   </text>
@@ -292,7 +294,7 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
                 x={r1(izquierda + anchoPlot / 2)}
                 y={alto - 6}
                 textAnchor="middle"
-                className="fill-tenue text-[11px]"
+                className="fill-apagado text-xs"
               >
                 {t('grafico.ejeX')}
               </text>
@@ -346,13 +348,25 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
                     className={enCurso ? 'fill-superficie stroke-acento' : 'fill-acento stroke-acento'}
                     strokeWidth={3}
                   />
+                  {yHoy - 9 > MARGEN.arriba - 4 && (
+                    <line
+                      x1={r1(xHoy)}
+                      x2={r1(xHoy)}
+                      y1={MARGEN.arriba - 4}
+                      y2={r1(yHoy - 9)}
+                      className="stroke-borde-fuerte"
+                      strokeWidth={1}
+                      strokeDasharray="2 3"
+                    />
+                  )}
                   <text
-                    x={r1(etiquetaHoyALaIzquierda ? xHoy - 10 : xHoy + 10)}
-                    y={r1(etiquetaHoyDebajo ? yHoy + 22 : yHoy - 12)}
-                    textAnchor={etiquetaHoyALaIzquierda ? 'end' : 'start'}
+                    data-testid="etiqueta-hoy"
+                    x={r1(xEtiquetaHoy)}
+                    y={MARGEN.arriba - 10}
+                    textAnchor="middle"
                     className="fill-texto text-xs font-medium"
                   >
-                    {enCurso ? t('grafico.hoy', { fecha: formatearDiaMes(hoy, locale) }) : formatearDiaMes(referencia, locale)}
+                    {textoHoy}
                   </text>
                 </>
               )}

@@ -1,5 +1,6 @@
 export { AppLayout } from './AppLayout';
-export { BotonTema } from './BotonTema';
+export { SelectorIdiomaCompacto } from './SelectorIdiomaCompacto';
+export { SelectorTema } from './SelectorTema';
 export { CabeceraPagina, useTituloDocumento } from './CabeceraPagina';
 export { Logo } from './Logo';
 export { PaginaEnConstruccion } from './PaginaEnConstruccion';

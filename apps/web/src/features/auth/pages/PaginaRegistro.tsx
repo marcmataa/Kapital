@@ -8,7 +8,7 @@ import { Button, EmptyState, Input } from '@/shared/ui';
 import { registrar } from '../api/authServicio';
 import type { ClaveErrorAuth } from '../api/errores';
 import { AlertaError } from '../components/AlertaError';
-import { AuthLayout } from '../components/AuthLayout';
+import { AuthLayout, SeparadorO } from '../components/AuthLayout';
 import { BotonGoogle } from '../components/BotonGoogle';
 import { PasswordInput } from '../components/PasswordInput';
 import { PASSWORD_MINIMO, esquemaRegistro, type DatosRegistro } from '../schemas/esquemas';
@@ -62,11 +62,7 @@ export default function PaginaRegistro() {
     <AuthLayout titulo={t('registro.titulo')} subtitulo={t('registro.subtitulo')} pie={pie}>
       <div className="flex flex-col gap-4">
         <BotonGoogle onError={setError} />
-        <div className="flex items-center gap-3 text-xs text-apagado" aria-hidden="true">
-          <span className="h-px flex-1 bg-borde" />
-          {t('login.separador')}
-          <span className="h-px flex-1 bg-borde" />
-        </div>
+        <SeparadorO texto={t('login.separador')} />
         <form noValidate onSubmit={(e) => void enviar(e)} className="flex flex-col gap-4">
           <AlertaError mensaje={error && t(error)} />
           <Input

@@ -3,6 +3,14 @@ import type es from './es';
 
 export default {
   'marca.lema': 'Your money, under control.',
+  'panel.region': 'What Kapital is',
+  'panel.titulo': 'Your personal finances, clear and in your pocket.',
+  'panel.balance.titulo': 'Know how much you save',
+  'panel.balance.texto': 'Income, net spending and balance for every month, with refunds and transfers counted properly.',
+  'panel.patrimonio.titulo': 'All your net worth in one place',
+  'panel.patrimonio.texto': 'Accounts, cash and investments, and how your wealth changes day by day.',
+  'panel.atajo.titulo': 'Log an expense in seconds',
+  'panel.atajo.texto': 'From your iPhone with a shortcut, or from your computer. Your data is yours alone.',
   'campo.email': 'Email',
   'campo.password': 'Password',
   'campo.passwordNueva': 'New password',

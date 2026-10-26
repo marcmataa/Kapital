@@ -29,12 +29,12 @@ export default {
   'grafico.alternativa':
     "Patrimoni diari de {mesActual} fins avui ({valorHoy}) comparat amb {mesAnterior}. Fes servir el control del gràfic per recórrer cada dia.",
   'grafico.ayuda':
-    'Passa el ratolí o el dit pel gràfic, o fes servir les fletxes del teclat, per veure cada dia. El punt buit és avui: provisional fins a les 23:59.',
+    'El punt buit és avui: provisional fins a les 23:59.',
   'grafico.vacio': 'Encara no hi ha dades de patrimoni aquest mes.',
   'grafico.alternativaCerrado':
     'Patrimoni diari de {mesActual} fins al {fecha} ({valorHoy}) comparat amb {mesAnterior}. Fes servir el control del gràfic per recórrer cada dia.',
   'grafico.ayudaCerrado':
-    "Passa el ratolí o el dit pel gràfic, o fes servir les fletxes del teclat, per veure cada dia. L'últim punt és el tancament del mes.",
+    "L'últim punt és el tancament del mes.",
   'grafico.vacioCerrado': "No hi ha dades de patrimoni d'aquell mes.",
   'grafico.lectura.hoy': '{fecha} · avui (provisional)',
   'grafico.lectura.comparacion': 'vs {fecha} {valor} · {diferencia} ({porcentaje})',

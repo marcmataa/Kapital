@@ -23,9 +23,9 @@ export default {
   'diario.tituloGastos': 'Despesa per dia · {mes}',
   'diario.tituloIngresos': 'Ingressos i devolucions per dia · {mes}',
   'diario.nota':
-    'Despesa neta de cada dia: despeses menys devolucions. Passa el ratolí o el dit pel gràfic, o fes servir les fletxes del teclat, per veure cada dia i les seves despeses. Els dies futurs queden buits; el d’avui és provisional.',
+    'Despesa neta de cada dia: despeses menys devolucions. Els dies futurs queden buits; el d’avui és provisional.',
   'diario.notaIngresos':
-    'Les devolucions no són ingressos: resten de la despesa de la seva categoria i no se sumen a cap total d’ingressos. Passa el ratolí o el dit pel gràfic, o fes servir les fletxes del teclat, per veure cada dia.',
+    'Les devolucions no són ingressos: resten de la despesa de la seva categoria i no se sumen a cap total d’ingressos.',
   'diario.hoy': 'avui, provisional',
   'diario.control': 'Dia del gràfic',
   'diario.leyenda.ingresos': 'Ingressos',
@@ -64,7 +64,7 @@ export default {
   'metodo.sin': 'Sense mètode',
   'meses.titulo': 'Últims 6 mesos',
   'meses.control': 'Mes del gràfic de despesa',
-  'meses.ayuda': 'Despesa neta de cada mes. Passa el ratolí o el dit per les barres, o fes servir les fletxes del teclat.',
+  'meses.ayuda': 'Despesa neta de cada mes; el mes en curs és provisional.',
   'meses.lectura.enCurso': '{mes} · fins avui (provisional)',
   'ingresos.titulo': 'Ingressos per categoria',
   'ingresos.vacio': 'No hi ha ingressos en aquest període.',
@@ -73,7 +73,6 @@ export default {
   'balance.hastaHoy': 'fins avui',
   'balanceMeses.titulo': 'Últims 6 mesos',
   'balanceMeses.control': 'Mes del gràfic de balanç',
-  'balanceMeses.ayuda': 'Passa el ratolí o el dit pel gràfic, o fes servir les fletxes del teclat, per veure cada mes.',
   'balanceMeses.balance': 'balanç',
   'balanceMeses.ingresos': 'Ingressos {importe}',
   'balanceMeses.gastos': 'Despeses netes {importe}',
