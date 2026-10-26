@@ -22,6 +22,7 @@ const db = vi.hoisted(() => ({
   llamadas: [] as Llamada[],
   datos: {} as Record<string, unknown>,
   rpc: vi.fn(),
+  invoke: vi.fn(),
   /** Respuesta para escrituras (update/insert); por defecto, éxito. */
   escribir: vi.fn(),
 }));
@@ -54,6 +55,10 @@ vi.mock('@/shared/lib/supabase', () => {
         return b;
       },
       order: () => b,
+      range(desde: number, hasta: number) {
+        reg.filtros.push(['range', [desde, hasta]]);
+        return b;
+      },
       maybeSingle: () => b,
       then(ok: (r: Respuesta) => unknown, ko?: (e: unknown) => unknown) {
         db.llamadas.push(reg);
@@ -62,7 +67,7 @@ vi.mock('@/shared/lib/supabase', () => {
     };
     return b;
   };
-  return { supabase: { from: desde, rpc: db.rpc } };
+  return { supabase: { from: desde, rpc: db.rpc, functions: { invoke: db.invoke } } };
 });
 
 // Componentes de otras features: se sustituyen por dobles mínimos con la misma interfaz.
@@ -84,6 +89,8 @@ const { default: PaginaConfiguracion } = await import('./pages/PaginaConfiguraci
 const { cambiarPrincipal, COLUMNAS_TOKENS } = await import('./api/configuracionApi');
 const { reordenar } = await import('./components/categorias');
 const { leerSaldo } = await import('./components/SheetAnadirBanco');
+const { celdaCsv, COLUMNAS_EXPORTAR, generarCsv } = await import('./api/exportar');
+const { confirmacionValida } = await import('./api/eliminarCuenta');
 
 /* ------------------------------------------------------------------ Datos inventados */
 
@@ -162,6 +169,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.escribir.mockReset();
   db.rpc.mockReset();
+  db.invoke.mockReset();
   db.llamadas = [];
   preparar();
 });
@@ -199,6 +207,23 @@ describe('Mis bancos', () => {
     expect(t.getByText('1.842,10 €')).toBeInTheDocument();
     expect(t.getByText('Principal')).toBeInTheDocument();
     expect(t.getAllByText('Desde 01/10/2026')).toHaveLength(2);
+  });
+
+  it('el límite de 5 bancos se explica siempre, no solo al llegar a él', async () => {
+    renderPagina();
+    expect(await screen.findByText(/Puedes tener hasta 5 bancos abiertos a la vez/)).toBeInTheDocument();
+    expect(screen.getByText(/El efectivo y los bancos cerrados no cuentan/)).toBeInTheDocument();
+  });
+
+  it('cambia el banco principal desde la lista con la RPC atómica', async () => {
+    db.rpc.mockResolvedValue({ data: null, error: null });
+    renderPagina();
+    expect(await screen.findByRole('button', { name: 'Hacer principal Banco Prueba' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hacer principal CaixaBank' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Hacer principal Banco Prueba' }));
+    await waitFor(() => expect(db.rpc).toHaveBeenCalledWith('hacer_principal', { p_cuenta: 'otro' }));
+    expect(db.rpc).toHaveBeenCalledTimes(1);
+    expect(escrituras('cuentas')).toHaveLength(0);
   });
 
   it('añadir banco llama a crear_banco con el saldo normalizado', async () => {
@@ -504,6 +529,16 @@ describe('Objetivos', () => {
 /* ------------------------------------------------------------------ Atajo */
 
 describe('Atajo del iPhone', () => {
+  it('explica primero qué hace el atajo y que acepta las categorías en cualquier idioma', async () => {
+    renderPagina();
+    const titulo = await screen.findByRole('heading', { name: 'Atajo del iPhone' });
+    const tarjeta = within(titulo.closest('section') as HTMLElement);
+    const textos = tarjeta.getAllByText(/./, { selector: 'p' }).map((p) => p.textContent ?? '');
+    expect(textos[0]).toMatch(/^Apunta gastos desde el iPhone con Siri o un toque/);
+    expect(textos[1]).toMatch(/«Ocio», «Leisure» u «Oci»/);
+    expect(textos[2]).toMatch(/token/);
+  });
+
   it('la lista de tokens nunca pide token_hash', async () => {
     renderPagina();
     expect(await screen.findByText('iPhone')).toBeInTheDocument();
@@ -579,7 +614,7 @@ describe('Apariencia y cuenta', () => {
     sesion.user.app_metadata = { provider: 'google' };
     sesion.user.user_metadata = { full_name: 'Ana Inventada' };
     renderConApp(<PaginaConfiguracion />, { sesion, auth: { cerrarSesion } });
-    expect(screen.getByText('Ana Inventada')).toBeInTheDocument();
+    expect(await screen.findByText('Ana Inventada')).toBeInTheDocument();
     expect(screen.getByText('ana@ejemplo.com · Google')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
     expect(cerrarSesion).toHaveBeenCalledOnce();
@@ -594,7 +629,269 @@ describe('Apariencia y cuenta', () => {
       </Routes>,
       { sesion: sesionFalsa(USER), auth: { cerrarSesion }, ruta: '/configuracion' },
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Cerrar sesión' }));
     expect(await screen.findByRole('heading', { name: 'Pantalla de login' })).toBeInTheDocument();
+  });
+});
+
+/* ------------------------------------------------------------------ Exportar */
+
+describe('Exportar movimientos a CSV', () => {
+  const MOVS = [
+    {
+      id: 'm1',
+      fecha: '2026-10-02',
+      tipo: 'gasto',
+      sentido: null,
+      importe: '1258.00',
+      concepto: 'Cena; "amigos"',
+      comercio: null,
+      categoria_id: 'c1',
+      metodo: 'tarjeta',
+      cuenta_id: 'caixa',
+      cuenta_destino_id: null,
+      notas: null,
+    },
+    {
+      id: 'm2',
+      fecha: '2026-10-03',
+      tipo: 'traspaso',
+      sentido: null,
+      importe: '0.10',
+      concepto: '=HYPERLINK("x")',
+      comercio: null,
+      categoria_id: null,
+      metodo: null,
+      cuenta_id: 'caixa',
+      cuenta_destino_id: 'efectivo',
+      notas: 'línea 1\nlínea 2',
+    },
+  ];
+
+  it('celdaCsv entrecomilla lo necesario y neutraliza fórmulas', () => {
+    expect(celdaCsv('38.50')).toBe('38.50');
+    expect(celdaCsv(null)).toBe('');
+    expect(celdaCsv('a;b')).toBe('"a;b"');
+    expect(celdaCsv('di "hola"')).toBe('"di ""hola"""');
+    expect(celdaCsv('=1+1')).toBe("'=1+1");
+    expect(celdaCsv('-24')).toBe("'-24");
+    expect(celdaCsv('@x')).toBe("'@x");
+  });
+
+  it('generarCsv: importes como texto exacto, nombres de cuenta y categoría traducida', () => {
+    const csv = generarCsv(
+      MOVS,
+      {
+        cuentas: [
+          { id: 'caixa', nombre: 'CaixaBank' },
+          { id: 'efectivo', nombre: 'Efectivo' },
+        ],
+        categorias: [categoria('c1', 'Ocio', 'gasto', 1, { clave: 'ocio' })],
+      },
+      {
+        fecha: 'F',
+        tipo: 'T',
+        sentido: 'S',
+        importe: 'I',
+        concepto: 'C',
+        comercio: 'Co',
+        categoria: 'Ca',
+        metodo: 'M',
+        cuenta: 'Cu',
+        cuentaDestino: 'CD',
+        notas: 'N',
+      },
+      (c) => (c.clave === 'ocio' ? 'Leisure' : c.nombre),
+    );
+    expect(csv.split('\r\n')).toEqual([
+      'F;T;S;I;C;Co;Ca;M;Cu;CD;N',
+      '2026-10-02;gasto;;1258.00;"Cena; ""amigos""";;Leisure;tarjeta;CaixaBank;;',
+      `2026-10-03;traspaso;;0.10;"'=HYPERLINK(""x"")";;;;CaixaBank;Efectivo;"línea 1\nlínea 2"`,
+      '',
+    ]);
+  });
+
+  it('el botón pide los movimientos con importe::text, por páginas, y descarga el CSV', async () => {
+    db.datos.movimientos = MOVS;
+    const blobs: Blob[] = [];
+    const crear = vi.spyOn(URL, 'createObjectURL').mockImplementation((b) => {
+      blobs.push(b as Blob);
+      return 'blob:falso';
+    });
+    const revocar = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const clic = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    try {
+      renderPagina();
+      await userEvent.click(await screen.findByRole('button', { name: 'Exportar movimientos (CSV)' }));
+      await waitFor(() => expect(clic).toHaveBeenCalledOnce());
+      const select = db.llamadas.find((l) => l.tabla === 'movimientos');
+      expect(select?.columnas).toBe(COLUMNAS_EXPORTAR);
+      expect(COLUMNAS_EXPORTAR).toContain('importe::text');
+      expect(select?.filtros).toContainEqual(['range', [0, 999]]);
+      expect(clic).toHaveBeenCalledOnce();
+      const texto = await (blobs[0] as Blob).text();
+      expect(texto).toContain('Fecha;Tipo;Sentido del ajuste;Importe (EUR);');
+      expect(texto).toContain(';1258.00;');
+      expect(texto).toContain(';Ocio;');
+    } finally {
+      crear.mockRestore();
+      revocar.mockRestore();
+      clic.mockRestore();
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ Eliminar cuenta */
+
+describe('Eliminar cuenta', () => {
+  const sesionAna = () => sesionFalsa(USER, { email: 'ana@ejemplo.com' });
+
+  async function abrirPaso2() {
+    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar cuenta' }));
+    const hoja = screen.getByRole('dialog', { name: 'Eliminar cuenta' });
+    expect(within(hoja).getByText(/No se puede deshacer/)).toBeInTheDocument();
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Continuar' }));
+    return hoja;
+  }
+
+  it('confirmacionValida compara el email sin espacios ni mayúsculas', () => {
+    expect(confirmacionValida(' Ana@Ejemplo.com ', 'ana@ejemplo.com')).toBe(true);
+    expect(confirmacionValida('ana@ejemplo.co', 'ana@ejemplo.com')).toBe(false);
+    expect(confirmacionValida('', null)).toBe(false);
+  });
+
+  it('doble confirmación: aviso y email; llama a la Edge Function y cierra sesión', async () => {
+    db.invoke.mockResolvedValue({ data: { ok: true }, error: null });
+    const cerrarSesion = vi.fn(() => Promise.resolve());
+    renderConApp(
+      <Routes>
+        <Route path="/login" element={<h1>Pantalla de login</h1>} />
+        <Route path="*" element={<PaginaConfiguracion />} />
+      </Routes>,
+      { sesion: sesionAna(), auth: { cerrarSesion }, ruta: '/configuracion' },
+    );
+    const hoja = await abrirPaso2();
+    const boton = within(hoja).getByRole('button', { name: 'Eliminar definitivamente' });
+    expect(boton).toBeDisabled();
+    await userEvent.type(within(hoja).getByLabelText('Email de tu cuenta'), 'otra@ejemplo.com');
+    expect(boton).toBeDisabled();
+    await userEvent.clear(within(hoja).getByLabelText('Email de tu cuenta'));
+    await userEvent.type(within(hoja).getByLabelText('Email de tu cuenta'), 'Ana@Ejemplo.com');
+    expect(boton).toBeEnabled();
+    await userEvent.click(boton);
+    await waitFor(() =>
+      expect(db.invoke).toHaveBeenCalledWith('eliminar-cuenta', { body: { confirmacion: 'Ana@Ejemplo.com' } }),
+    );
+    expect(db.invoke).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('heading', { name: 'Pantalla de login' })).toBeInTheDocument();
+    expect(cerrarSesion).toHaveBeenCalledOnce();
+  });
+
+  it('si el servidor pide reautenticación, lo explica y ofrece volver a entrar', async () => {
+    db.invoke.mockResolvedValue({
+      data: null,
+      error: {
+        name: 'FunctionsHttpError',
+        message: 'Edge Function returned a non-2xx status code',
+        context: new Response(JSON.stringify({ error: 'reautenticacion_requerida' }), { status: 403 }),
+      },
+    });
+    const cerrarSesion = vi.fn(() => Promise.resolve());
+    renderConApp(<PaginaConfiguracion />, { sesion: sesionAna(), auth: { cerrarSesion }, ruta: '/configuracion' });
+    const hoja = await abrirPaso2();
+    await userEvent.type(within(hoja).getByLabelText('Email de tu cuenta'), 'ana@ejemplo.com');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Eliminar definitivamente' }));
+    expect(await within(hoja).findByRole('alert')).toHaveTextContent(/vuelve a iniciar sesión/);
+    expect(screen.queryByText(/non-2xx/)).not.toBeInTheDocument();
+    expect(cerrarSesion).not.toHaveBeenCalled();
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Volver a iniciar sesión' }));
+    expect(cerrarSesion).toHaveBeenCalledOnce();
+  });
+
+  it('error de red → mensaje amable, sin cerrar sesión', async () => {
+    db.invoke.mockRejectedValue(new TypeError('Failed to fetch'));
+    const cerrarSesion = vi.fn(() => Promise.resolve());
+    renderConApp(<PaginaConfiguracion />, { sesion: sesionAna(), auth: { cerrarSesion }, ruta: '/configuracion' });
+    const hoja = await abrirPaso2();
+    await userEvent.type(within(hoja).getByLabelText('Email de tu cuenta'), 'ana@ejemplo.com');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Eliminar definitivamente' }));
+    expect(await within(hoja).findByRole('alert')).toHaveTextContent('No hay conexión.');
+    expect(cerrarSesion).not.toHaveBeenCalled();
+  });
+});
+
+/* ------------------------------------------------------------------ Móvil */
+
+describe('Configuración en el móvil', () => {
+  let original: typeof window.matchMedia | undefined;
+  beforeEach(() => {
+    original = window.matchMedia;
+    window.matchMedia = ((q: string) => ({
+      matches: false,
+      media: q,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    return () => {
+      if (original) window.matchMedia = original;
+      else Reflect.deleteProperty(window, 'matchMedia');
+    };
+  });
+
+  const montar = (ruta: string, cerrarSesion = vi.fn(() => Promise.resolve())) =>
+    renderConApp(
+      <Routes>
+        <Route path="/login" element={<h1>Pantalla de login</h1>} />
+        <Route path="/configuracion" element={<PaginaConfiguracion />} />
+        <Route path="/configuracion/:seccion" element={<PaginaConfiguracion />} />
+      </Routes>,
+      { sesion: sesionFalsa(USER), auth: { cerrarSesion }, ruta },
+    );
+
+  it('lista tipo Ajustes de iOS en orden y «Cerrar sesión» al final', async () => {
+    const cerrarSesion = vi.fn(() => Promise.resolve());
+    montar('/configuracion', cerrarSesion);
+    const nav = await screen.findByRole('navigation', { name: 'Configuración' });
+    const enlaces = within(nav).getAllByRole('link');
+    expect(enlaces.map((a) => a.textContent)).toEqual([
+      'Idioma',
+      'Mis bancos',
+      'Efectivo',
+      'Categorías',
+      'Objetivos',
+      'Atajo del iPhone',
+      'Apariencia',
+      'Cuenta',
+    ]);
+    expect(enlaces[1]).toHaveAttribute('href', '/configuracion/bancos');
+    // Ninguna sección se pinta en la lista.
+    expect(screen.queryByRole('heading', { name: 'Mis bancos' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
+    expect(cerrarSesion).toHaveBeenCalledOnce();
+    expect(await screen.findByRole('heading', { name: 'Pantalla de login' })).toBeInTheDocument();
+  });
+
+  it('cada sección en su propia pantalla, con vuelta a la lista', async () => {
+    montar('/configuracion/bancos');
+    expect(await screen.findByRole('heading', { level: 2, name: 'Mis bancos' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Atajo del iPhone' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Configuración' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole('link').find((a) => a.getAttribute('href') === '/configuracion') as HTMLElement);
+    expect(await screen.findByRole('navigation', { name: 'Configuración' })).toBeInTheDocument();
+  });
+
+  it('la pantalla «Cuenta» trae exportar y eliminar cuenta', async () => {
+    montar('/configuracion/cuenta');
+    expect(await screen.findByRole('button', { name: 'Exportar movimientos (CSV)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Eliminar cuenta' })).toBeInTheDocument();
+  });
+
+  it('una sección desconocida vuelve a la lista', async () => {
+    montar('/configuracion/nada');
+    expect(await screen.findByRole('navigation', { name: 'Configuración' })).toBeInTheDocument();
   });
 });
