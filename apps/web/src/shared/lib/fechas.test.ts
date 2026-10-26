@@ -3,6 +3,7 @@ import {
   diasDelMes,
   fechaEnZona,
   finDeMes,
+  formatearDiaMes,
   formatearFecha,
   formatearFechaHora,
   formatearMes,
@@ -58,6 +59,15 @@ describe('meses', () => {
 });
 
 describe('formato por idioma', () => {
+  it('fecha corta de día y mes: la misma en cualquier navegador, por idioma', () => {
+    expect(formatearDiaMes('2026-10-14', 'es-ES')).toBe('14 oct');
+    expect(formatearDiaMes('2026-09-03', 'es-ES')).toBe('3 sept');
+    expect(formatearDiaMes('2026-10-14', 'en-GB')).toBe('14 Oct');
+    expect(formatearDiaMes('2026-10-14', 'ca-ES')).toBe('14 oct');
+    expect(formatearDiaMes('2026-03-01', 'ca-ES')).toBe('1 març');
+    expect(formatearDiaMes('2026-08-01', 'ca')).toBe('1 ag');
+    expect(() => formatearDiaMes('14/10/2026', 'es-ES')).toThrow();
+  });
   it('un día civil no cambia de día con la zona', () => {
     expect(formatearFecha('2026-10-17', 'es-ES', 'corta')).toBe('17/10/2026');
     expect(formatearFecha('2026-10-01', 'es-ES', 'corta')).toBe('01/10/2026');

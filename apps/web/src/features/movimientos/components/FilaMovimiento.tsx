@@ -1,6 +1,7 @@
 import type { MouseEvent } from 'react';
 import { Link } from 'react-router';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
+import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import type { Catalogos } from '../hooks/useCatalogos';
@@ -32,9 +33,13 @@ export function useMetaMovimiento() {
   const t = useT('movimientos');
   const { locale } = useIdioma();
   const nombreCategoria = useNombreCategoria();
+  const nombreCuenta = useNombreCuenta();
   return (m: Movimiento, catalogos: Pick<Catalogos, 'cuentaPorId' | 'categoriaPorId'>): string => {
     const dia = diaCorto(m.fecha, locale);
-    const cuenta = (id: string | null) => (id === null ? '—' : (catalogos.cuentaPorId.get(id)?.nombre ?? '—'));
+    const cuenta = (id: string | null) => {
+      const c = id === null ? undefined : catalogos.cuentaPorId.get(id);
+      return c ? nombreCuenta(c) : '—';
+    };
     if (m.tipo === 'traspaso') {
       return `${dia} · ${t('meta.traspaso', { origen: cuenta(m.cuenta_id), destino: cuenta(m.cuenta_destino_id) })}`;
     }

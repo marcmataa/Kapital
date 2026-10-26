@@ -60,4 +60,12 @@ export default {
   'categoria.nomina': 'Nòmina',
   'categoria.otros_ingresos': 'Altres ingressos',
   'categoria.rendimientos': 'Rendiments',
+  'categoria.supermercado': 'Supermercat',
+  'categoria.hogar': 'Llar',
+  'categoria.salud': 'Salut',
+  'categoria.deporte': 'Esport',
+  'categoria.cuidado_personal': 'Cura personal',
+  'categoria.ropa': 'Roba',
+  'categoria.regalos': 'Regals',
+  'cuenta.efectivo': 'Efectiu',
 } satisfies Traduccion<typeof es>;

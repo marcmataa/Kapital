@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import type { Categoria, Cuenta } from '@/shared/api/catalogos';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
+import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { Button, Input, Select } from '@/shared/ui';
@@ -20,6 +21,7 @@ interface Props {
 /** Desde/hasta, categoría, método y cuenta. Se edita un borrador y se aplica al pulsar «Aplicar». */
 export function PanelFiltros({ filtros, cuentas, categorias, onAplicar, variante, className }: Props) {
   const t = useT('movimientos');
+  const nombreCuenta = useNombreCuenta();
   const nombreCategoria = useNombreCategoria();
   const [desde, setDesde] = useState(filtros.desde ?? '');
   const [hasta, setHasta] = useState(filtros.hasta ?? '');
@@ -106,7 +108,7 @@ export function PanelFiltros({ filtros, cuentas, categorias, onAplicar, variante
         <option value="">{t('filtros.todas')}</option>
         {cuentas.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.nombre}
+            {nombreCuenta(c)}
           </option>
         ))}
       </Select>

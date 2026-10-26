@@ -17,6 +17,7 @@ export interface MoneyInputProps {
   opcional?: boolean;
   id?: string | undefined;
   disabled?: boolean;
+  /** Por defecto, cero en el formato del idioma: «0,00» (es/ca) o «0.00» (en). */
   placeholder?: string;
   autoFocus?: boolean;
   className?: string;
@@ -49,7 +50,15 @@ export function importeParaEditar(importe: string, locale: string): string {
  *   <Controller name="importe" control={control} render={({ field, fieldState }) => (
  *     <MoneyInput label={t('importe')} {...field} error={fieldState.error?.message} />)} />
  */
-export function MoneyInput({ value, onChange, onBlur, ref, normalizar = parsearImporteLocal, ...resto }: MoneyInputProps) {
+export function MoneyInput({
+  value,
+  onChange,
+  onBlur,
+  ref,
+  normalizar = parsearImporteLocal,
+  placeholder,
+  ...resto
+}: MoneyInputProps) {
   const { locale } = useIdioma();
 
   const alSalir = (_evento: FocusEvent<HTMLInputElement>) => {
@@ -64,6 +73,7 @@ export function MoneyInput({ value, onChange, onBlur, ref, normalizar = parsearI
   return (
     <Input
       {...resto}
+      placeholder={placeholder ?? importeParaEditar('0.00', locale)}
       ref={ref ?? null}
       type="text"
       inputMode="decimal"

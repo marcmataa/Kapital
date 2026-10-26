@@ -75,6 +75,8 @@ export interface ContextoEsquema {
   hoy: string;
   cuentas: readonly Cuenta[];
   categorias: readonly Categoria[];
+  /** Nombre visible de una cuenta (la de efectivo por defecto, traducida). Por defecto, `nombre`. */
+  nombreCuenta?: (cuenta: Cuenta) => string;
   /** Al editar un gasto: lo ya devuelto ('0.00' si nada). Regla 4 del trigger. */
   devueltoOriginal?: string | null;
   /** Al editar: tipo que tenía el movimiento. */
@@ -93,7 +95,7 @@ export function cuentaUsable(c: Cuenta | undefined): c is Cuenta {
 }
 
 export function crearEsquemaMovimiento(ctx: ContextoEsquema) {
-  const { t, locale, hoy, cuentas, categorias } = ctx;
+  const { t, locale, hoy, cuentas, categorias, nombreCuenta = (x: Cuenta) => x.nombre } = ctx;
   const euros = (importe: string) => formatearEuros(importe, locale);
   const cuenta = (id: string) => cuentas.find((c) => c.id === id);
 
@@ -147,7 +149,7 @@ export function crearEsquemaMovimiento(ctx: ContextoEsquema) {
         error('fecha', t('validacion.fechaFutura'));
       } else {
         const tarde = [origen, destino].find((x) => x !== undefined && v.fecha < x.fecha_inicial);
-        if (tarde) error('fecha', t('validacion.fechaAntesDeCuenta', { cuenta: tarde.nombre, fecha: formatearFecha(tarde.fecha_inicial, locale, 'corta') }));
+        if (tarde) error('fecha', t('validacion.fechaAntesDeCuenta', { cuenta: nombreCuenta(tarde), fecha: formatearFecha(tarde.fecha_inicial, locale, 'corta') }));
       }
 
       // Concepto y notas

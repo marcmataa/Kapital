@@ -60,4 +60,12 @@ export default {
   'categoria.nomina': 'Salary',
   'categoria.otros_ingresos': 'Other income',
   'categoria.rendimientos': 'Investment returns',
+  'categoria.supermercado': 'Groceries',
+  'categoria.hogar': 'Home',
+  'categoria.salud': 'Health',
+  'categoria.deporte': 'Sport',
+  'categoria.cuidado_personal': 'Personal care',
+  'categoria.ropa': 'Clothing',
+  'categoria.regalos': 'Gifts',
+  'cuenta.efectivo': 'Cash',
 } satisfies Traduccion<typeof es>;
