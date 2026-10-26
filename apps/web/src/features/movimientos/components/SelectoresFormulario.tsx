@@ -166,6 +166,12 @@ export function SelectorCategoria({ etiqueta, categorias, valor, onChange, suger
           );
         })}
       </div>
+      {/* «Rendimientos» se confunde con la revalorización: se explica al elegirla. */}
+      {categorias.find((c) => c.id === valor)?.clave === 'rendimientos' && (
+        <p role="note" className="text-xs text-apagado">
+          {t('form.ayudaRendimientos')}
+        </p>
+      )}
       {ayuda !== undefined && !error && (
         <p id={idAyuda} className="text-xs text-apagado">
           {ayuda}

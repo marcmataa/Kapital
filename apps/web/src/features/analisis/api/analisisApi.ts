@@ -6,7 +6,7 @@ import {
   esquemaContenido,
   esquemaDatos,
   esquemaFila,
-  type ContenidoAnalisis,
+  type ContenidoPorIdioma,
   type DatosAnalisis,
   type FilaAnalisis,
 } from '../schemas/esquemas';
@@ -17,7 +17,7 @@ export const COLUMNAS_LISTA = 'id, mes, estado, mes_incompleto, regeneraciones, 
 export interface AnalisisDetalle extends FilaAnalisis {
   /** Datos y contenido validados; null si faltan o no cumplen el contrato. */
   datos: DatosAnalisis | null;
-  contenido: ContenidoAnalisis | null;
+  contenido: ContenidoPorIdioma | null;
   /** true si la fila está «listo» pero sus datos o su contenido no son válidos. */
   invalido: boolean;
 }

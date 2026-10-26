@@ -5,8 +5,8 @@ import { Logo } from './Logo';
 
 /**
  * Cabecera fija del móvil (oculta desde lg por CSS). Respeta el notch con safe-area.
- * Compacta (48 px + safe-area): solo la marca, sin la palabra «Kapital» ni el botón de tema
- * (el tema está en Más y en Configuración).
+ * Compacta (48 px + safe-area): la marca centrada (K + «KΛPITΛL»), sin el botón de tema (el tema
+ * está en Más y en Configuración).
  */
 export function MobileHeader({ className }: { className?: string }) {
   const t = useT('common');
@@ -18,9 +18,9 @@ export function MobileHeader({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="flex h-(--alto-header-movil) items-center">
+      <div className="flex h-(--alto-header-movil) items-center justify-center">
         <Link to="/" aria-label={t('nav.inicio')} className="-m-1 rounded-lg p-1">
-          <Logo conTexto={false} className="[&_img]:size-7" />
+          <Logo className="gap-2 [&_img]:size-7" />
         </Link>
       </div>
     </header>

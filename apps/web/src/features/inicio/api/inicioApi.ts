@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { api, aErrorApi, ejecutar, type ErrorApi } from '@/app/api';
+import type { Idioma } from '@/shared/i18n';
 import { supabase } from '@/shared/lib/supabase';
 import type { Database } from '@db/database.types';
 
@@ -92,9 +93,9 @@ export interface MovimientoReciente {
  */
 const esquemaRecomendacion = z.union([z.string(), z.object({ texto: z.string() }).transform((r) => r.texto)]);
 
-// Contenido de la IA: versión 2 (observaciones, desde 20261024000002) o versión 1 (destacados).
-// Las observaciones de la versión 2 son los insights: lo que no se ve a simple vista.
-const esquemaContenido = z.union([
+// Contenido de la IA en un idioma: versión 2 (observaciones, desde 20261024000002) o versión 1
+// (destacados). Las observaciones de la versión 2 son los insights: lo que no se ve a simple vista.
+const esquemaContenidoUnico = z.union([
   z
     .object({
       version: z.literal(2),
@@ -116,18 +117,34 @@ const esquemaContenido = z.union([
   }),
 ]);
 
+/** Versión 3: el análisis en es, en y ca. Las anteriores están en un solo idioma: vale para los tres. */
+const esquemaContenido = z.union([
+  z
+    .object({
+      version: z.literal(3),
+      idiomas: z.object({ es: esquemaContenidoUnico, en: esquemaContenidoUnico, ca: esquemaContenidoUnico }),
+    })
+    .transform((c) => c.idiomas),
+  esquemaContenidoUnico.transform((c) => ({ es: c, en: c, ca: c })),
+]);
+
 export interface AnalisisReciente {
   /** Día 1 del mes analizado ('2026-09-01'). */
   mes: string;
   /**
    * Un consejo accionable del análisis, tal cual lo generó la IA (nada de texto generado aquí):
    * su primer insight si lo trae; si no, su primera recomendación; si tampoco, su primer destacado.
+   * Uno por idioma de la interfaz.
    */
-  consejo: string | null;
+  consejo: Record<Idioma, string | null>;
 }
 
-export function consejoDe(contenido: z.infer<typeof esquemaContenido>): string | null {
+function consejoUnico(contenido: z.infer<typeof esquemaContenidoUnico>): string | null {
   return contenido.insights?.[0] ?? contenido.recomendaciones[0] ?? contenido.destacados[0] ?? null;
+}
+
+export function consejoDe(contenido: z.infer<typeof esquemaContenido>): Record<Idioma, string | null> {
+  return { es: consejoUnico(contenido.es), en: consejoUnico(contenido.en), ca: consejoUnico(contenido.ca) };
 }
 
 export const SELECT_RESUMEN = 'ingresos::text, gastos_netos::text, balance::text, ahorro_pct::text';

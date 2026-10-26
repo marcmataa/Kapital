@@ -21,9 +21,14 @@ export function SelectorMes({ mes, anterior, siguiente, onElegir }: Props) {
   const { locale } = useIdioma();
 
   return (
-    <div role="group" aria-label={t('selector.etiqueta')} className="flex items-center gap-1.5">
+    // Una sola pieza (‹ mes ›) dentro de un marco: el mes no queda «flotando» entre dos botones sueltos.
+    <div
+      role="group"
+      aria-label={t('selector.etiqueta')}
+      className="flex w-full max-w-xs items-center justify-between gap-1 rounded-xl border border-borde bg-superficie p-1 sm:w-auto"
+    >
       <Button
-        variante="secundario"
+        variante="fantasma"
         aria-label={t('selector.anterior')}
         icono={<ChevronLeft aria-hidden="true" className="size-4" />}
         disabled={anterior === null}
@@ -34,12 +39,12 @@ export function SelectorMes({ mes, anterior, siguiente, onElegir }: Props) {
         aria-live="polite"
         aria-atomic="true"
         data-testid="mes-seleccionado"
-        className="min-w-40 text-center text-sm font-semibold text-texto"
+        className="min-w-40 flex-1 text-center text-sm font-semibold text-texto"
       >
         {capitalizar(formatearMes(mes, locale), locale)}
       </span>
       <Button
-        variante="secundario"
+        variante="fantasma"
         aria-label={t('selector.siguiente')}
         icono={<ChevronRight aria-hidden="true" className="size-4" />}
         disabled={siguiente === null}

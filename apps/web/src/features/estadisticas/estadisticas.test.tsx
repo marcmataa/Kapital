@@ -238,9 +238,7 @@ describe('Estadísticas: gastos', () => {
     await userEvent.keyboard('{Home}{ArrowRight}{ArrowRight}');
     const lectura = normal(screen.getByTestId('lectura-diario').textContent);
     expect(lectura).toContain('Gastos 50,00 € · Devoluciones -10,00 € · Neto 40,00 €');
-    expect(lectura).toContain('Cena');
-    const devolucion = within(screen.getByTestId('lectura-diario')).getByText('Ana').closest('li');
-    expect(devolucion).toHaveClass('text-positivo');
+    expect(lectura).not.toContain('Cena');
   });
 
   it('categorías este mes vs anterior; la negativa aparte; método de pago en filas; últimos 6 meses', async () => {

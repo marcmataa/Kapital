@@ -23,8 +23,6 @@ export default {
   'kpi.cuentas': 'Patrimoni per compte',
   'kpi.balance': 'Balanç · 1–{dia} {mes}',
   'kpi.ahorro': 'Estalvi {porcentaje}',
-  'kpi.topIngresos': 'Principals categories d’ingrés',
-  'kpi.topGastos': 'Principals categories de despesa',
 
   'grafico.titulo': 'Evolució del teu capital',
   'grafico.ejeX': 'Dia del mes',
@@ -83,6 +81,7 @@ export default {
   'objetivos.superado': 'Superat',
   'objetivos.conseguido': 'Aconseguit',
   'objetivos.superadoEn': 'Superat en {importe}',
+  'objetivos.margen': 'Et queden {importe} aquest mes',
   'objetivos.proyeccion': 'Et queden {dias} dies · has d’estalviar {importe}/dia',
   'objetivos.proyeccionUltimoDia': 'Queda 1 dia · has d’estalviar {importe} avui',
 

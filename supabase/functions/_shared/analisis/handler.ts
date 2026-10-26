@@ -2,7 +2,7 @@
 // index.ts (Deno) solo crea los clientes de Supabase y llama a crearHandler.
 import { z } from 'zod';
 import { datosAnalisisSchema } from './esquemas.ts';
-import { AnalisisError, type ResultadoGenerar } from './generar.ts';
+import { AnalisisError } from './generar.ts';
 import {
   cabecerasCors,
   CuerpoDemasiadoGrande,
@@ -64,7 +64,8 @@ export interface ClienteUsuario {
 export interface DependenciasHandler {
   servicio: RepositorioServicio;
   clienteUsuario(jwt: string): ClienteUsuario;
-  generar(datos: unknown): Promise<ResultadoGenerar>;
+  /** Contenido listo para guardar (en la función real, el análisis en los tres idiomas). */
+  generar(datos: unknown): Promise<{ contenido: unknown; modelo: string }>;
   cronSecret: string | undefined;
   origenesPermitidos: string[];
   ahora(): Date;

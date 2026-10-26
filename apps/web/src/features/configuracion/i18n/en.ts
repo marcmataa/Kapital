@@ -75,6 +75,7 @@ export default {
   'categorias.archivadas': 'Archived ({n})',
   'categorias.archivadasAyuda': "Archived categories don't appear in forms, but their history is kept.",
   'categorias.subir': 'Move {nombre} up',
+  'categorias.ayudaRendimientos': 'What your invested money pays you: interest or dividends. Your investment going up in value is not income: that shows in your net worth.',
   'categorias.bajar': 'Move {nombre} down',
   'categorias.editar': 'Edit {nombre}',
   'categorias.archivar': 'Archive {nombre}',

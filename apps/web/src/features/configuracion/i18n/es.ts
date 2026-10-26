@@ -74,6 +74,7 @@ export default {
   'categorias.archivadas': 'Archivadas ({n})',
   'categorias.archivadasAyuda': 'Las categorías archivadas no aparecen en los formularios, pero su historia se conserva.',
   'categorias.subir': 'Subir {nombre}',
+  'categorias.ayudaRendimientos': 'Lo que te paga tu dinero invertido: intereses o dividendos. Que tu inversión suba de valor no es un ingreso: eso se ve en el patrimonio.',
   'categorias.bajar': 'Bajar {nombre}',
   'categorias.editar': 'Editar {nombre}',
   'categorias.archivar': 'Archivar {nombre}',

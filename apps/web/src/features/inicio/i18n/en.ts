@@ -23,8 +23,6 @@ export default {
   'kpi.cuentas': 'Net worth by account',
   'kpi.balance': 'Balance · 1–{dia} {mes}',
   'kpi.ahorro': 'Savings {porcentaje}',
-  'kpi.topIngresos': 'Top income categories',
-  'kpi.topGastos': 'Top spending categories',
 
   'grafico.titulo': 'How your wealth is evolving',
   'grafico.ejeX': 'Day of the month',
@@ -83,6 +81,7 @@ export default {
   'objetivos.superado': 'Exceeded',
   'objetivos.conseguido': 'Achieved',
   'objetivos.superadoEn': 'Exceeded by {importe}',
+  'objetivos.margen': '{importe} left this month',
   'objetivos.proyeccion': '{dias} days left · you need to save {importe}/day',
   'objetivos.proyeccionUltimoDia': '1 day left · you need to save {importe} today',
 

@@ -75,12 +75,13 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enl
   const etiqueta = etiquetaTotal ?? t('categorias.gastoNeto');
 
   return (
-    <div className="flex items-center gap-4 sm:flex-wrap sm:gap-6">
+    // Donut grande y centrado arriba; la leyenda debajo, a todo el ancho: los nombres se leen enteros.
+    <div className="flex flex-col items-center gap-5">
       <svg
         viewBox={`0 0 ${LADO} ${LADO}`}
         role="img"
         aria-label={`${t('categorias.grafico')}: ${total} ${etiqueta}`}
-        className="size-28 shrink-0 sm:size-[170px]"
+        className="size-48 shrink-0 sm:size-52"
       >
         <g transform={`rotate(-90 ${LADO / 2} ${LADO / 2})`} fill="none" strokeWidth={GROSOR}>
           <circle cx={LADO / 2} cy={LADO / 2} r={RADIO} className="stroke-superficie-3" />
@@ -121,7 +122,7 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enl
 
       <ul
         aria-label={t('categorias.lista')}
-        className="flex min-w-0 flex-1 flex-col gap-1.5 text-sm sm:min-w-40 sm:gap-2"
+        className="flex w-full min-w-0 flex-col gap-1.5 text-sm sm:gap-2"
       >
         {filas.map((f) => {
           const negativa = f.centimos < 0n;
@@ -133,7 +134,7 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enl
                   className="size-2.5 shrink-0 rounded-full"
                   style={{ backgroundColor: f.color }}
                 />
-                <span className="truncate text-texto">{f.nombre}</span>
+                <span className="break-words text-texto">{f.nombre}</span>
               </span>
               {negativa ? (
                 <span className="flex flex-col items-end text-right">
@@ -142,7 +143,7 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enl
                 </span>
               ) : (
                 <span className="flex shrink-0 gap-2">
-                  <span className="cifras hidden text-apagado min-[420px]:inline">{formatearEuros(f.gasto, locale)}</span>
+                  <span className="cifras text-apagado">{formatearEuros(f.gasto, locale)}</span>
                   <span className="cifras w-14 text-right text-texto">
                     {formatearPorcentaje(porcentajeSobre(f.gasto, basePorcentajes), locale)}
                   </span>

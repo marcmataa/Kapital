@@ -13,7 +13,6 @@ import { mesCorto, restarImportes } from '../lib/calculos';
 import type { CuentaDesglose } from '../lib/desglose';
 import { DesgloseCuentas } from './DesgloseCuentas';
 import { KpiMes } from './KpiMes';
-import { TopCategorias, type FilaTop } from './TopCategorias';
 
 interface Props {
   hoy: string;
@@ -33,9 +32,6 @@ interface Props {
    * patrimonio (mientras cargan, o si fallan, no hay desglose).
    */
   cuentas?: readonly CuentaDesglose[] | undefined;
-  /** Categorías de ingreso y de gasto del tramo (SQL) para el «top 3» de escritorio. */
-  topIngresos?: readonly FilaTop[] | undefined;
-  topGastos?: readonly FilaTop[] | undefined;
 }
 
 const TENDENCIA: Record<-1 | 0 | 1, Tendencia> = { [-1]: 'baja', 0: 'igual', 1: 'sube' };
@@ -45,7 +41,10 @@ const TENDENCIA: Record<-1 | 0 | 1, Tendencia> = { [-1]: 'baja', 0: 'igual', 1: 
  * - En curso: patrimonio a hoy vs d', ingresos, gastos netos y balance de 1..hoy vs 1..d'.
  * - Cerrado: patrimonio al último día vs su d', y el mes completo vs el anterior completo.
  * Móvil: UNA tarjeta, el patrimonio grande arriba (con su desglose) y debajo tres columnas.
- * Escritorio: cuatro tarjetas en fila; Ingresos y Gastos con su top 3 de categorías.
+ * Escritorio: dos tarjetas del mismo ancho que las de debajo. A un lado el patrimonio con sus
+ * cuentas (lo que tienes); al otro el mes (lo que ha pasado): Ingresos, Gastos netos y, separado
+ * como resultado, el Balance. La altura la marca el patrimonio. Las categorías no se repiten aquí:
+ * están en el donut.
  * Color por significado (sección 8): que suban los gastos es rojo. Base 0 o sin datos →
  * «Sin datos del mes anterior». El balance (sección 3) no se mezcla con el patrimonio (sección 4);
  * su ahorro (%) viene de SQL y es «—» si los ingresos son 0.
@@ -58,8 +57,6 @@ export function TarjetasKpi({
   resumenActual,
   resumenAnterior,
   cuentas,
-  topIngresos,
-  topGastos,
 }: Props) {
   const t = useT('inicio');
   const { locale } = useIdioma();
@@ -116,7 +113,7 @@ export function TarjetasKpi({
   return (
     <section
       aria-label={t('kpi.region')}
-      className="grid grid-cols-3 gap-x-3 gap-y-4 rounded-2xl border border-borde bg-superficie p-4 shadow-tarjeta lg:grid-cols-4 lg:gap-4 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+      className="grid grid-cols-3 gap-x-3 gap-y-4 rounded-2xl border border-borde bg-superficie p-4 shadow-tarjeta lg:grid-cols-2 lg:gap-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
     >
       <KpiMes
         titulo={t('kpi.patrimonio', { fecha: formatearFecha(fecha, locale, 'corta') })}
@@ -126,30 +123,35 @@ export function TarjetasKpi({
       >
         {cuentas !== undefined && <DesgloseCuentas cuentas={cuentas} fecha={fecha} />}
       </KpiMes>
-      <KpiMes
-        titulo={t('kpi.ingresos', { dia, mes })}
-        valor={formatearEuros(resumenActual.ingresos, locale)}
-        {...(ingresos ? { variacion: ingresos } : { pie: sinAnterior })}
+      {/* En el móvil `contents`: sus tres cifras son columnas de la tarjeta única. En escritorio, una tarjeta. */}
+      <div
+        className="contents lg:flex lg:flex-col lg:justify-center lg:rounded-2xl lg:border lg:border-borde lg:bg-superficie lg:px-5 lg:py-2 lg:shadow-tarjeta"
       >
-        {topIngresos !== undefined && <TopCategorias titulo={t('kpi.topIngresos')} filas={topIngresos} />}
-      </KpiMes>
-      <KpiMes
-        titulo={t('kpi.gastos', { dia, mes })}
-        valor={formatearEuros(resumenActual.gastos_netos, locale)}
-        {...(gastos ? { variacion: gastos } : { pie: sinAnterior })}
-      >
-        {topGastos !== undefined && <TopCategorias titulo={t('kpi.topGastos')} filas={topGastos} />}
-      </KpiMes>
-      <KpiMes
-        titulo={t('kpi.balance', { dia, mes })}
-        valor={formatearEuros(resumenActual.balance, locale, { signo: 'siempre' })}
-        {...(balanceNegativo && { tonoValor: 'negativo' as const })}
-        {...(balance ? { variacion: balance } : { pie: sinAnterior })}
-      >
-        <p data-testid="kpi-ahorro" className="mt-1 text-xs text-apagado">
-          {t('kpi.ahorro', { porcentaje: formatearPorcentaje(resumenActual.ahorro_pct, locale) })}
-        </p>
-      </KpiMes>
+        <KpiMes
+          agrupado
+          titulo={t('kpi.ingresos', { dia, mes })}
+          valor={formatearEuros(resumenActual.ingresos, locale)}
+          {...(ingresos ? { variacion: ingresos } : { pie: sinAnterior })}
+        />
+        <KpiMes
+          agrupado
+          titulo={t('kpi.gastos', { dia, mes })}
+          valor={formatearEuros(resumenActual.gastos_netos, locale)}
+          {...(gastos ? { variacion: gastos } : { pie: sinAnterior })}
+        />
+        <KpiMes
+          agrupado
+          resultado
+          titulo={t('kpi.balance', { dia, mes })}
+          valor={formatearEuros(resumenActual.balance, locale, { signo: 'siempre' })}
+          {...(balanceNegativo && { tonoValor: 'negativo' as const })}
+          {...(balance ? { variacion: balance } : { pie: sinAnterior })}
+        >
+          <p data-testid="kpi-ahorro" className="mt-1 text-xs text-apagado">
+            {t('kpi.ahorro', { porcentaje: formatearPorcentaje(resumenActual.ahorro_pct, locale) })}
+          </p>
+        </KpiMes>
+      </div>
     </section>
   );
 }

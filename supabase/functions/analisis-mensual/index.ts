@@ -3,6 +3,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { generarAnalisis } from '../_shared/analisis/generar.ts';
+import { generarEnIdiomas } from '../_shared/analisis/idiomas.ts';
 import {
   crearHandler,
   MAX_INTENTOS,
@@ -203,7 +204,8 @@ const servicio = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, opcionesAuth);
 const handler = crearHandler({
   servicio: repositorioServicio(servicio),
   clienteUsuario,
-  generar: (datos) => generarAnalisis(datos, { fetch, apiKey: OPENAI_API_KEY }),
+  // En es, en y ca a la vez: la web enseña el del idioma elegido sin regenerar al cambiarlo.
+  generar: (datos) => generarEnIdiomas(datos, (d) => generarAnalisis(d, { fetch, apiKey: OPENAI_API_KEY })),
   cronSecret: env('CRON_SECRET'),
   origenesPermitidos: parsearOrigenes(env('APP_ORIGIN')),
   ahora: () => new Date(),

@@ -24,7 +24,7 @@ interface Props {
  */
 export function AnalisisDestacado({ mes }: Props) {
   const t = useT('inicio');
-  const { locale } = useIdioma();
+  const { locale, idioma } = useIdioma();
   const ultimo = useInicioUltimoAnalisisQuery(mes === undefined ? undefined : skipToken);
   const delMes = useInicioAnalisisMesQuery(mes ?? skipToken);
   // `currentData`: al cambiar de mes no se muestran los destacados del mes anterior mientras carga.
@@ -59,9 +59,9 @@ export function AnalisisDestacado({ mes }: Props) {
         </h3>
         <span className="text-xs text-apagado">{t('analisis.ia')}</span>
       </div>
-      {data.consejo !== null && (
+      {data.consejo[idioma] !== null && (
         <p data-testid="consejo-analisis" className="text-sm leading-relaxed text-texto">
-          {data.consejo}
+          {data.consejo[idioma]}
         </p>
       )}
       <Link to={`/analisis/${data.mes.slice(0, 7)}`} className="text-sm font-semibold text-enlace hover:underline">

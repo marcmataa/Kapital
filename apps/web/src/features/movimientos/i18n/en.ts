@@ -188,6 +188,7 @@ export default {
   'resumen.categoriaPrincipal': 'Top category',
   'resumen.ajustes': 'Adjustments (not part of the balance)',
   'form.sugerida': 'Suggested',
+  'form.ayudaRendimientos': 'What your invested money pays you: interest or dividends. Your investment going up in value is not income: that shows in your net worth.',
   'form.categoriaSugeridaAyuda': 'Suggested from what you usually log with that description. You can change it.',
   'form.gastoOriginalQueda': '{pendiente} of that expense is still to be refunded.',
   'form.atajosFecha': 'Quick date',

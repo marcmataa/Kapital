@@ -14,6 +14,13 @@ interface Props {
   pie?: ReactNode;
   /** El patrimonio: ocupa toda la fila en móvil y su cifra es la protagonista. */
   destacado?: boolean;
+  /**
+   * Una fila de la tarjeta del mes en escritorio (Ingresos − Gastos netos = Balance): título y
+   * variación a la izquierda, cifra a la derecha. En el móvil, igual que el resto.
+   */
+  agrupado?: boolean;
+  /** El balance: resultado de la tarjeta del mes, separado de las filas de arriba con una línea más marcada. */
+  resultado?: boolean;
   children?: ReactNode;
 }
 
@@ -28,21 +35,42 @@ function colorVariacion({ tendencia, subirEsBueno = true }: VariacionStat): stri
  * Una cifra del resumen de Inicio.
  * - Móvil: las cuatro viven dentro de UNA tarjeta (la de `TarjetasKpi`): el patrimonio a todo el
  *   ancho y, debajo, Ingresos · Gastos · Balance en tres columnas compactas.
- * - Escritorio (lg): cada una es su propia tarjeta, en una fila de cuatro.
+ * - Escritorio (lg): el patrimonio es su propia tarjeta; las otras tres son filas de la tarjeta
+ *   del mes (`agrupado`).
  */
-export function KpiMes({ titulo, valor, tonoValor, variacion, pie, destacado = false, children }: Props) {
+export function KpiMes({
+  titulo,
+  valor,
+  tonoValor,
+  variacion,
+  pie,
+  destacado = false,
+  agrupado = false,
+  resultado = false,
+  children,
+}: Props) {
   const Flecha = FLECHA[variacion?.tendencia ?? 'igual'];
   return (
     <article
       className={cx(
-        'flex min-w-0 flex-col lg:rounded-2xl lg:border lg:border-borde lg:bg-superficie lg:p-5 lg:shadow-tarjeta',
-        destacado ? 'col-span-3 border-b border-borde pb-4 lg:col-span-1 lg:pb-5' : 'col-span-1',
+        'flex min-w-0 flex-col',
+        agrupado
+          ? // Rejilla de dos columnas: [título / variación / extra] | cifra a la derecha.
+            cx(
+              'col-span-1 lg:grid lg:grid-cols-[1fr_auto] lg:items-center lg:gap-x-4 lg:border-t lg:py-4 lg:first:border-t-0',
+              resultado ? 'lg:border-borde-fuerte' : 'lg:border-borde',
+            )
+          : 'lg:rounded-2xl lg:border lg:border-borde lg:bg-superficie lg:p-5 lg:shadow-tarjeta',
+        destacado ? 'col-span-3 border-b border-borde pb-4 lg:col-span-1 lg:pb-5' : !agrupado && 'col-span-1',
       )}
     >
-      <h3 className={cx('text-apagado', destacado ? 'text-sm' : 'text-xs leading-snug lg:text-sm')}>{titulo}</h3>
+      <h3 className={cx('text-apagado', destacado ? 'text-sm' : 'text-xs leading-snug lg:text-sm', agrupado && 'lg:col-start-1')}>
+        {titulo}
+      </h3>
       <p
         className={cx(
           'cifras mt-1 font-semibold tracking-tight lg:text-2xl xl:text-3xl',
+          agrupado && 'lg:col-start-2 lg:row-span-3 lg:row-start-1 lg:mt-0 lg:text-right',
           destacado ? 'truncate text-4xl' : 'text-sm break-words min-[400px]:text-base sm:text-lg',
           tonoValor === 'negativo' ? 'text-negativo' : 'text-texto',
         )}

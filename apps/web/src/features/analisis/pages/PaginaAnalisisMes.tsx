@@ -2,7 +2,7 @@ import { useParams } from 'react-router';
 import { AlertTriangle, Clock } from 'lucide-react';
 import { useListarCuentasQuery } from '@/shared/api/catalogos';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
-import { useT } from '@/shared/i18n';
+import { useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
 import { formatearFechaHora, formatearMes, inicioDeMes, sumarMeses } from '@/shared/lib/fechas';
 import { Button, Card, EmptyState, Spinner } from '@/shared/ui';
@@ -44,6 +44,7 @@ export default function PaginaAnalisisMes() {
 
 function DetalleMes({ mes }: { mes: string }) {
   const t = useT('analisis');
+  const { idioma } = useIdioma();
   const tc = useT('common');
   const { hoy } = useHoyUsuario();
   const cuentas = useListarCuentasQuery();
@@ -133,7 +134,8 @@ function DetalleMes({ mes }: { mes: string }) {
       </Card>
     );
   } else {
-    cuerpo = <AnalisisListo analisis={analisis} datos={analisis.datos} contenido={analisis.contenido} />;
+    // El texto de la IA en el idioma de la interfaz: cambia al momento al cambiar de idioma.
+    cuerpo = <AnalisisListo analisis={analisis} datos={analisis.datos} contenido={analisis.contenido[idioma]} />;
   }
 
   return (

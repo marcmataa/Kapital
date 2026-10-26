@@ -7,10 +7,13 @@ import { formatearEurosEje, posicionEnEje, type EscalaEje } from '@/shared/lib/e
  * Decorativas (`aria-hidden`): cada gráfico tiene su propia alternativa accesible.
  */
 
-/** Columna de etiquetas («0 €», «100 €», «200 €»…) a la altura de cada marca. */
+/**
+ * Columna de etiquetas («0 €», «100 €», «200 €»…) a la altura de cada marca. El alto lo da
+ * `className` (el mismo que el área de barras): con h-full medía 0 y todas se apilaban arriba.
+ */
 export function EtiquetasEje({ escala, locale, className }: { escala: EscalaEje; locale: string; className?: string }) {
   return (
-    <div aria-hidden="true" className={cx('relative h-full min-w-11 shrink-0 text-right text-xs text-apagado', className)}>
+    <div aria-hidden="true" className={cx('relative min-w-11 shrink-0 text-right text-xs text-apagado', className)}>
       {escala.ticks.map((c) => (
         <span
           key={c.toString()}

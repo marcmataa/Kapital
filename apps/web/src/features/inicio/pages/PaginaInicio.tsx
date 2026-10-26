@@ -10,7 +10,6 @@ import { CabeceraPagina } from '@/shared/layout';
 import { Card, EmptyState } from '@/shared/ui';
 import {
   useInicioGastoCategoriasQuery,
-  useInicioIngresosCategoriasQuery,
   useInicioResumenQuery,
   useInicioSeriePatrimonioQuery,
   useInicioValoresCuentasQuery,
@@ -75,24 +74,11 @@ export default function PaginaInicio() {
     resuelto ? { desde: mesAnterior, hasta: finDeMes(mesAnterior), hoy } : skipToken,
   );
   const categorias = useInicioGastoCategoriasQuery(resuelto ? periodos.actual : skipToken);
-  const ingresosCategorias = useInicioIngresosCategoriasQuery(resuelto ? periodos.actual : skipToken);
 
   const datosResumen = resumen.currentData;
   const datosSerie = serie.currentData;
   const datosSerieAnterior = serieAnterior.currentData;
   const datosCategorias = categorias.currentData;
-  const topGastos = datosCategorias?.map((c) => ({
-    id: c.categoria_id,
-    nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),
-    color: c.color,
-    importe: c.gasto,
-  }));
-  const topIngresos = ingresosCategorias.currentData?.map((c) => ({
-    id: c.categoria_id,
-    nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),
-    color: c.color,
-    importe: c.ingreso,
-  }));
   const enlaceCategoria = (id: string) => enlaceMovimientosCategoria(id, periodos.actual);
   const patrimonioRef = datosSerie?.find((p) => p.fecha === referencia)?.patrimonio ?? null;
   const patrimonioAnterior = datosSerieAnterior?.find((p) => p.fecha === dPrima)?.patrimonio ?? null;
@@ -157,21 +143,26 @@ export default function PaginaInicio() {
             // Sin el resumen anterior (o si su tramo es parcial), las tarjetas dicen «Sin datos del mes anterior».
             resumenAnterior={periodos.anterior ? (resumenAnterior.currentData ?? null) : null}
             cuentas={cuentasDesglose}
-            topIngresos={topIngresos}
-            topGastos={topGastos}
           />
         )}
 
         <AvisoOtrosGastos periodo={resuelto ? periodos.actual : undefined} />
 
         <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-2">
-          <Card className="min-w-0">
+          <Card className="flex min-w-0 flex-col">
             {!resuelto || pendiente(serie) || pendiente(serieAnterior) ? (
               <Esqueleto className="h-80" />
             ) : serie.isError || serieAnterior.isError || !datosSerie || !datosSerieAnterior ? (
               <ErrorCarga onReintentar={reintentar(serie, serieAnterior)} />
             ) : (
-              <GraficoCapital key={`${mes}:${hoy}`} hoy={hoy} mes={mes} actual={datosSerie} anterior={datosSerieAnterior} />
+              <GraficoCapital
+                key={`${mes}:${hoy}`}
+                hoy={hoy}
+                mes={mes}
+                actual={datosSerie}
+                anterior={datosSerieAnterior}
+                className="flex-1"
+              />
             )}
           </Card>
 
@@ -201,7 +192,8 @@ export default function PaginaInicio() {
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
+        {/* items-start: cada tarjeta mide lo que su contenido (Objetivos no queda vacía al lado de la lista). */}
+        <div className="grid grid-cols-1 items-start gap-4 sm:gap-5 lg:grid-cols-2">
           <UltimosMovimientos />
           <TarjetaObjetivos hoy={hoy} />
         </div>

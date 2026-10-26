@@ -68,15 +68,15 @@ describe('GraficoDiario · gastos', () => {
     expect(screen.getByRole('heading', { name: 'Gasto por día · Octubre de 2026' })).toBeInTheDocument();
     expect(lectura()).toContain('19 oct 2026 · hoy (provisional) · 12,35 €');
     expect(lectura()).toContain('Gastos 12,35 € · Neto 12,35 €');
-    const lista = within(screen.getByTestId('lectura-diario')).getByRole('list', { name: 'Movimientos del día' });
-    expect(within(lista).getByText('Pan')).toBeInTheDocument();
-    expect(within(lista).queryByText('Nómina')).not.toBeInTheDocument();
+    // El día y su dinero; qué se compró está en Movimientos.
+    expect(within(screen.getByTestId('lectura-diario')).queryByRole('list')).not.toBeInTheDocument();
+    expect(lectura()).not.toContain('Pan');
     const control = screen.getByRole('slider', { name: 'Día del gráfico' });
     expect(control).toHaveAttribute('aria-valuenow', '19');
     expect(control).toHaveAttribute('aria-valuemax', '31');
   });
 
-  it('con el teclado: día, gastos, devoluciones, neto y la lista del día', async () => {
+  it('con el teclado: día, gastos, devoluciones y neto (sin la lista de compras)', async () => {
     pintar();
     const control = screen.getByRole('slider');
     control.focus();
@@ -85,14 +85,9 @@ describe('GraficoDiario · gastos', () => {
     expect(lectura()).toContain('3 oct 2026 · 40,00 €');
     // «Gastos X · Devoluciones −Y · Neto Z»: la devolución resta (decisión del usuario, §6).
     expect(lectura()).toContain('Gastos 50,00 € · Devoluciones -10,00 € · Neto 40,00 €');
-    const lista = within(screen.getByTestId('lectura-diario')).getByRole('list');
-    expect(within(lista).getByText('Cena').nextSibling).toHaveTextContent('50,00 €');
-    // La devolución, en verde y con signo menos.
-    const devolucion = within(lista).getByText('Ana - cena').closest('li');
-    expect(devolucion).toHaveTextContent(/-10,00\s€/);
-    expect(devolucion).toHaveClass('text-positivo');
-    expect(within(lista).getByText('Cena').closest('li')).not.toHaveClass('text-positivo');
-    expect(normal(control.getAttribute('aria-valuetext'))).toContain('Devolución Ana - cena · -10,00 €');
+    expect(lectura()).not.toContain('Cena');
+    expect(normal(control.getAttribute('aria-valuetext'))).toContain('Devoluciones -10,00 €');
+    expect(normal(control.getAttribute('aria-valuetext'))).not.toContain('Ana - cena');
     await userEvent.keyboard('{ArrowRight}');
     expect(lectura()).toBe('4 oct 2026 · 0,00 €Gastos 0,00 € · Neto 0,00 €');
     await userEvent.keyboard('{End}');
@@ -121,7 +116,7 @@ describe('GraficoDiario · ingresos', () => {
     expect(screen.queryByText(/[Dd]evoluci/)).not.toBeInTheDocument();
     const lectura = () => normal(screen.getByTestId('lectura-diario').textContent);
     expect(lectura()).toContain('19 oct 2026 · hoy (provisional) · 900,00 €');
-    expect(within(screen.getByTestId('lectura-diario')).getByRole('list')).toHaveTextContent('Nómina');
+    expect(lectura()).not.toContain('Nómina');
     // Una sola barra por día (la del ingreso).
     const superficie = screen.getByTestId('superficie-diario');
     for (const dia of Array.from(superficie.children)) expect(dia.querySelectorAll('div').length).toBeLessThanOrEqual(1);

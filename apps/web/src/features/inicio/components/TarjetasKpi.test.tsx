@@ -231,23 +231,4 @@ describe('TarjetasKpi · balance del mes (sección 3)', () => {
     expect(within(balance).getByText('-250,0 %').parentElement).toHaveClass('text-negativo');
   });
 
-  it('top 3: solo categorías con importe positivo, de mayor a menor y como mucho 3', () => {
-    const fila = (id: string, importe: string) => ({ id, nombre: id, color: '#000000', importe });
-    renderConApp(
-      <TarjetasKpi
-        hoy="2026-10-19"
-        patrimonioHoy="1000.00"
-        patrimonioAnterior={null}
-        resumenActual={{ ingresos: '0.00', gastos_netos: '0.00', balance: '0.00', ahorro_pct: null }}
-        resumenAnterior={null}
-        topGastos={[fila('A', '10.00'), fila('B', '-30.00'), fila('C', '99.99'), fila('D', '0.00'), fila('E', '50.00'), fila('F', '20.00')]}
-      />,
-    );
-    const lista = within(tarjeta('Gastos netos · 1–19 oct')).getByRole('list', { name: 'Principales categorías de gasto' });
-    expect(within(lista).getAllByRole('listitem').map((li) => li.textContent?.replace(/\s+/g, ' '))).toEqual([
-      'C99,99 €',
-      'E50,00 €',
-      'F20,00 €',
-    ]);
-  });
 });

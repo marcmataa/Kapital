@@ -25,19 +25,23 @@ const MARCAS_X = [1, 5, 10, 15, 20, 25, 30];
 /** Arriba hay sitio para la etiqueta «23 oct (hoy)», fuera del área de la línea. */
 const MARGEN = { arriba: 30, derecha: 16, abajo: 42 } as const;
 
-/** Ancho real del contenedor (ResizeObserver) para que 1 unidad del SVG = 1 px y el texto no encoja. */
-function useAncho(el: HTMLElement | null): number {
-  const [ancho, setAncho] = useState(ANCHO_POR_DEFECTO);
+/**
+ * Tamaño real del contenedor (ResizeObserver) para que 1 unidad del SVG = 1 px y el texto no
+ * encoja. El alto es el que le deja la tarjeta: el gráfico la llena en vez de dejarla vacía abajo.
+ */
+function useTamano(el: HTMLElement | null): { ancho: number; alto: number } {
+  const [tamano, setTamano] = useState({ ancho: ANCHO_POR_DEFECTO, alto: 0 });
   useEffect(() => {
     if (!el || typeof ResizeObserver === 'undefined') return;
     const observador = new ResizeObserver(([entrada]) => {
       const w = Math.round(entrada?.contentRect.width ?? 0);
-      if (w > 0) setAncho(w);
+      const h = Math.round(entrada?.contentRect.height ?? 0);
+      if (w > 0) setTamano({ ancho: w, alto: h });
     });
     observador.observe(el);
     return () => observador.disconnect();
   }, [el]);
-  return ancho;
+  return tamano;
 }
 
 /** Día del mes → importe, solo con los puntos del mes `inicioMes`. */
@@ -72,7 +76,7 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
   const t = useT('inicio');
   const { locale } = useIdioma();
   const [contenedor, setContenedor] = useState<HTMLDivElement | null>(null);
-  const ancho = useAncho(contenedor);
+  const { ancho, alto: altoDisponible } = useTamano(contenedor);
 
   const inicioActual = inicioDeMes(mes ?? hoy);
   const enCurso = inicioActual === inicioDeMes(hoy);
@@ -145,7 +149,7 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
   const largoEtiqueta = Math.max(...etiquetasY.map((e) => e.texto.length));
 
   const movil = ancho < 480;
-  const alto = movil ? 240 : 270;
+  const alto = Math.max(movil ? 240 : 280, altoDisponible);
   const izquierda = Math.max(44, largoEtiqueta * 7 + 12);
   const anchoPlot = Math.max(1, ancho - izquierda - MARGEN.derecha);
   const altoPlot = alto - MARGEN.arriba - MARGEN.abajo;
@@ -255,14 +259,14 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
             aria-valuenow={diaSel}
             aria-valuetext={textoSel}
             onKeyDown={alTeclado}
-            className="rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento"
+            className="relative min-h-60 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento sm:min-h-70"
           >
             <svg
               width={ancho}
               height={alto}
               viewBox={`0 0 ${ancho} ${alto}`}
               aria-hidden="true"
-              className="block h-auto w-full cursor-crosshair touch-pan-y select-none"
+              className="absolute inset-0 block size-full cursor-crosshair touch-pan-y select-none"
               onPointerMove={elegirDesdePuntero}
               onPointerDown={elegirDesdePuntero}
             >
