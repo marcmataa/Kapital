@@ -7,7 +7,7 @@ import type { PGlite } from '@electric-sql/pglite';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
-  MIGRACION_CATEGORIAS_CLAVE, ROLLBACK_CATEGORIAS_CLAVE, actuarComo, conRol, crearCategoria, crearDb, crearUsuario,
+  CATEGORIAS_POR_DEFECTO, MIGRACION_CATEGORIAS_CLAVE, ROLLBACK_CATEGORIAS_CLAVE, actuarComo, conRol, crearCategoria, crearDb, crearUsuario,
   todas, una,
 } from './helpers.js';
 
@@ -18,6 +18,7 @@ beforeAll(async () => { db = await crearDb(); });
 afterAll(async () => { await db.close(); });
 beforeEach(async () => { u = await crearUsuario(db); });
 
+/** Las 8 de esta migración (antes de 20261024000000, que añade 7 más). */
 const POR_DEFECTO = [
   { nombre: 'Restaurantes', clave: 'restaurantes' },
   { nombre: 'Ocio', clave: 'ocio' },
@@ -81,11 +82,11 @@ describe('usuarios nuevos', () => {
   it('completar_onboarding crea las categorías por defecto con su clave', async () => {
     await comoUsuario(`select completar_onboarding('en', $1::jsonb, '0')`,
       [JSON.stringify([{ entidad: 'bbva', nombre: '', color: null, saldo: '10' }])]);
-    expect(await claves(db, u)).toEqual(POR_DEFECTO);
+    expect(await claves(db, u)).toEqual(CATEGORIAS_POR_DEFECTO);
   });
 
   it('preparar_usuario también', async () => {
-    expect(await claves(db, await prepararUsuario(db))).toEqual(POR_DEFECTO);
+    expect(await claves(db, await prepararUsuario(db))).toEqual(CATEGORIAS_POR_DEFECTO);
   });
 
   it('una categoría creada por el usuario no tiene clave, aunque se llame como una por defecto', async () => {
