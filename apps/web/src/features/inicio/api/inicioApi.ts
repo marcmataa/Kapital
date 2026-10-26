@@ -52,11 +52,14 @@ export interface MovimientoReciente {
   destino: { nombre: string } | null;
 }
 
-const esquemaContenido = z.object({
-  resumen: z.string(),
-  destacados: z.array(z.string()),
-  recomendaciones: z.array(z.string()),
-});
+// Contenido de la IA: versión 1 (destacados) o 2 (observaciones, desde 20261024000002).
+// En Inicio se muestran los dos primeros como «destacados».
+const esquemaContenido = z.union([
+  z.object({ resumen: z.string(), destacados: z.array(z.string()) }),
+  z
+    .object({ version: z.literal(2), resumen: z.string(), observaciones: z.array(z.string()) })
+    .transform((c) => ({ resumen: c.resumen, destacados: c.observaciones })),
+]);
 
 export interface AnalisisReciente {
   /** Día 1 del mes analizado ('2026-09-01'). */
