@@ -307,8 +307,18 @@ isOneToOne: false
 "patrimonio":
 { Args: { "p_fecha": string }; Returns: number
                            },
+"peso_otros_gastos":
+{ Args: { "p_desde": string,"p_hasta": string }; Returns: {
+              "categoria_id": string,"gasto": number,"porcentaje": number,"supera_umbral": boolean
+            }[]
+                           },
 "preparar_usuario":
 { Args: { "p_dispositivo"?: string,"p_email": string }; Returns: string
+                           },
+"progreso_objetivos":
+{ Args: { "p_hoy"?: string }; Returns: {
+              "actual": number,"ahorro_diario_necesario": number,"categoria_id": string,"dias_restantes": number,"exceso": number,"importe": number,"objetivo_id": string,"restante": number,"tipo": Database["public"]['Enums']["tipo_objetivo"]
+            }[]
                            },
 "registrar_movimiento":
 { Args: { "categoria"?: string,"clave"?: string,"comercio"?: string,"concepto"?: string,"desde"?: string,"fecha"?: string,"hacia"?: string,"importe": string,"metodo"?: string,"tipo": string,"token": string }; Returns: Json
@@ -328,6 +338,11 @@ isOneToOne: false
                            },
 "revalorizacion":
 { Args: { "p_cuenta": string,"p_d1": string,"p_d2": string }; Returns: number
+                           },
+"ritmo_gasto":
+{ Args: { "p_desde": string,"p_desde_ant"?: string,"p_hasta": string,"p_hasta_ant"?: string }; Returns: {
+              "devoluciones": number,"dias_mes": number,"gasto_medio_diario": number,"gasto_medio_diario_anterior": number,"proyeccion_fin_mes": number,"variacion_medio_diario": number
+            }[]
                            },
 "serie_patrimonio":
 { Args: { "p_desde": string,"p_hasta": string,"p_hoy"?: string }; Returns: {
