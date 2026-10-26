@@ -7,6 +7,7 @@ import { GraficoBalanceMeses } from './GraficoBalanceMeses';
 import { GraficoDiario } from './GraficoDiario';
 import { GraficoMeses } from './GraficoMeses';
 import { FilasComparadas } from './FilasComparadas';
+import { IngresosPorCategoria } from './IngresosPorCategoria';
 
 /*
  * Interiores de los gráficos de Estadísticas: ejes redondos, barras negativas bajo el cero,
@@ -116,5 +117,16 @@ describe('FilasComparadas · leyenda de las barras dobles', () => {
     unmount();
     renderConApp(<FilasComparadas filas={[{ ...fila, anterior: null }]} etiqueta="Categorías" etiquetaAnterior="antes" />);
     expect(screen.queryByTestId('leyenda-comparada')).not.toBeInTheDocument();
+  });
+});
+
+describe('IngresosPorCategoria · ayuda', () => {
+  it('con barras, la ayuda es el icono (i); sin ingresos no hay icono', () => {
+    const fila = { id: 'n', nombre: 'Nómina inventada', color: '#5fd3a0', importe: '100.00', porcentaje: '100.0000' };
+    const { unmount } = renderConApp(<IngresosPorCategoria ingresos={[fila]} />);
+    expect(screen.getByRole('button', { name: 'Cómo leer el gráfico' })).toBeInTheDocument();
+    unmount();
+    renderConApp(<IngresosPorCategoria ingresos={[]} />);
+    expect(screen.queryByRole('button', { name: 'Cómo leer el gráfico' })).not.toBeInTheDocument();
   });
 });
