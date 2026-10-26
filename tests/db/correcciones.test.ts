@@ -107,7 +107,7 @@ describe('datos_analisis sin mes anterior completo (H2, sección 8)', () => {
     await mov(db, u, { tipo: 'gasto', importe: '10.00', fecha: dia(anterior, 3), cuenta: bbva, categoria: ocio });
     const d = await datos(mes);
     expect(d.resumen_mes_anterior).toMatchObject({ gastos: '10.00', gastos_netos: '10.00' });
-    expect(d.categorias_mes_anterior).toEqual([{ nombre: 'Ocio', color: '#8f9bbd', gasto: '10.00' }]);
+    expect(d.categorias_mes_anterior).toEqual([{ nombre: 'Ocio', clave: null, etiqueta: 'Ocio', color: '#8f9bbd', gasto: '10.00' }]);
   });
 });
 

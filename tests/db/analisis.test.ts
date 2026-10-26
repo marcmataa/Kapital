@@ -99,22 +99,24 @@ describe('datos_analisis', () => {
       balance: '30.00', ahorro_pct: null, ajustes: '0.00',
     });
     expect(d.categorias).toEqual([
-      { nombre: 'Restaurantes', color: '#8f9bbd', gasto: '1000.00' },
-      { nombre: 'Ocio', color: '#8f9bbd', gasto: '168.28' },
+      { nombre: 'Restaurantes', clave: null, etiqueta: 'Restaurantes', color: '#8f9bbd', gasto: '1000.00' },
+      { nombre: 'Ocio', clave: null, etiqueta: 'Ocio', color: '#8f9bbd', gasto: '168.28' },
     ]);
-    expect(d.categorias_mes_anterior).toEqual([{ nombre: 'Otros gastos', color: '#8f9bbd', gasto: '-30.00' }]);
+    expect(d.categorias_mes_anterior).toEqual([
+      { nombre: 'Otros gastos', clave: null, etiqueta: 'Otros gastos', color: '#8f9bbd', gasto: '-30.00' },
+    ]);
     expect(d.metodos).toEqual([{ metodo: 'tarjeta', gasto: '1000.00' }, { metodo: 'bizum', gasto: '198.28' }]);
 
     // Sección 5: ΔPatrimonio = balance 339,72 + revalorización 27,44 = 367,16; el traspaso suma cero.
     expect(d.variacion).toEqual({
       patrimonio_inicial: '3502.56', patrimonio_final: '3869.72', balance: '339.72',
-      revalorizacion: '27.44', ajustes: '0.00', saldos_iniciales: '0.00', variacion: '367.16',
+      revalorizacion: '27.44', ajustes: '0.00', saldos_iniciales: '0.00', variacion: '367.16', base: 'partida',
     });
 
     expect(d.objetivos).toEqual([
-      { tipo: 'ahorro_mensual', categoria: null, importe: '500.00', actual: '339.72' },
-      { tipo: 'limite_categoria', categoria: 'Ocio', importe: '150.00', actual: '168.28' },
-      { tipo: 'limite_categoria', categoria: 'Transporte', importe: '50.00', actual: '0.00' },
+      { tipo: 'ahorro_mensual', categoria: null, clave: null, etiqueta: null, importe: '500.00', actual: '339.72' },
+      { tipo: 'limite_categoria', categoria: 'Ocio', clave: null, etiqueta: 'Ocio', importe: '150.00', actual: '168.28' },
+      { tipo: 'limite_categoria', categoria: 'Transporte', clave: null, etiqueta: 'Transporte', importe: '50.00', actual: '0.00' },
     ]);
   });
 
@@ -128,9 +130,9 @@ describe('datos_analisis', () => {
     await crearCuenta(db, u, { nombre: 'BBVA', saldoInicial: '10.00', fechaInicial: dia(mes, 10) });
     const d = await datos(mes);
     expect(d.mes_incompleto).toBe(true);
-    // La cuenta abierta a mitad de mes no es ganancia: va a saldos_iniciales.
+    // La cuenta abierta a mitad de mes no es ganancia: su saldo inicial es parte del patrimonio de partida.
     expect(d.variacion).toMatchObject({
-      patrimonio_inicial: '0.00', patrimonio_final: '10.00', balance: '0.00', saldos_iniciales: '10.00', variacion: '10.00',
+      patrimonio_inicial: '10.00', patrimonio_final: '10.00', balance: '0.00', saldos_iniciales: '10.00', variacion: '0.00',
     });
     await crearCuenta(db, u, { nombre: 'Efectivo', tipo: 'efectivo', fechaInicial: mes });
     expect((await datos(mes)).mes_incompleto).toBe(false);
