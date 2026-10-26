@@ -273,7 +273,7 @@ describe('traduccion_categoria', () => {
   it('usa exactamente los mismos nombres que la web en es, en y ca', async () => {
     for (const idioma of ['es', 'en', 'ca'] as const) {
       const web = textosWeb(idioma);
-      expect(Object.keys(web)).toHaveLength(8);
+      expect(Object.keys(web)).toHaveLength(15);
       for (const [clave, texto] of Object.entries(web)) {
         const { t } = await una<{ t: string }>(db, `select traduccion_categoria($1, $2) as t`, [clave, idioma]);
         expect(t, `${idioma}.${clave}`).toBe(texto);
@@ -339,7 +339,7 @@ describe('atajo: categoría por nombre traducido o clave', () => {
 
 describe('análisis ya guardados y rollback', () => {
   it('la migración corrige la variación de los análisis guardados y añade la cascada; el rollback lo deshace', async () => {
-    const limpia = await crearDb({ hasta: MIGRACIONES.length - 1 });
+    const limpia = await crearDb({ hasta: MIGRACIONES.indexOf(MIGRACION_ANALISIS_CONFIG) });
     try {
       const usuario = randomUUID();
       await limpia.query(`insert into auth.users (id, email) values ($1, $2)`, [usuario, `${usuario}@test.local`]);

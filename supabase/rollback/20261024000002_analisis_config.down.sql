@@ -5,7 +5,7 @@
 --
 -- Vuelve a las versiones anteriores de variacion_patrimonial (esquema inicial),
 -- datos_analisis (20261020000000_correcciones.sql) y registrar_movimiento
--- (esquema inicial). create or replace conserva los permisos.
+-- (20261024000000_categorias_y_cuentas_clave.sql, con concepto_por_defecto). create or replace conserva los permisos.
 --
 -- Datos: los análisis guardados con la variación nueva (variacion.base =
 -- 'partida') vuelven a la base antigua y se quitan las claves nuevas del
@@ -331,7 +331,8 @@ begin
     insert into movimientos (user_id, fecha, hora, concepto, comercio, tipo, importe, sentido, categoria_id, metodo,
                              cuenta_id, cuenta_destino_id, origen, clave_idempotencia)
     values (v_user, v_fecha, v_hora,
-            coalesce(v_concepto, v_comercio, initcap(v_tipo::text)),
+            coalesce(v_concepto, v_comercio,
+                     concepto_por_defecto(v_tipo, (select p.idioma from perfiles p where p.user_id = v_user))),
             v_comercio, v_tipo, v_importe, v_sentido, v_cat,
             case when v_tipo in ('traspaso', 'ajuste') then null else v_metodo end,
             v_cuenta, v_destino,
