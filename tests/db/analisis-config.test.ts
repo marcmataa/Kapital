@@ -14,6 +14,7 @@ import {
   MIGRACIONES, MIGRACION_ANALISIS_CONFIG, ROLLBACK_ANALISIS_CONFIG, actuarComo, conRol, crearCategoria, crearCuenta,
   crearDb, crearUsuario, mov, todas, una,
 } from './helpers.js';
+import { datosAnalisisSchema } from '../../supabase/functions/_shared/analisis/esquemas.ts';
 
 let db: PGlite;
 let u: string;
@@ -205,6 +206,12 @@ describe('datos_analisis: insights calculados en SQL', () => {
       { tipo: 'balance', nombre: null, clave: null, color: null, importe: '940.00', inicio: '0.00', fin: '940.00' },
     ]);
     expect((d.resumen as { balance: string }).balance).toBe('940.00');
+    // Contrato con la Edge Function: el snapshot completo pasa su esquema sin perder nada.
+    const contrato = datosAnalisisSchema.parse(d);
+    expect(contrato.cascada).toEqual(d.cascada);
+    expect(contrato.comparativa_categorias).toEqual(d.comparativa_categorias);
+    expect(contrato.mayor_gasto).toEqual(d.mayor_gasto);
+    expect(contrato.fin_de_semana).toEqual(d.fin_de_semana);
   });
 
   it('cascada: más de 7 categorías se juntan en «otras» y una categoría en negativo sube', async () => {

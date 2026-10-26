@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { datosAnalisisSchema } from '../../supabase/functions/_shared/analisis/esquemas.ts';
+import { datosAnalisisSchema, type ContenidoAnalisis } from '../../supabase/functions/_shared/analisis/esquemas.ts';
 import {
   AnalisisError,
   generarAnalisis,
@@ -39,7 +39,10 @@ function datosBase(): Record<string, unknown> {
     idioma: 'es',
     resumen,
     resumen_mes_anterior: { ...resumen, balance: '700.00' },
-    categorias: [{ nombre: 'Ocio', color: '#ff0000', gasto: '40.00' }],
+    categorias: [
+      { nombre: 'Ocio', clave: 'ocio', etiqueta: 'Ocio', color: '#ff0000', gasto: '40.00' },
+      { nombre: 'Viajes', clave: null, etiqueta: 'Viajes', color: null, gasto: '300.00' },
+    ],
     categorias_mes_anterior: [{ nombre: 'Ocio', color: '#ff0000', gasto: '60.00' }],
     metodos: [{ metodo: 'tarjeta', gasto: '1000.00' }],
     variacion: {
@@ -51,14 +54,47 @@ function datosBase(): Record<string, unknown> {
       saldos_iniciales: '0.00',
       variacion: '850.00',
     },
-    objetivos: [{ tipo: 'ahorro_mensual', categoria: null, importe: '500.00', actual: '800.00' }],
+    objetivos: [
+      { tipo: 'ahorro_mensual', categoria: null, clave: null, etiqueta: null, importe: '500.00', actual: '800.00' },
+      { tipo: 'limite_categoria', categoria: 'Ocio', clave: 'ocio', etiqueta: 'Ocio', importe: '50.00', actual: '40.00' },
+    ],
+    comparativa_categorias: [
+      { nombre: 'Viajes', clave: null, etiqueta: 'Viajes', gasto: '300.00', gasto_anterior: '0.00', diferencia: '300.00', variacion_pct: null },
+      { nombre: 'Ocio', clave: 'ocio', etiqueta: 'Ocio', gasto: '40.00', gasto_anterior: '60.00', diferencia: '-20.00', variacion_pct: '-33.3333333333' },
+    ],
+    mayor_gasto: { importe: '300.00', fecha: '2026-09-12', dia_semana: '6', categoria: 'Viajes', clave: null, etiqueta: 'Viajes', pct_gastos: '23.99' },
+    fin_de_semana: {
+      gasto_neto: '340.00', pct: '28.3333333333', dias: '8', dias_mes: '30',
+      categorias: [{ nombre: 'Viajes', clave: null, etiqueta: 'Viajes', gasto_fin_de_semana: '300.00', gasto: '300.00', pct: '100.0000' }],
+    },
+    cascada: [
+      { tipo: 'ingresos', nombre: null, clave: null, color: null, importe: '2000.00', inicio: '0.00', fin: '2000.00' },
+      { tipo: 'balance', nombre: null, clave: null, color: null, importe: '800.00', inicio: '0.00', fin: '800.00' },
+    ],
   };
 }
 
 const contenidoValido = {
   resumen: 'Buen mes.',
-  destacados: ['Uno', 'Dos'],
-  recomendaciones: ['Tres', 'Cuatro'],
+  observaciones: ['Uno', 'Dos'],
+  recomendaciones: [
+    { texto: 'Tres', accion: null },
+    { texto: 'Crea un límite para Viajes.', accion: { tipo: 'crear_limite', categoria: 'Viajes', importe: '250' } },
+  ],
+};
+
+/** Lo que se guarda: la acción con el nombre de la base y el importe normalizado. */
+const contenidoGuardado = {
+  version: 2,
+  resumen: 'Buen mes.',
+  observaciones: ['Uno', 'Dos'],
+  recomendaciones: [
+    { texto: 'Tres', accion: null },
+    {
+      texto: 'Crea un límite para Viajes.',
+      accion: { tipo: 'crear_limite', categoria: 'Viajes', clave: null, etiqueta: 'Viajes', importe: '250.00' },
+    },
+  ],
 };
 
 function respuestaOpenAI(contenido: unknown, init: ResponseInit = {}): Response {
@@ -140,6 +176,22 @@ describe('construirMensajes', () => {
     'metodos',
     'variacion',
     'objetivos',
+    'comparativa_categorias',
+    'mayor_gasto',
+    'fin_de_semana',
+    'categorias_con_limite',
+    'categorias_sin_limite',
+    'gasto_anterior',
+    'diferencia',
+    'variacion_pct',
+    'fecha',
+    'dia_semana',
+    'pct_gastos',
+    'gasto_neto',
+    'pct',
+    'dias',
+    'dias_mes',
+    'gasto_fin_de_semana',
     'ingresos',
     'gastos',
     'devoluciones',
@@ -228,7 +280,7 @@ describe('generarAnalisis', () => {
   it('éxito: llama a OpenAI con esquema estricto y devuelve el contenido validado', async () => {
     const fetchMock = vi.fn<typeof fetch>(async () => respuestaOpenAI(contenidoValido));
     const r = await generarAnalisis(datosBase(), deps(fetchMock));
-    expect(r).toEqual({ contenido: contenidoValido, modelo: 'gpt-4o-mini' });
+    expect(r).toEqual({ contenido: contenidoGuardado, modelo: 'gpt-4o-mini' });
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe(URL_OPENAI);
     const body = JSON.parse(String(init?.body)) as {
@@ -261,7 +313,7 @@ describe('generarAnalisis', () => {
 
   it('JSON fuera de esquema → respuesta_invalida', async () => {
     const fetchMock = vi.fn<typeof fetch>(async () =>
-      respuestaOpenAI({ ...contenidoValido, destacados: ['solo uno'] }),
+      respuestaOpenAI({ ...contenidoValido, destacados: ['clave antigua'] }),
     );
     await expect(generarAnalisis(datosBase(), deps(fetchMock))).rejects.toMatchObject({
       codigo: 'respuesta_invalida',
@@ -351,7 +403,7 @@ describe('crearHandler', () => {
     const deps: DependenciasHandler = {
       servicio,
       clienteUsuario: () => usuario,
-      generar: vi.fn(async () => ({ contenido: contenidoValido, modelo: 'gpt-4o-mini' })),
+      generar: vi.fn(async () => ({ contenido: contenidoGuardado as ContenidoAnalisis, modelo: 'gpt-4o-mini' })),
       cronSecret: SECRETO,
       origenesPermitidos: [ORIGEN],
       ahora: () => AHORA,
