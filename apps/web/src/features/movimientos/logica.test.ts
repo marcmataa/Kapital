@@ -5,8 +5,9 @@ import { clasificarErrorMovimiento, claveErrorMovimiento } from './api/errores';
 import { filtroCursor } from './api/movimientosApi';
 import { filtroBusqueda, limpiarBusqueda } from './lib/busqueda';
 import { FILTROS_VACIOS, filtrosAParams, filtrosDesdeParams, type Filtros } from './lib/filtros';
-import { agruparPorMes, importeConSigno, tituloMes, tonoImporte } from './lib/presentacion';
-import { aPayload, crearEsquemaMovimiento, cuentaPorDefecto, type ValoresMovimiento } from './schemas/movimiento';
+import { claveErrorAjuste, leerSaldoReal } from './lib/ajuste';
+import { agruparPorDia, eurosRedondos, importeConSigno, signoTotalTipo, tituloDia, tonoImporte } from './lib/presentacion';
+import { aPayload, crearEsquemaMovimiento, cuentaPorDefecto, ordenarPorUso, type ValoresMovimiento } from './schemas/movimiento';
 import { CATEGORIAS, CUENTAS, ID, movimiento } from './test/datos';
 
 const t = (clave: ClaveDe<'movimientos'>, variables?: Variables) => traducir('es', 'movimientos', clave, variables);
@@ -282,20 +283,64 @@ describe('presentación de la lista', () => {
     }
   });
 
-  it('agrupa por mes respetando el orden', () => {
-    const grupos = agruparPorMes([
+  it('agrupa por día respetando el orden; la cabecera lleva el año solo si no es el actual', () => {
+    const grupos = agruparPorDia([
       movimiento({ id: ID.mov1, fecha: '2026-10-14' }),
-      movimiento({ id: ID.mov2, fecha: '2026-10-01' }),
-      movimiento({ id: ID.mov3, fecha: '2026-09-30' }),
+      movimiento({ id: ID.mov2, fecha: '2026-10-14' }),
+      movimiento({ id: ID.mov3, fecha: '2026-10-12' }),
       movimiento({ id: ID.mov4, fecha: '2025-10-02' }),
     ]);
-    expect(grupos.map((g) => [g.mes, g.movimientos.length])).toEqual([
-      ['2026-10-01', 2],
-      ['2026-09-01', 1],
-      ['2025-10-01', 1],
+    expect(grupos.map((g) => [g.fecha, g.movimientos.length])).toEqual([
+      ['2026-10-14', 2],
+      ['2026-10-12', 1],
+      ['2025-10-02', 1],
     ]);
-    expect(tituloMes('2026-10-01', 'es-ES')).toBe('Octubre 2026');
-    expect(tituloMes('2026-10-01', 'en-GB')).toBe('October 2026');
+    expect(tituloDia('2026-10-14', HOY, 'es-ES')).toBe('14 oct');
+    expect(tituloDia('2025-10-02', HOY, 'es-ES')).toBe('2 oct 2025');
+    expect(tituloDia('2026-10-14', HOY, 'en-GB')).toBe('14 Oct');
+  });
+
+  it('chips: total redondeado a euros, sin float, con el signo del tipo', () => {
+    const e = (importe: string, tipo: Parameters<typeof signoTotalTipo>[0]) =>
+      eurosRedondos(importe, 'es-ES', signoTotalTipo(tipo)).replace(/\s/g, ' ');
+    expect(e('863.40', 'gasto')).toBe('-863 €');
+    expect(e('1258.50', 'ingreso')).toBe('+1.259 €');
+    expect(e('24.00', 'devolucion')).toBe('+24 €');
+    expect(e('100.00', 'traspaso')).toBe('100 €');
+    expect(e('-5.00', 'ajuste')).toBe('-5 €');
+    expect(e('0.40', 'gasto')).toBe('0 €');
+    // 0,1 + 0,2 llega ya sumado de SQL como string exacto
+    expect(e('0.30', 'ingreso')).toBe('0 €');
+    expect(() => eurosRedondos('1,5', 'es-ES')).toThrow();
+  });
+});
+
+describe('ajuste por saldo real', () => {
+  it('lee el saldo con su signo y según el idioma; la diferencia no se calcula aquí', () => {
+    expect(leerSaldoReal('1.258,50', 'es-ES')).toBe('1258.50');
+    expect(leerSaldoReal('-20', 'es-ES')).toBe('-20.00');
+    expect(leerSaldoReal('−20,5', 'ca-ES')).toBe('-20.50');
+    expect(leerSaldoReal('1,258.50', 'en-GB')).toBe('1258.50');
+    expect(leerSaldoReal('-0', 'es-ES')).toBe('0.00');
+    expect(leerSaldoReal('', 'es-ES')).toBeNull();
+    expect(leerSaldoReal('12-3', 'es-ES')).toBeNull();
+    expect(leerSaldoReal('abc', 'es-ES')).toBeNull();
+    expect(leerSaldoReal('99999999999', 'es-ES')).toBeNull();
+  });
+
+  it('traduce los códigos de calcular_ajuste / crear_ajuste', () => {
+    expect(claveErrorAjuste({ codigo: '22023', mensaje: 'saldo_no_valido' })).toBe('ajuste.error.saldo');
+    expect(claveErrorAjuste({ codigo: '22023', mensaje: 'cuenta_inversion' })).toBe('ajuste.error.inversion');
+    expect(claveErrorAjuste({ codigo: 'red' })).toBe('error.red');
+    expect(claveErrorAjuste({ codigo: '42501' })).toBe('error.generico');
+  });
+});
+
+describe('categorías por uso', () => {
+  it('ordena como categorias_mas_usadas; las que falten, al final en su orden', () => {
+    const lista = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+    expect(ordenarPorUso(lista, ['c', 'a']).map((c) => c.id)).toEqual(['c', 'a', 'b', 'd']);
+    expect(ordenarPorUso(lista, undefined).map((c) => c.id)).toEqual(['a', 'b', 'c', 'd']);
   });
 });
 
