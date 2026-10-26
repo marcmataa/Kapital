@@ -21,6 +21,10 @@ export default {
   'kpi.sinAnterior': 'Sense dades del mes anterior',
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Patrimoni per compte',
+  'kpi.balance': 'Balanç · 1–{dia} {mes}',
+  'kpi.ahorro': 'Estalvi {porcentaje}',
+  'kpi.topIngresos': 'Principals categories d’ingrés',
+  'kpi.topGastos': 'Principals categories de despesa',
 
   'grafico.titulo': 'Evolució del teu capital',
   'grafico.ejeX': 'Dia del mes',
@@ -51,6 +55,7 @@ export default {
   'categorias.grafico': 'Gràfic circular de la despesa neta per categoria',
   'categorias.lista': 'Despesa neta per categoria',
   'categorias.negativa': "T'han retornat més del que vas gastar: no entra al gràfic.",
+  'categorias.verMovimientos': 'Veure els moviments de {categoria} d’aquest mes',
 
   'analisis.titulo': "De la teva anàlisi de {mes}",
   'analisis.ia': 'IA',
@@ -77,6 +82,12 @@ export default {
   'objetivos.progreso': '{actual} / {objetivo}',
   'objetivos.superado': 'Superat',
   'objetivos.conseguido': 'Aconseguit',
+  'objetivos.superadoEn': 'Superat en {importe}',
+  'objetivos.proyeccion': 'Et queden {dias} dies · has d’estalviar {importe}/dia',
+  'objetivos.proyeccionUltimoDia': 'Queda 1 dia · has d’estalviar {importe} avui',
+
+  'otros.aviso': '«{categoria}» és el {porcentaje} de la teva despesa del mes ({importe}). Recategoritza-ho per veure millor en què gastes.',
+  'otros.recategorizar': 'Recategoritza',
   'objetivos.categoriaDesconocida': 'Categoria',
 
   'form.titulo': 'Nou objectiu',

@@ -4,17 +4,19 @@ import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { useNombreUsuario } from '@/shared/hooks/useNombreUsuario';
 import { useIdioma, useT } from '@/shared/i18n';
-import { finDeMes, inicioDeMes, mismoDiaMesAnterior, sumarMeses } from '@/shared/lib/fechas';
+import { finDeMes, mismoDiaMesAnterior, sumarMeses } from '@/shared/lib/fechas';
 import { inicioDeDatos, periodosComparacion } from '@/shared/lib/periodos';
 import { CabeceraPagina } from '@/shared/layout';
 import { Card, EmptyState } from '@/shared/ui';
 import {
   useInicioGastoCategoriasQuery,
+  useInicioIngresosCategoriasQuery,
   useInicioResumenQuery,
   useInicioSeriePatrimonioQuery,
   useInicioValoresCuentasQuery,
 } from '../api/inicioApi';
 import { AnalisisDestacado } from '../components/AnalisisDestacado';
+import { AvisoOtrosGastos } from '../components/AvisoOtrosGastos';
 import { DonutCategorias } from '../components/DonutCategorias';
 import { ErrorCarga, Esqueleto } from '../components/Estados';
 import { GraficoCapital } from '../components/GraficoCapital';
@@ -25,6 +27,7 @@ import { UltimosMovimientos } from '../components/UltimosMovimientos';
 import { useMesSeleccionado } from '../hooks/useMesSeleccionado';
 import { mesLargo } from '../lib/calculos';
 import type { CuentaDesglose } from '../lib/desglose';
+import { enlaceMovimientosCategoria } from '../lib/enlaces';
 
 interface EstadoConsulta {
   isUninitialized: boolean;
@@ -42,8 +45,11 @@ const pendiente = (q: EstadoConsulta) => !q.isUninitialized && !q.isError && q.c
  * Si el tramo anterior empieza antes del primer día con datos, no tiene la misma longitud:
  * «Sin datos del mes anterior» (sección 8). Todos los periodos salen de `periodosComparacion`,
  * la misma función que Estadísticas; las cifras, de las RPC (nada de dinero calculado aquí).
- * - Gráfico de capital (serie diaria), donut de categorías y destacados del análisis del mes.
- * - Últimos movimientos y objetivos: siempre del mes en curso.
+ * - Resumen: Patrimonio · Ingresos · Gastos netos · Balance (con su ahorro, sección 3).
+ * - Aviso si «Otros gastos» pasa del 20 % del gasto del mes (peso_otros_gastos).
+ * - Gráfico de capital (serie diaria), donut de categorías (cada una abre Movimientos con ese
+ *   filtro y el mes) y un consejo del análisis del mes.
+ * - Últimos movimientos y objetivos (progreso_objetivos): siempre del mes en curso.
  */
 export default function PaginaInicio() {
   const t = useT('inicio');
@@ -69,16 +75,25 @@ export default function PaginaInicio() {
     resuelto ? { desde: mesAnterior, hasta: finDeMes(mesAnterior), hoy } : skipToken,
   );
   const categorias = useInicioGastoCategoriasQuery(resuelto ? periodos.actual : skipToken);
-
-  // Objetivos: del mes en curso, se mire el mes que se mire (en curso, comparte caché con lo de arriba).
-  const tramoEnCurso = { desde: inicioDeMes(hoy), hasta: hoy };
-  const resumenEnCurso = useInicioResumenQuery(tramoEnCurso);
-  const categoriasEnCurso = useInicioGastoCategoriasQuery(tramoEnCurso);
+  const ingresosCategorias = useInicioIngresosCategoriasQuery(resuelto ? periodos.actual : skipToken);
 
   const datosResumen = resumen.currentData;
   const datosSerie = serie.currentData;
   const datosSerieAnterior = serieAnterior.currentData;
   const datosCategorias = categorias.currentData;
+  const topGastos = datosCategorias?.map((c) => ({
+    id: c.categoria_id,
+    nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),
+    color: c.color,
+    importe: c.gasto,
+  }));
+  const topIngresos = ingresosCategorias.currentData?.map((c) => ({
+    id: c.categoria_id,
+    nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),
+    color: c.color,
+    importe: c.ingreso,
+  }));
+  const enlaceCategoria = (id: string) => enlaceMovimientosCategoria(id, periodos.actual);
   const patrimonioRef = datosSerie?.find((p) => p.fecha === referencia)?.patrimonio ?? null;
   const patrimonioAnterior = datosSerieAnterior?.find((p) => p.fecha === dPrima)?.patrimonio ?? null;
 
@@ -124,10 +139,11 @@ export default function PaginaInicio() {
 
       <div className="flex flex-col gap-4 sm:gap-5">
         {kpiCargando ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
             <Esqueleto className="h-28" />
-            <Esqueleto className="h-28" />
-            <Esqueleto className="h-28" />
+            <Esqueleto className="hidden h-28 lg:block" />
+            <Esqueleto className="hidden h-28 lg:block" />
+            <Esqueleto className="hidden h-28 lg:block" />
           </div>
         ) : kpiError || !datosResumen ? (
           <ErrorCarga onReintentar={reintentar(resumen, resumenAnterior, cuentas, serie, serieAnterior)} />
@@ -141,8 +157,12 @@ export default function PaginaInicio() {
             // Sin el resumen anterior (o si su tramo es parcial), las tarjetas dicen «Sin datos del mes anterior».
             resumenAnterior={periodos.anterior ? (resumenAnterior.currentData ?? null) : null}
             cuentas={cuentasDesglose}
+            topIngresos={topIngresos}
+            topGastos={topGastos}
           />
         )}
+
+        <AvisoOtrosGastos periodo={resuelto ? periodos.actual : undefined} />
 
         <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-2">
           <Card className="min-w-0">
@@ -169,6 +189,7 @@ export default function PaginaInicio() {
                   gasto: c.gasto,
                 }))}
                 totalGastoNeto={datosResumen.gastos_netos}
+                enlace={enlaceCategoria}
               />
             ) : (
               <EmptyState
@@ -182,7 +203,7 @@ export default function PaginaInicio() {
 
         <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2">
           <UltimosMovimientos />
-          <TarjetaObjetivos hoy={hoy} balance={resumenEnCurso.data?.balance} gastos={categoriasEnCurso.data} />
+          <TarjetaObjetivos hoy={hoy} />
         </div>
       </div>
     </>

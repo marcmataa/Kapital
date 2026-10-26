@@ -14,7 +14,8 @@ interface Props {
 }
 
 /**
- * Bajo el donut: 2 destacados del análisis, como texto plano, y enlace al análisis completo
+ * Bajo el donut: un consejo accionable del análisis (su primera recomendación, tal cual la generó
+ * la IA; las cifras ya están en las tarjetas), como texto plano, y enlace al análisis completo
  * (`/analisis/YYYY-MM`).
  * - Mes en curso sin análisis: aviso de que el primero llega el día 1.
  * - Mes cerrado sin análisis listo: aviso y enlace a su página de Análisis, que decide si se
@@ -58,11 +59,11 @@ export function AnalisisDestacado({ mes }: Props) {
         </h3>
         <span className="text-xs text-apagado">{t('analisis.ia')}</span>
       </div>
-      <ul className="flex list-disc flex-col gap-1.5 pl-4.5 text-sm leading-relaxed text-texto">
-        {data.destacados.map((d, i) => (
-          <li key={i}>{d}</li>
-        ))}
-      </ul>
+      {data.consejo !== null && (
+        <p data-testid="consejo-analisis" className="text-sm leading-relaxed text-texto">
+          {data.consejo}
+        </p>
+      )}
       <Link to={`/analisis/${data.mes.slice(0, 7)}`} className="text-sm font-semibold text-enlace hover:underline">
         {t('analisis.verCompleto')}
       </Link>
