@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { Lock } from 'lucide-react';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
+import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
@@ -42,13 +43,17 @@ export function diaDeRegistro(createdAt: string, zona: string = ZONA_POR_DEFECTO
 export function DetalleMovimiento({ movimiento: m, catalogos, onBorrado, nivelTitulo = 'h2', className }: Props) {
   const t = useT('movimientos');
   const nombreCategoria = useNombreCategoria();
+  const nombreVisible = useNombreCuenta();
   const { locale } = useIdioma();
   const { zona } = useHoyUsuario();
   const [confirmando, setConfirmando] = useState(false);
   const original = useMovimientosObtenerQuery(m.devolucion_de ?? '', { skip: m.devolucion_de === null });
 
   const cuenta = (id: string | null) => (id === null ? undefined : catalogos.cuentaPorId.get(id));
-  const nombreCuenta = (id: string | null) => cuenta(id)?.nombre ?? t('detalle.sinDato');
+  const nombreCuenta = (id: string | null) => {
+    const c = cuenta(id);
+    return c ? nombreVisible(c) : t('detalle.sinDato');
+  };
   const categoria = m.categoria_id === null ? undefined : catalogos.categoriaPorId.get(m.categoria_id);
   const Titulo = nivelTitulo;
 
@@ -136,7 +141,7 @@ export function DetalleMovimiento({ movimiento: m, catalogos, onBorrado, nivelTi
       {cerrada !== undefined && (
         <p className="flex gap-2 rounded-xl border border-aviso-borde bg-aviso-suave px-3 py-2.5 text-sm text-aviso">
           <Lock aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          {t('detalle.cuentaCerrada', { cuenta: cerrada.nombre })}
+          {t('detalle.cuentaCerrada', { cuenta: nombreVisible(cerrada) })}
         </p>
       )}
 

@@ -1,4 +1,5 @@
 import { formatearEuros } from '@/shared/lib/dinero';
+import { formatearDiaMes } from '@/shared/lib/fechas';
 import type { Movimiento } from './tipos';
 
 export type Tono = 'positivo' | 'negativo' | 'neutro';
@@ -68,9 +69,7 @@ export function tituloMes(mes: string, locale: string): string {
   return `${nombre.charAt(0).toLocaleUpperCase(locale)}${nombre.slice(1)} ${mes.slice(0, 4)}`;
 }
 
-/** '2026-10-14' → '14 oct' */
+/** '2026-10-14' → '14 oct'. El formateador de fecha corta de toda la app. */
 export function diaCorto(fecha: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' })
-    .format(new Date(`${fecha}T00:00:00Z`))
-    .replace('.', '');
+  return formatearDiaMes(fecha, locale);
 }

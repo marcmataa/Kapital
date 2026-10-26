@@ -31,6 +31,29 @@ describe('MoneyInput', () => {
     expect(input).toHaveAttribute('type', 'text');
   });
 
+  it.each([
+    ['es', '0,00'],
+    ['ca', '0,00'],
+    ['en', '0.00'],
+  ] as const)('placeholder con el separador decimal del idioma (%s → %s)', (idioma, esperado) => {
+    montar(idioma);
+    expect(screen.getByLabelText('Importe')).toHaveAttribute('placeholder', esperado);
+  });
+
+  it.each(['es', 'ca'] as const)('en %s acepta coma y punto como decimal', async (idioma) => {
+    for (const [escrito, normalizado] of [
+      ['38,5', '38,50'],
+      ['38.5', '38,50'],
+    ]) {
+      const { unmount } = montar(idioma);
+      const input = screen.getByLabelText('Importe');
+      await userEvent.type(input, escrito!);
+      await userEvent.tab();
+      expect(input).toHaveValue(normalizado);
+      unmount();
+    }
+  });
+
   it('normaliza al salir: "1.258,5" → "1258,50" (es) y vuelve a leerse igual', async () => {
     montar('es');
     const input = screen.getByLabelText('Importe');

@@ -1,5 +1,6 @@
 import { Card } from '@/shared/ui';
 import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
+import { useNombreCuentaCatalogo } from '@/shared/hooks/useNombreCuenta';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
 import { cx } from '@/shared/lib/cx';
@@ -36,6 +37,8 @@ export function DesgloseBalance(props: Props) {
   const titulo = useTituloComparativa(periodos, 'desglose.titulo');
   const hayAnterior = periodos.anterior !== null;
   const nombreCategoria = useNombreCategoriaCatalogo();
+  // v_fuera_balance trae el nombre de la cuenta, no la clave: la cuenta de efectivo se traduce por catálogo.
+  const nombreCuenta = useNombreCuentaCatalogo();
   const deIngreso = (f: FilaIngresoCategoria) => ({
     id: `i-${f.categoria_id}`,
     nombre: nombreCategoria({ id: f.categoria_id, nombre: f.nombre }),
@@ -58,8 +61,11 @@ export function DesgloseBalance(props: Props) {
 
   const nombreFuera = (f: FilaFueraBalance) =>
     f.tipo === 'traspaso'
-      ? t('desglose.traspaso', { origen: f.cuenta, destino: f.cuenta_destino ?? '' })
-      : t(f.sentido === 'resta' ? 'desglose.ajusteResta' : 'desglose.ajusteSuma', { cuenta: f.cuenta });
+      ? t('desglose.traspaso', {
+          origen: nombreCuenta({ nombre: f.cuenta }),
+          destino: f.cuenta_destino === null ? '' : nombreCuenta({ nombre: f.cuenta_destino }),
+        })
+      : t(f.sentido === 'resta' ? 'desglose.ajusteResta' : 'desglose.ajusteSuma', { cuenta: nombreCuenta({ nombre: f.cuenta }) });
   const claveFuera = (f: FilaFueraBalance) => `${f.tipo}|${f.cuenta}|${f.cuenta_destino ?? ''}|${f.sentido ?? ''}`;
   const previas = new Map(props.fueraAnterior.map((f) => [claveFuera(f), f]));
   const actuales = new Set(props.fuera.map(claveFuera));

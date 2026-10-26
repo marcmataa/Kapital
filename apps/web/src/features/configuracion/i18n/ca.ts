@@ -162,7 +162,7 @@ export default {
   'cuenta.email': 'Correu',
   'cuenta.cerrarSesion': 'Tancar la sessió',
 
-  'accion.cancelar': 'Cancel·lar',
+  'accion.cancelar': 'Cancel·la',
   'accion.guardar': 'Desar',
   'accion.cerrar': 'Tancar',
 } satisfies Traduccion<typeof es>;

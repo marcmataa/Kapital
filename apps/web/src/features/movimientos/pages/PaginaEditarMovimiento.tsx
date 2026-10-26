@@ -1,4 +1,5 @@
 import { Link, useParams } from 'react-router';
+import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
@@ -12,6 +13,7 @@ import { valoresDesdeMovimiento } from '../schemas/movimiento';
 export default function PaginaEditarMovimiento() {
   const t = useT('movimientos');
   const tc = useT('common');
+  const nombreCuenta = useNombreCuenta();
   const { locale } = useIdioma();
   const { id = '' } = useParams();
   const catalogos = useCatalogos();
@@ -60,7 +62,7 @@ export default function PaginaEditarMovimiento() {
       .find((c) => c?.fecha_cierre != null);
     contenido =
       cerrada !== undefined ? (
-        <EmptyState titulo={t('detalle.cuentaCerrada', { cuenta: cerrada.nombre })} />
+        <EmptyState titulo={t('detalle.cuentaCerrada', { cuenta: nombreCuenta(cerrada) })} />
       ) : (
         <FormularioMovimiento
           key={m.id}

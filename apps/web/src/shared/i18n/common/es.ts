@@ -59,4 +59,12 @@ export default {
   'categoria.nomina': 'Nómina',
   'categoria.otros_ingresos': 'Otros ingresos',
   'categoria.rendimientos': 'Rendimientos',
+  'categoria.supermercado': 'Supermercado',
+  'categoria.hogar': 'Hogar',
+  'categoria.salud': 'Salud',
+  'categoria.deporte': 'Deporte',
+  'categoria.cuidado_personal': 'Cuidado personal',
+  'categoria.ropa': 'Ropa',
+  'categoria.regalos': 'Regalos',
+  'cuenta.efectivo': 'Efectivo',
 } as const satisfies Mensajes;

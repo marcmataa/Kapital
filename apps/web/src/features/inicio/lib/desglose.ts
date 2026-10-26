@@ -5,6 +5,7 @@ export type CuentaDesglose = Pick<
   Cuenta,
   | 'id'
   | 'nombre'
+  | 'clave'
   | 'tipo'
   | 'entidad'
   | 'color'

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { Info, TriangleAlert } from 'lucide-react';
 import type { Categoria, Cuenta } from '@/shared/api/catalogos';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
+import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
@@ -60,6 +61,7 @@ export function FormularioMovimiento({
 }: Props) {
   const t = useT('movimientos');
   const nombreCategoria = useNombreCategoria();
+  const nombreCuenta = useNombreCuenta();
   const { locale } = useIdioma();
   const [crear] = useMovimientosCrearMutation();
   const [actualizar] = useMovimientosActualizarMutation();
@@ -106,11 +108,12 @@ export function FormularioMovimiento({
         hoy,
         cuentas,
         categorias,
+        nombreCuenta,
         devueltoOriginal,
         tipoOriginal: original?.tipo ?? null,
         pendienteGastoOriginal: pendiente,
       }),
-    [t, locale, hoy, cuentas, categorias, devueltoOriginal, original?.tipo, pendiente],
+    [t, locale, hoy, cuentas, categorias, nombreCuenta, devueltoOriginal, original?.tipo, pendiente],
   );
   useLayoutEffect(() => {
     esquemaRef.current = esquema;
@@ -207,7 +210,6 @@ export function FormularioMovimiento({
             name={field.name}
             ref={field.ref}
             error={fieldState.error?.message}
-            placeholder="0,00"
           />
         )}
       />
@@ -274,7 +276,7 @@ export function FormularioMovimiento({
         <option value="">{t('form.elegirCuenta')}</option>
         {abiertas.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.nombre}
+            {nombreCuenta(c)}
           </option>
         ))}
       </Select>
@@ -284,7 +286,7 @@ export function FormularioMovimiento({
           <option value="">{t('form.elegirCuenta')}</option>
           {abiertas.map((c) => (
             <option key={c.id} value={c.id} disabled={c.id === cuentaId}>
-              {c.nombre}
+              {nombreCuenta(c)}
             </option>
           ))}
         </Select>

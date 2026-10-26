@@ -51,13 +51,13 @@ export type Database = {
                   ]
                 },"cuentas": {
                   Row: {
-                    "archivada": boolean | null,"color": string | null,"created_at": string,"emoji": string | null,"entidad": string | null,"es_principal": boolean,"fecha_cierre": string | null,"fecha_inicial": string,"id": string,"nombre": string,"orden": number,"saldo_inicial": number,"tipo": Database["public"]['Enums']["tipo_cuenta"],"user_id": string
+                    "archivada": boolean | null,"clave": string | null,"color": string | null,"created_at": string,"emoji": string | null,"entidad": string | null,"es_principal": boolean,"fecha_cierre": string | null,"fecha_inicial": string,"id": string,"nombre": string,"orden": number,"saldo_inicial": number,"tipo": Database["public"]['Enums']["tipo_cuenta"],"user_id": string
                   }
                   Insert: {
-                    "archivada"?: never,"color"?: string | null,"created_at"?: string,"emoji"?: string | null,"entidad"?: string | null,"es_principal"?: boolean,"fecha_cierre"?: string | null,"fecha_inicial"?: string,"id"?: string,"nombre": string,"orden"?: number,"saldo_inicial"?: number,"tipo"?: Database["public"]['Enums']["tipo_cuenta"],"user_id"?: string
+                    "archivada"?: never,"clave"?: string | null,"color"?: string | null,"created_at"?: string,"emoji"?: string | null,"entidad"?: string | null,"es_principal"?: boolean,"fecha_cierre"?: string | null,"fecha_inicial"?: string,"id"?: string,"nombre": string,"orden"?: number,"saldo_inicial"?: number,"tipo"?: Database["public"]['Enums']["tipo_cuenta"],"user_id"?: string
                   }
                   Update: {
-                    "archivada"?: never,"color"?: string | null,"created_at"?: string,"emoji"?: string | null,"entidad"?: string | null,"es_principal"?: boolean,"fecha_cierre"?: string | null,"fecha_inicial"?: string,"id"?: string,"nombre"?: string,"orden"?: number,"saldo_inicial"?: number,"tipo"?: Database["public"]['Enums']["tipo_cuenta"],"user_id"?: string
+                    "archivada"?: never,"clave"?: string | null,"color"?: string | null,"created_at"?: string,"emoji"?: string | null,"entidad"?: string | null,"es_principal"?: boolean,"fecha_cierre"?: string | null,"fecha_inicial"?: string,"id"?: string,"nombre"?: string,"orden"?: number,"saldo_inicial"?: number,"tipo"?: Database["public"]['Enums']["tipo_cuenta"],"user_id"?: string
                   }
                   Relationships: [
                     

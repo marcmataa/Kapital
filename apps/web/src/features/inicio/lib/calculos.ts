@@ -1,5 +1,5 @@
 import { aCentimos, desdeCentimos } from '@/shared/lib/dinero';
-import { partesDe } from '@/shared/lib/fechas';
+import { formatearDiaMes, partesDe } from '@/shared/lib/fechas';
 
 /*
  * Cálculos puros de Inicio. Los importes se tratan como céntimos en bigint; solo se convierten a
@@ -117,10 +117,8 @@ function fechaUtc(fecha: string): Date {
   return new Date(Date.UTC(anio, mes - 1, dia));
 }
 
-/** '2026-10-15' → '15 oct' (es) / '15 Oct' (en). */
-export function formatearDiaMes(fecha: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(fechaUtc(fecha));
-}
+/** '2026-10-15' → '15 oct' (es) / '15 Oct' (en): el formateador de fecha corta de toda la app. */
+export { formatearDiaMes };
 
 /** '2026-10-15' → 'oct' (es). */
 export function mesCorto(fecha: string, locale: string): string {

@@ -15,6 +15,8 @@ type Enums = Database['public']['Enums'];
 export interface Cuenta {
   id: string;
   nombre: string;
+  /** 'efectivo' en la cuenta de efectivo por defecto (se muestra traducida); si no, null. Ver shared/lib/cuentas.ts. */
+  clave?: string | null;
   tipo: Enums['tipo_cuenta'];
   entidad: string | null;
   color: string | null;
@@ -62,7 +64,7 @@ export const catalogosApi = api.injectEndpoints({
             supabase
               .from('cuentas')
               .select(
-                'id, nombre, tipo, entidad, color, emoji, es_principal, orden, fecha_inicial, fecha_cierre, saldo_inicial::text',
+                'id, nombre, clave, tipo, entidad, color, emoji, es_principal, orden, fecha_inicial, fecha_cierre, saldo_inicial::text',
               )
               .order('orden'),
             supabase.from('v_saldos').select('id, valor::text'),

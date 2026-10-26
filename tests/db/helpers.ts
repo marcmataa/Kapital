@@ -18,6 +18,8 @@ export const MIGRACION_CATEGORIAS_CLAVE = leer('supabase/migrations/202610230000
 export const ROLLBACK_CATEGORIAS_CLAVE = leer('supabase/rollback/20261023000001_categorias_clave.down.sql');
 export const MIGRACION_ESTADISTICAS = leer('supabase/migrations/20261023000002_estadisticas.sql');
 export const ROLLBACK_ESTADISTICAS = leer('supabase/rollback/20261023000002_estadisticas.down.sql');
+export const MIGRACION_CATEGORIAS_CUENTAS_CLAVE = leer('supabase/migrations/20261024000000_categorias_y_cuentas_clave.sql');
+export const ROLLBACK_CATEGORIAS_CUENTAS_CLAVE = leer('supabase/rollback/20261024000000_categorias_y_cuentas_clave.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
 export const MIGRACIONES = [
   MIGRACION,
@@ -26,15 +28,36 @@ export const MIGRACIONES = [
   MIGRACION_VALORES_CUENTAS,
   MIGRACION_CATEGORIAS_CLAVE,
   MIGRACION_ESTADISTICAS,
+  MIGRACION_CATEGORIAS_CUENTAS_CLAVE,
 ];
 /** Todos los rollbacks, en orden inverso. */
 export const ROLLBACKS = [
+  ROLLBACK_CATEGORIAS_CUENTAS_CLAVE,
   ROLLBACK_ESTADISTICAS,
   ROLLBACK_CATEGORIAS_CLAVE,
   ROLLBACK_VALORES_CUENTAS,
   ROLLBACK_CORRECCIONES,
   ROLLBACK_ONBOARDING,
   ROLLBACK,
+];
+
+/** Categorías por defecto de un usuario nuevo (onboarding / preparar_usuario), por `orden`. */
+export const CATEGORIAS_POR_DEFECTO = [
+  { nombre: 'Restaurantes', clave: 'restaurantes' },
+  { nombre: 'Ocio', clave: 'ocio' },
+  { nombre: 'Transporte', clave: 'transporte' },
+  { nombre: 'Suscripciones', clave: 'suscripciones' },
+  { nombre: 'Supermercado', clave: 'supermercado' },
+  { nombre: 'Hogar', clave: 'hogar' },
+  { nombre: 'Salud', clave: 'salud' },
+  { nombre: 'Deporte', clave: 'deporte' },
+  { nombre: 'Cuidado personal', clave: 'cuidado_personal' },
+  { nombre: 'Ropa', clave: 'ropa' },
+  { nombre: 'Regalos', clave: 'regalos' },
+  { nombre: 'Otros gastos', clave: 'otros_gastos' },
+  { nombre: 'Nómina', clave: 'nomina' },
+  { nombre: 'Otros ingresos', clave: 'otros_ingresos' },
+  { nombre: 'Rendimientos', clave: 'rendimientos' },
 ];
 
 export type TipoMovimiento = 'gasto' | 'ingreso' | 'devolucion' | 'traspaso' | 'ajuste';
