@@ -1,9 +1,11 @@
 import { useState, type FormEvent } from 'react';
 import type { Categoria, Cuenta } from '@/shared/api/catalogos';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
+import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
+import { finDeMes, inicioDeMes, sumarDias, sumarMeses } from '@/shared/lib/fechas';
 import { Button, Input, Select } from '@/shared/ui';
 import type { Filtros } from '../lib/filtros';
 import { METODOS, esMetodo, esUuid } from '../lib/tipos';
@@ -23,6 +25,7 @@ export function PanelFiltros({ filtros, cuentas, categorias, onAplicar, variante
   const t = useT('movimientos');
   const nombreCuenta = useNombreCuenta();
   const nombreCategoria = useNombreCategoria();
+  const { hoy } = useHoyUsuario();
   const [desde, setDesde] = useState(filtros.desde ?? '');
   const [hasta, setHasta] = useState(filtros.hasta ?? '');
   const [categoria, setCategoria] = useState(filtros.categoria ?? '');
@@ -51,6 +54,15 @@ export function PanelFiltros({ filtros, cuentas, categorias, onAplicar, variante
     onAplicar({ desde: null, hasta: null, categoria: null, metodo: null, cuenta: null });
   };
 
+  // Atajos de periodo (auditoría F17): rellenan las fechas; se aplican con «Aplicar», como el resto.
+  const mesActual = inicioDeMes(hoy);
+  const mesPasado = sumarMeses(mesActual, -1);
+  const atajos = [
+    { id: 'esteMes', desde: mesActual, hasta: hoy },
+    { id: 'mesPasado', desde: mesPasado, hasta: finDeMes(mesPasado) },
+    { id: 'ultimos30', desde: sumarDias(hoy, -29), hasta: hoy },
+  ] as const;
+
   const gastos = categorias.filter((c) => c.tipo === 'gasto');
   const ingresos = categorias.filter((c) => c.tipo === 'ingreso');
 
@@ -65,6 +77,28 @@ export function PanelFiltros({ filtros, cuentas, categorias, onAplicar, variante
         className,
       )}
     >
+      <div role="group" aria-label={t('filtros.atajos')} className="col-span-full flex flex-wrap gap-2">
+        {atajos.map((a) => {
+          const activo = desde === a.desde && hasta === a.hasta;
+          return (
+            <button
+              key={a.id}
+              type="button"
+              aria-pressed={activo}
+              onClick={() => {
+                setDesde(a.desde);
+                setHasta(a.hasta);
+              }}
+              className={cx(
+                'min-h-9 rounded-full px-3.5 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento',
+                activo ? 'bg-acento font-semibold text-sobre-acento' : 'border border-borde-input text-texto hover:bg-superficie-2',
+              )}
+            >
+              {t(`filtros.${a.id}`)}
+            </button>
+          );
+        })}
+      </div>
       <Input
         label={t('filtros.desde')}
         type="date"

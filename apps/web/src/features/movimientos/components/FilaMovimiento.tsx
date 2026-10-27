@@ -145,7 +145,9 @@ export function FilaMovimiento({ movimiento: m, catalogos, seleccionado, href, o
         <div
           inert={!abierta}
           data-testid="acciones-fila"
-          className="absolute inset-y-0 right-0 flex lg:hidden"
+          // Con la fila en reposo, el panel se oculta del todo: si no, sus colores asomaban por las
+          // esquinas redondeadas de la fila como unos arcos en el borde derecho (auditoría F12).
+          className={cx('absolute inset-y-0 right-0 flex lg:hidden', desplazamiento === 0 && !arrastrando && 'invisible')}
           style={{ width: ANCHO_ACCIONES }}
         >
           <Link

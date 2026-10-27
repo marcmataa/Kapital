@@ -7,6 +7,7 @@ import {
   variacionImporte as diferenciaBalance,
   variacionPorcentual,
 } from '@/shared/lib/dinero';
+import { enlaceMovimientos } from '@/shared/lib/enlaces';
 import { finDeMes, formatearFecha, inicioDeMes, mismoDiaMesAnterior, partesDe, sumarMeses } from '@/shared/lib/fechas';
 import { AyudaGrafico, type Tendencia, type VariacionStat } from '@/shared/ui';
 import type { ResumenPeriodo } from '../api/inicioApi';
@@ -66,6 +67,8 @@ export function TarjetasKpi({
   const dPrima = mismoDiaMesAnterior(fecha);
   const hastaAnterior = enCurso ? dPrima : finDeMes(sumarMeses(fecha, -1));
   const dia = partesDe(fecha).dia;
+  // Tramo de las cifras del mes: del día 1 a la fecha de referencia (hoy o el último día).
+  const periodo = { desde: inicioDeMes(fecha), hasta: fecha };
   const vsTramo = t('kpi.vsTramo', { dia: partesDe(hastaAnterior).dia, mes: mesCorto(hastaAnterior, locale) });
 
   const variacionImporte = (
@@ -152,12 +155,17 @@ export function TarjetasKpi({
         <KpiMes
           agrupado
           titulo={t('kpi.ingresos', { dia, mes })}
+          enlace={enlaceMovimientos({ tipo: 'ingreso', ...periodo })}
+          etiquetaEnlace={t('kpi.verMovimientos')}
           valor={formatearEuros(resumenActual.ingresos, locale)}
           {...(ingresos ? { variacion: ingresos } : { pie: sinAnterior })}
         />
         <KpiMes
           agrupado
           titulo={t('kpi.gastos', { dia, mes })}
+          // Sin filtro de tipo: el gasto neto incluye devoluciones; el resumen de Movimientos lo da exacto.
+          enlace={enlaceMovimientos(periodo)}
+          etiquetaEnlace={t('kpi.verMovimientos')}
           valor={formatearEuros(resumenActual.gastos_netos, locale)}
           {...(gastos ? { variacion: gastos } : { pie: sinAnterior })}
         />
@@ -165,6 +173,8 @@ export function TarjetasKpi({
           agrupado
           resultado
           titulo={t('kpi.balance', { dia, mes })}
+          enlace={enlaceMovimientos(periodo)}
+          etiquetaEnlace={t('kpi.verMovimientos')}
           valor={formatearEuros(resumenActual.balance, locale, { signo: 'siempre' })}
           {...(balanceNegativo && { tonoValor: 'negativo' as const })}
           {...(balance ? { variacion: balance } : { pie: sinAnterior })}

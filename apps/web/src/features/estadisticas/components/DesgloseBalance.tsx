@@ -4,6 +4,7 @@ import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { useNombreCuentaCatalogo } from '@/shared/hooks/useNombreCuenta';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
+import { enlaceMovimientos } from '@/shared/lib/enlaces';
 import { cx } from '@/shared/lib/cx';
 import type { Comparativa, FilaFueraBalance, GastoCategoria } from '../api/estadisticasApi';
 import { emparejar, type FilaIngresoCategoria, type OrdenFilas } from '../lib/agregaciones';
@@ -59,15 +60,24 @@ export function DesgloseBalance(props: Props) {
     importe: f.gasto,
   });
 
-  const categoriasIngreso = emparejar(props.ingresos.map(deIngreso), props.ingresosAnterior.map(deIngreso), hayAnterior, orden);
+  // Cada fila enlaza a los movimientos de su categoría en el tramo (F08); los ids llevan prefijo i-/g-.
+  const conEnlace = (f: FilaVista): FilaVista => ({ ...f, href: enlaceMovimientos({ categoria: f.id.slice(2), ...periodos.actual }) });
+  const categoriasIngreso = emparejar(props.ingresos.map(deIngreso), props.ingresosAnterior.map(deIngreso), hayAnterior, orden).map(conEnlace);
   const filasIngresos: FilaVista[] = [
-    { id: 'total-ingresos', nombre: t('desglose.ingresos'), actual: c.ingresos, anterior: c.ingresos_anterior, total: true },
+    {
+      id: 'total-ingresos',
+      nombre: t('desglose.ingresos'),
+      actual: c.ingresos,
+      anterior: c.ingresos_anterior,
+      total: true,
+      href: enlaceMovimientos({ tipo: 'ingreso', ...periodos.actual }),
+    },
     // Con una sola categoría de ingreso, su fila repite el total: no se muestra.
     ...(categoriasIngreso.length > 1 ? categoriasIngreso : []),
   ];
   const filasGastos: FilaVista[] = [
     { id: 'total-gastos', nombre: t('desglose.gastosNetos'), actual: c.gastos_netos, anterior: c.gastos_netos_anterior, total: true },
-    ...emparejar(props.gastos.map(deGasto), props.gastosAnterior.map(deGasto), hayAnterior, orden),
+    ...emparejar(props.gastos.map(deGasto), props.gastosAnterior.map(deGasto), hayAnterior, orden).map(conEnlace),
   ];
 
   const nombreFuera = (f: FilaFueraBalance) =>

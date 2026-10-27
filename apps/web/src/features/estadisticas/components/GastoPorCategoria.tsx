@@ -4,7 +4,9 @@ import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
 import type { GastoCategoria } from '../api/estadisticasApi';
+import { enlaceMovimientos } from '@/shared/lib/enlaces';
 import { emparejar, type OrdenFilas } from '../lib/agregaciones';
+import type { Rango } from '../lib/periodos';
 import { signo } from '../lib/formato';
 import { FilasComparadas } from './FilasComparadas';
 import { OrdenFilasControl } from './OrdenFilas';
@@ -16,6 +18,8 @@ interface Props {
   anteriores: readonly GastoCategoria[] | null;
   /** «vs mes anterior al día 19» / «vs septiembre completo». */
   titulo: string;
+  /** Tramo de las cifras: cada categoría enlaza a sus movimientos de ese tramo (F08). */
+  periodo: Rango;
 }
 
 /**
@@ -24,7 +28,7 @@ interface Props {
  * aparte, con su número en negativo, sin barra ni porcentaje. Con mes anterior, cada fila lleva su
  * diferencia (Δ) y la lista se ordena por importe o por lo que más ha cambiado.
  */
-export function GastoPorCategoria({ categorias, anteriores, titulo }: Props) {
+export function GastoPorCategoria({ categorias, anteriores, titulo, periodo }: Props) {
   const t = useT('estadisticas');
   const nombreCategoria = useNombreCategoriaCatalogo();
   const { idioma } = useIdioma();
@@ -37,7 +41,10 @@ export function GastoPorCategoria({ categorias, anteriores, titulo }: Props) {
     color: c.color,
     importe: c.gasto,
   });
-  const filas = emparejar(categorias.map(comoFila), (anteriores ?? []).map(comoFila), hayAnterior, orden);
+  const filas = emparejar(categorias.map(comoFila), (anteriores ?? []).map(comoFila), hayAnterior, orden).map((f) => ({
+    ...f,
+    href: enlaceMovimientos({ categoria: f.id, ...periodo }),
+  }));
   const visibles = filas.filter((f) => signo(f.actual) > 0 || (f.anterior !== null && signo(f.actual) === 0 && signo(f.anterior) !== 0));
   const negativas = filas.filter((f) => signo(f.actual) < 0);
 

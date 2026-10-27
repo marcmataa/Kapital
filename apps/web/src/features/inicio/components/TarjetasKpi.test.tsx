@@ -170,6 +170,29 @@ describe('TarjetasKpi · desglose por cuenta', () => {
     expect(within(lista).queryByText('Banco Octubre')).not.toBeInTheDocument();
   });
 
+  it('cada cifra enlaza a los movimientos que la explican: cuentas, ingresos y el mes (F08)', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-10-19"
+        patrimonioHoy="1500.00"
+        patrimonioAnterior={null}
+        resumenActual={RESUMEN}
+        resumenAnterior={null}
+        cuentas={[{ ...base, id: 'a', nombre: 'Banco Uno', orden: 0, valor: '1500.00' }]}
+      />,
+    );
+    const lista = screen.getByRole('list', { name: 'Patrimonio por cuenta' });
+    expect(within(lista).getByRole('link', { name: /Banco Uno/ })).toHaveAttribute('href', '/movimientos?cuenta=a');
+    // Ingresos: con tipo, su suma es la cifra. Gastos netos y balance: el tramo (el resumen de
+    // Movimientos da el gasto neto, devoluciones incluidas, y el balance, calculados en SQL).
+    expect(screen.getByRole('link', { name: /^Ingresos · 1–19 oct/ })).toHaveAttribute(
+      'href',
+      '/movimientos?tipo=ingreso&desde=2026-10-01&hasta=2026-10-19',
+    );
+    expect(screen.getByRole('link', { name: /^Gastos netos · 1–19 oct/ })).toHaveAttribute('href', '/movimientos?desde=2026-10-01&hasta=2026-10-19');
+    expect(screen.getByRole('link', { name: /^Balance · 1–19 oct/ })).toHaveAttribute('href', '/movimientos?desde=2026-10-01&hasta=2026-10-19');
+  });
+
   it('negativos con signo y en rojo; emoji para las cuentas que no son banco', () => {
     renderConApp(
       <TarjetasKpi

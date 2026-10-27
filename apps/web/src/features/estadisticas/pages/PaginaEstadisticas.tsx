@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { useListarCuentasQuery } from '@/shared/api/catalogos';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
 import { cx } from '@/shared/lib/cx';
-import { finDeMes, inicioDeMes, partesDe } from '@/shared/lib/fechas';
-import { SegmentedControl, Select } from '@/shared/ui';
+import { finDeMes, partesDe } from '@/shared/lib/fechas';
+import { SegmentedControl } from '@/shared/ui';
+import { SelectorMes } from '@/features/inicio/components/SelectorMes';
+import { useMesSeleccionado } from '@/features/inicio/hooks/useMesSeleccionado';
 import {
   useEstadisticasComparativaQuery,
   useEstadisticasFueraDelBalanceQuery,
@@ -36,7 +38,6 @@ import { etiquetaMes, mesDesde } from '../lib/formato';
 import {
   hayInteranual,
   inicioDeDatos,
-  mesesDisponibles,
   periodosComparacion,
   rangoInteranual,
   ultimosMeses,
@@ -54,14 +55,13 @@ export default function PaginaEstadisticas() {
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   const { hoy } = useHoyUsuario();
-  const mesActual = inicioDeMes(hoy);
-  const [mesElegido, setMes] = useState<string | null>(null);
   const [pestana, setPestana] = useState<Pestana>('gastos');
 
   const cuentas = useListarCuentasQuery();
   const inicioDatos = cuentas.data ? inicioDeDatos(cuentas.data) : null;
-  const meses = useMemo(() => mesesDisponibles(hoy, inicioDatos), [hoy, inicioDatos]);
-  const mes = mesElegido !== null && meses.includes(mesElegido) ? mesElegido : mesActual;
+  // El mismo selector y el mismo mes que Inicio (auditoría F16): ‹ mes ›, en la URL y compartido.
+  const seleccion = useMesSeleccionado(hoy, inicioDatos, !cuentas.isLoading);
+  const { mes } = seleccion;
   // Mes en curso: 1..D contra 1..d' del mes anterior; mes cerrado: completo contra completo.
   const periodos = periodosComparacion(mes, hoy, inicioDatos);
   const anterior = periodos.anterior;
@@ -149,19 +149,7 @@ export default function PaginaEstadisticas() {
       <CabeceraPagina
         titulo={t('titulo')}
         acciones={
-          <Select
-            label={t('selector.etiqueta')}
-            etiquetaOculta
-            value={mes}
-            onChange={(e) => setMes(e.target.value)}
-            className="w-auto min-w-48 sm:min-w-56"
-          >
-            {meses.map((m) => (
-              <option key={m} value={m}>
-                {m === mesActual ? t('selector.enCurso', { mes: etiquetaMes(m, locale) }) : etiquetaMes(m, locale)}
-              </option>
-            ))}
-          </Select>
+          <SelectorMes mes={mes} anterior={seleccion.anterior} siguiente={seleccion.siguiente} onElegir={seleccion.elegir} />
         }
       />
 
@@ -196,6 +184,7 @@ export default function PaginaEstadisticas() {
                     categorias={cats}
                     anteriores={anterior === null ? null : (categoriasAnt.data ?? [])}
                     titulo={tituloCategorias}
+                    periodo={periodos.actual}
                   />
                 )}
               </EstadoConsulta>

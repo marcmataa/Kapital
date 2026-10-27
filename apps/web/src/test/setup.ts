@@ -10,6 +10,8 @@ afterEach(() => {
   cleanup();
   try {
     window.localStorage.clear();
+    // El mes elegido se comparte entre pantallas por sessionStorage: cada test empieza sin él.
+    window.sessionStorage.clear();
   } catch {
     // sin almacenamiento: nada que limpiar
   }

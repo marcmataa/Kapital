@@ -4,8 +4,6 @@ import type es from './es';
 export default {
   'titulo': 'Statistics',
   'descripcion': 'Charts and comparisons.',
-  'selector.etiqueta': 'Month',
-  'selector.enCurso': '{mes} · so far',
   'pestanas.etiqueta': 'View',
   'pestanas.gastos': 'Spending',
   'pestanas.ingresos': 'Income',
@@ -126,6 +124,7 @@ export default {
   'orden.importe': 'Amount',
   'orden.variacion': 'Difference',
   'filas.diferencia': 'difference',
+  'filas.verMovimientos': 'See {nombre} transactions',
   'filas.leyendaDiferencia': '± Difference from last month',
   'ayuda.gastoNeto': 'Net spending = spending − refunds. Transfers and adjustments are not included.',
   'ayuda.ingresos': 'Income in the period. Refunds are not income: they reduce the spending of their category.',

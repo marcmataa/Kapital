@@ -6,11 +6,13 @@ import { useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
 import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
+import { formatearFecha } from '@/shared/lib/fechas';
 import { Button, EmptyState, Sheet, Spinner, clasesBoton } from '@/shared/ui';
 import { useMovimientosListarInfiniteQuery, useMovimientosObtenerQuery } from '../api/movimientosApi';
 import { useMovimientosSubtotalesDiaQuery, useMovimientosTotalesTipoQuery } from '../api/sqlApi';
 import { ChipsTipo } from '../components/ChipsTipo';
 import { DetalleMovimiento } from '../components/DetalleMovimiento';
+import { FiltrosActivos } from '../components/FiltrosActivos';
 import { CONSULTA_ESCRITORIO, FilaMovimiento } from '../components/FilaMovimiento';
 import { NuevoMovimiento } from '../components/NuevoMovimiento';
 import { PanelFiltros } from '../components/PanelFiltros';
@@ -65,6 +67,20 @@ export default function PaginaMovimientos() {
     () => new Map((subtotales.data ?? []).map((d) => [d.fecha, d.balance])),
     [subtotales.data],
   );
+  // Movimientos de cada día según SQL: si la página corta a mitad de un día, su subtotal incluye
+  // filas aún no cargadas y se avisa debajo (auditoría F09: «13 oct · +117,13 €» sobre una fila de −10 €).
+  const nPorDia = useMemo(() => new Map((subtotales.data ?? []).map((d) => [d.fecha, d.n])), [subtotales.data]);
+
+  // De qué periodo son los totales de los chips.
+  const fechaCorta = (v: string) => formatearFecha(v, locale, 'corta');
+  const periodoTotales =
+    consulta.desde !== null && consulta.hasta !== null
+      ? t('chips.periodoRango', { desde: fechaCorta(consulta.desde), hasta: fechaCorta(consulta.hasta) })
+      : consulta.desde !== null
+        ? t('chips.periodoDesde', { desde: fechaCorta(consulta.desde) })
+        : consulta.hasta !== null
+          ? t('chips.periodoHasta', { hasta: fechaCorta(consulta.hasta) })
+          : t('chips.periodoTodo');
 
   // Detalle del panel lateral: de la lista si ya está cargado; si no (enlace compartido), se pide.
   const enLista = movimientos.find((m) => m.id === seleccionado);
@@ -183,6 +199,8 @@ export default function PaginaMovimientos() {
       <>
         {grupos.map((g) => {
           const balance = balancePorDia.get(g.fecha) ?? null;
+          const faltan = (nPorDia.get(g.fecha) ?? g.movimientos.length) - g.movimientos.length;
+          const incompleto = faltan > 0 && lista.hasNextPage;
           const tono = balance === null || /^-?0\.00$/.test(balance) ? 'text-apagado' : balance.startsWith('-') ? 'text-negativo' : 'text-positivo';
           return (
             <section key={g.fecha} aria-labelledby={`dia-${g.fecha}`}>
@@ -193,7 +211,7 @@ export default function PaginaMovimientos() {
                 <span>{tituloDia(g.fecha, hoy, locale)}</span>
                 {balance !== null && (
                   <span className={cx('tabular-nums', tono)}>
-                    <span className="sr-only">{t('lista.subtotalDia')} </span>
+                    <span className="sr-only">{t(incompleto ? 'lista.subtotalCompleto' : 'lista.subtotalDia')} </span>
                     {formatearEuros(balance, locale, { signo: 'siempre' })}
                   </span>
                 )}
@@ -210,6 +228,17 @@ export default function PaginaMovimientos() {
                   />
                 ))}
               </ul>
+              {incompleto && (
+                <button
+                  type="button"
+                  data-testid="mas-del-dia"
+                  onClick={() => void lista.fetchNextPage()}
+                  disabled={lista.isFetchingNextPage}
+                  className="mx-3 mt-1 text-[13px] font-semibold text-enlace hover:underline focus-visible:outline-2 focus-visible:outline-acento disabled:opacity-60"
+                >
+                  {faltan === 1 ? t('lista.masDelDiaUno') : t('lista.masDelDia', { n: faltan })}
+                </button>
+              )}
             </section>
           );
         })}
@@ -270,9 +299,16 @@ export default function PaginaMovimientos() {
           {nFiltros > 0 ? t('filtros.botonActivos', { n: nFiltros }) : t('filtros.boton')}
         </Button>
         <div className="w-full min-w-0 lg:w-auto lg:flex-[1_1_auto]">
-          <ChipsTipo valor={filtros.tipo} onChange={(tipo) => actualizar({ tipo })} totales={totales.data} />
+          <ChipsTipo
+            valor={filtros.tipo}
+            onChange={(tipo) => actualizar({ tipo })}
+            totales={totales.data}
+            periodo={periodoTotales}
+          />
         </div>
       </div>
+
+      <FiltrosActivos filtros={filtros} catalogos={catalogos} onQuitar={(cambios) => actualizar(cambios)} />
 
       {panelAbierto && (
         <PanelFiltros
