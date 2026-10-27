@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent, type PointerEvent } from 'react';
+import { useEffect, useId, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { useIdioma, useT } from '@/shared/i18n';
 import { aCentimos, formatearEuros, formatearPorcentaje, variacionPorcentual } from '@/shared/lib/dinero';
 import { componerFecha, diasDelMes, finDeMes, inicioDeMes, mismoDiaMesAnterior, partesDe, sumarMeses } from '@/shared/lib/fechas';
@@ -22,26 +22,29 @@ interface Props {
 
 const ANCHO_POR_DEFECTO = 640;
 const MARCAS_X = [1, 5, 10, 15, 20, 25, 30];
-/** Arriba hay sitio para la etiqueta «23 oct (hoy)», fuera del área de la línea. */
-const MARGEN = { arriba: 30, derecha: 16, abajo: 42 } as const;
+/** Arriba hay sitio para la etiqueta «23 oct (hoy)», fuera del área de la línea. Abajo, los días. */
+const MARGEN = { arriba: 30, derecha: 16, abajo: 26 } as const;
+/** Alto fijo: a la altura del reparto por categoría de al lado, sin estirarse con la tarjeta. */
+const ALTO = { movil: 240, escritorio: 280 } as const;
+/** Marcas del eje Y: más líneas de referencia que en las barras, para leer el patrimonio. */
+const MARCAS_Y = 6;
 
 /**
- * Tamaño real del contenedor (ResizeObserver) para que 1 unidad del SVG = 1 px y el texto no
- * encoja. El alto es el que le deja la tarjeta: el gráfico la llena en vez de dejarla vacía abajo.
+ * Ancho real del contenedor (ResizeObserver) para que 1 unidad del SVG = 1 px y el texto no
+ * encoja.
  */
-function useTamano(el: HTMLElement | null): { ancho: number; alto: number } {
-  const [tamano, setTamano] = useState({ ancho: ANCHO_POR_DEFECTO, alto: 0 });
+function useAncho(el: HTMLElement | null): number {
+  const [ancho, setAncho] = useState(ANCHO_POR_DEFECTO);
   useEffect(() => {
     if (!el || typeof ResizeObserver === 'undefined') return;
     const observador = new ResizeObserver(([entrada]) => {
       const w = Math.round(entrada?.contentRect.width ?? 0);
-      const h = Math.round(entrada?.contentRect.height ?? 0);
-      if (w > 0) setTamano({ ancho: w, alto: h });
+      if (w > 0) setAncho(w);
     });
     observador.observe(el);
     return () => observador.disconnect();
   }, [el]);
-  return tamano;
+  return ancho;
 }
 
 /** Día del mes → importe, solo con los puntos del mes `inicioMes`. */
@@ -69,6 +72,10 @@ export interface LecturaDia {
  * sus propios días). Reglas, sección 7.
  * - Mes en curso: la línea termina hoy, con punto hueco provisional.
  * - Mes cerrado: la línea llega al último día del mes, cerrado (punto lleno, sin «provisional»).
+ * - El mes anterior se dibuja entero (sus propios días), pero a partir de hoy más tenue: no es
+ *   una previsión del mes en curso.
+ * - Debajo de la línea, un degradado suave que se desvanece: el eje no empieza en 0 y un relleno
+ *   opaco exageraría las subidas y bajadas.
  * Se recorre día a día con ratón, dedo (pointer events, `touch-action: pan-y`) o teclado
  * (control deslizante accesible).
  */
@@ -76,7 +83,9 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
   const t = useT('inicio');
   const { locale } = useIdioma();
   const [contenedor, setContenedor] = useState<HTMLDivElement | null>(null);
-  const { ancho, alto: altoDisponible } = useTamano(contenedor);
+  const ancho = useAncho(contenedor);
+  // Sin los caracteres de useId («:», «»») que no valen dentro de url(#…).
+  const idGradiente = `capital${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
   const inicioActual = inicioDeMes(mes ?? hoy);
   const enCurso = inicioActual === inicioDeMes(hoy);
@@ -143,13 +152,13 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
   const hayDatos = todos.length > 0;
   const minimo = hayDatos ? todos.reduce((a, b) => (b < a ? b : a)) : 0n;
   const maximo = hayDatos ? todos.reduce((a, b) => (b > a ? b : a)) : 0n;
-  // Números redondos (3–4 marcas); el patrimonio no se fuerza a empezar en 0.
-  const escala = escalaRedonda(minimo, maximo, { incluirCero: false });
+  // Números redondos; el patrimonio no se fuerza a empezar en 0.
+  const escala = escalaRedonda(minimo, maximo, { incluirCero: false, marcas: MARCAS_Y });
   const etiquetasY = escala.ticks.map((c) => ({ c, texto: formatearEurosEje(c, locale) }));
   const largoEtiqueta = Math.max(...etiquetasY.map((e) => e.texto.length));
 
   const movil = ancho < 480;
-  const alto = Math.max(movil ? 240 : 280, altoDisponible);
+  const alto = movil ? ALTO.movil : ALTO.escritorio;
   const izquierda = Math.max(44, largoEtiqueta * 7 + 12);
   const anchoPlot = Math.max(1, ancho - izquierda - MARGEN.derecha);
   const altoPlot = alto - MARGEN.arriba - MARGEN.abajo;
@@ -173,6 +182,8 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
 
   const valorHoy = valoresActual.get(refP.dia);
   const xHoy = x(refP.dia);
+  // Punto (0–1) del ancho del gráfico donde está hoy: ahí se atenúa la línea del mes anterior.
+  const corte = Math.round(((xHoy - izquierda) / anchoPlot) * 1000) / 1000;
   const yHoy = valorHoy !== undefined ? y(valorHoy) : 0;
   // Etiqueta «23 oct (hoy)» encima del área del gráfico, centrada sobre su día pero sin salirse
   // por los lados: así nunca pisa la línea, los puntos ni las marcas de los ejes.
@@ -259,7 +270,7 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
             aria-valuenow={diaSel}
             aria-valuetext={textoSel}
             onKeyDown={alTeclado}
-            className="relative min-h-60 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento sm:min-h-70"
+            className="relative h-60 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento sm:h-70"
           >
             <svg
               width={ancho}
@@ -270,6 +281,18 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
               onPointerMove={elegirDesdePuntero}
               onPointerDown={elegirDesdePuntero}
             >
+              <defs>
+                {/* Relleno: se desvanece hacia abajo. */}
+                <linearGradient id={`${idGradiente}-area`} x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-acento)" stopOpacity={0.14} />
+                  <stop offset="100%" stopColor="var(--color-acento)" stopOpacity={0} />
+                </linearGradient>
+                {/* Mes anterior: normal hasta hoy y más tenue después (mes en curso). */}
+                <linearGradient id={`${idGradiente}-anterior`} gradientUnits="userSpaceOnUse" x1={izquierda} x2={izquierda + anchoPlot} y1={0} y2={0}>
+                  <stop offset={corte} stopColor="var(--color-tenue)" stopOpacity={1} />
+                  <stop offset={corte} stopColor="var(--color-tenue)" stopOpacity={enCurso ? 0.35 : 1} />
+                </linearGradient>
+              </defs>
               <g className="stroke-borde" strokeWidth={1}>
                 {etiquetasY.map(({ c }) => {
                   const yy = r1(MARGEN.arriba + (1 - posicionEnEje(c, escala)) * altoPlot);
@@ -294,14 +317,6 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
                   </text>
                 ))}
               </g>
-              <text
-                x={r1(izquierda + anchoPlot / 2)}
-                y={alto - 6}
-                textAnchor="middle"
-                className="fill-apagado text-xs"
-              >
-                {t('grafico.ejeX')}
-              </text>
 
               <line
                 x1={r1(x(diaSel))}
@@ -317,12 +332,12 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
                   data-testid="linea-anterior"
                   points={puntos(valoresAnterior)}
                   fill="none"
-                  className="stroke-tenue"
+                  stroke={`url(#${idGradiente}-anterior)`}
                   strokeWidth={2}
                   strokeDasharray="5 5"
                 />
               )}
-              {area !== '' && <polygon points={area} className="fill-acento" fillOpacity={0.1} />}
+              {area !== '' && <polygon points={area} fill={`url(#${idGradiente}-area)`} />}
               {valoresActual.size > 0 && (
                 <polyline
                   data-testid="linea-actual"

@@ -4,7 +4,7 @@ import { useT, useIdioma } from '@/shared/i18n';
 import { aCentimos, desdeCentimos, formatearEuros, formatearPorcentaje } from '@/shared/lib/dinero';
 import { fraccion, porcentajeSobre } from '../lib/calculos';
 
-export interface CategoriaDonut {
+export interface CategoriaReparto {
   id: string;
   nombre: string;
   color: string;
@@ -13,24 +13,19 @@ export interface CategoriaDonut {
 }
 
 interface Props {
-  categorias: readonly CategoriaDonut[];
-  /** Gastos netos del periodo (string de la base): el total del centro. */
+  categorias: readonly CategoriaReparto[];
+  /** Gastos netos del periodo (string de la base): el total de la cabecera. */
   totalGastoNeto: string;
-  /** Texto bajo el total. Por defecto «gasto neto». */
+  /** Texto junto al total. Por defecto «gasto neto». */
   etiquetaTotal?: string;
   /**
-   * Si se pasa, cada categoría (fila de la leyenda y su arco) enlaza a esta ruta, p. ej.
-   * Movimientos filtrado por la categoría y el mes.
+   * Si se pasa, cada fila de la lista enlaza a esta ruta, p. ej. Movimientos filtrado por la
+   * categoría y el mes.
    */
   enlace?: ((categoriaId: string) => string) | undefined;
 }
 
-const RADIO = 60;
-const GROSOR = 22;
-const LADO = 170;
-const CIRCUNFERENCIA = 2 * Math.PI * RADIO;
-
-interface Fila extends CategoriaDonut {
+interface Fila extends CategoriaReparto {
   centimos: bigint;
 }
 
@@ -39,31 +34,30 @@ export const MAX_CATEGORIAS_VISIBLES = 6;
 const ID_OTRAS = '__otras__';
 const COLOR_OTRAS = '#8a958f';
 
-/** Arcos del donut (en píxeles de la circunferencia), acumulando en céntimos exactos. */
-function calcularArcos(positivas: readonly Fila[], total: bigint) {
-  const arcos: { id: string; color: string; inicio: number; largo: number }[] = [];
+/** Tramos de la barra (en % del ancho), acumulando en céntimos exactos. */
+function calcularTramos(positivas: readonly Fila[], total: bigint) {
+  const tramos: { id: string; color: string; ancho: number }[] = [];
   let acumulado = 0n;
   for (const f of positivas) {
-    const inicio = fraccion(acumulado, 0n, total) * CIRCUNFERENCIA;
+    const inicio = fraccion(acumulado, 0n, total) * 100;
     acumulado += f.centimos;
-    const fin = fraccion(acumulado, 0n, total) * CIRCUNFERENCIA;
-    arcos.push({ id: f.id, color: f.color, inicio, largo: fin - inicio });
+    tramos.push({ id: f.id, color: f.color, ancho: fraccion(acumulado, 0n, total) * 100 - inicio });
   }
-  return arcos;
+  return tramos;
 }
 
 /**
- * Donut del gasto por categoría (reglas, sección 8):
- * - El % de cada categoría es sobre la suma de las categorías positivas: las del donut suman 100 %.
- * - Una categoría en negativo se lista en rojo con su importe, pero no entra en el donut
+ * Reparto del gasto por categoría (reglas, sección 8): una barra apilada al 100 % y la lista
+ * debajo, en el mismo orden y con los mismos colores. Se lee mejor que un donut y ocupa menos.
+ * - El % de cada categoría es sobre la suma de las categorías positivas: la barra suma 100 %.
+ * - Una categoría en negativo se lista en rojo con su importe, pero no entra en la barra
  *   (solo admite valores positivos). Las de 0 € no se muestran.
- * Los importes se muestran desde sus strings; los arcos se calculan en céntimos (bigint).
+ * Los importes se muestran desde sus strings; los tramos se calculan en céntimos (bigint).
  * Las MAX_CATEGORIAS_VISIBLES con más gasto se ven una a una; el resto se suma (en céntimos) en
- * «Otras (n)», para que la tarjeta no crezca con cada categoría nueva.
- * Con `enlace`, cada categoría es un enlace (la fila de la leyenda para teclado y lectores; el
- * arco, atajo para ratón o dedo). «Otras» no enlaza: son varias.
+ * «Otras (n)», para que la tarjeta no crezca con cada categoría nueva. Con `enlace`, cada fila
+ * es un enlace; «Otras» no enlaza: son varias.
  */
-export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enlace }: Props) {
+export function RepartoCategorias({ categorias, totalGastoNeto, etiquetaTotal, enlace }: Props) {
   const t = useT('inicio');
   const { locale } = useIdioma();
 
@@ -93,78 +87,47 @@ export function DonutCategorias({ categorias, totalGastoNeto, etiquetaTotal, enl
       : positivas;
   const leyenda = [...visibles, ...filas.filter((f) => f.centimos < 0n)];
 
-  const arcos = calcularArcos(visibles, totalPositivo);
+  const tramos = calcularTramos(visibles, totalPositivo);
   const basePorcentajes = desdeCentimos(totalPositivo);
 
   const total = formatearEuros(totalGastoNeto, locale);
   const etiqueta = etiquetaTotal ?? t('categorias.gastoNeto');
 
   return (
-    // Donut grande y centrado arriba; la leyenda debajo, a todo el ancho: los nombres se leen enteros.
-    <div className="flex flex-col items-center gap-5">
-      <svg
-        viewBox={`0 0 ${LADO} ${LADO}`}
+    <div className="flex flex-col gap-4">
+      <p className="flex items-baseline gap-2">
+        <span className="cifras text-2xl font-bold text-texto">{total}</span>
+        <span className="text-sm text-apagado">{etiqueta}</span>
+      </p>
+
+      <div
         role="img"
         aria-label={`${t('categorias.grafico')}: ${total} ${etiqueta}`}
-        className="size-48 shrink-0 sm:size-52"
+        className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-superficie-3"
       >
-        <g transform={`rotate(-90 ${LADO / 2} ${LADO / 2})`} fill="none" strokeWidth={GROSOR}>
-          <circle cx={LADO / 2} cy={LADO / 2} r={RADIO} className="stroke-superficie-3" />
-          {arcos.map((a) => {
-            const arco = (
-              <circle
-                key={a.id}
-                data-testid="arco-donut"
-                cx={LADO / 2}
-                cy={LADO / 2}
-                r={RADIO}
-                stroke={a.color}
-                strokeDasharray={`${a.largo.toFixed(2)} ${CIRCUNFERENCIA.toFixed(2)}`}
-                strokeDashoffset={(-a.inicio).toFixed(2)}
-              />
-            );
-            return enlace && a.id !== ID_OTRAS ? (
-              <Link key={a.id} to={enlace(a.id)} tabIndex={-1} aria-hidden="true" className="cursor-pointer">
-                {arco}
-              </Link>
-            ) : (
-              arco
-            );
-          })}
-        </g>
-        <text
-          x={LADO / 2}
-          y={LADO / 2 - 1}
-          textAnchor="middle"
-          className="cifras fill-texto text-[17px] font-bold"
-        >
-          {total}
-        </text>
-        <text x={LADO / 2} y={LADO / 2 + 18} textAnchor="middle" className="fill-apagado text-xs">
-          {etiqueta}
-        </text>
-      </svg>
+        {tramos.map((tramo) => (
+          <span
+            key={tramo.id}
+            data-testid="tramo-categoria"
+            className="h-full first:rounded-l-full last:rounded-r-full"
+            style={{ width: `${tramo.ancho}%`, backgroundColor: tramo.color }}
+          />
+        ))}
+      </div>
 
-      <ul
-        aria-label={t('categorias.lista')}
-        className="flex w-full min-w-0 flex-col gap-1.5 text-sm sm:gap-2"
-      >
+      <ul aria-label={t('categorias.lista')} className="flex w-full min-w-0 flex-col gap-1.5 text-sm sm:gap-2">
         {leyenda.map((f) => {
           const negativa = f.centimos < 0n;
           const contenido: ReactNode = (
             <>
               <span className="flex min-w-0 items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: f.color }}
-                />
+                <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
                 <span className="break-words text-texto">{f.nombre}</span>
               </span>
               {negativa ? (
                 <span className="flex flex-col items-end text-right">
                   <span className="cifras font-medium text-negativo">{formatearEuros(f.gasto, locale)}</span>
-                  <span className="text-xs text-apagado">{t('categorias.negativa')}</span>
+                  <span className="text-[13px] text-apagado">{t('categorias.negativa')}</span>
                 </span>
               ) : (
                 <span className="flex shrink-0 gap-2">

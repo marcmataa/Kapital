@@ -6,6 +6,7 @@ import {
   formatearEuros,
   formatearPorcentaje,
   importePositivo,
+  normalizarCifrasTexto,
   parsearImporte,
   parsearImporteLocal,
   separadorDecimal,
@@ -209,5 +210,22 @@ describe('variacionPorcentual (sección 8)', () => {
 
   it('se muestra con 1 decimal', () => {
     expect(n(formatearPorcentaje(variacionPorcentual('1.00', '3.00'), 'es-ES'))).toBe('-66,7 %');
+  });
+});
+
+describe('normalizarCifrasTexto (texto de la IA)', () => {
+  it('es / ca: punto decimal seguido de % o € → coma', () => {
+    expect(normalizarCifrasTexto('El ocio supuso el 23.4 % del gasto.', 'es-ES')).toBe('El ocio supuso el 23,4 % del gasto.');
+    expect(normalizarCifrasTexto('Gastaste 38.50 € y luego 9.5€.', 'ca-ES')).toBe('Gastaste 38,50 € y luego 9,5€.');
+    expect(normalizarCifrasTexto('un 12.3%', 'es-ES')).toBe('un 12,3%');
+  });
+
+  it('no toca los miles, los decimales sin unidad ni las cifras ya correctas', () => {
+    const texto = 'Ingresos de 1.258 €, 1.508,00 € netos, versión 2.5 y el 22,5 %.';
+    expect(normalizarCifrasTexto(texto, 'es-ES')).toBe(texto);
+  });
+
+  it('en inglés no cambia nada', () => {
+    expect(normalizarCifrasTexto('Leisure was 23.4% of spending.', 'en-GB')).toBe('Leisure was 23.4% of spending.');
   });
 });

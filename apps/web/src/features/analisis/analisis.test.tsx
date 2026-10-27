@@ -179,7 +179,7 @@ describe('Entrada a Análisis', () => {
 });
 
 describe('Detalle del análisis', () => {
-  it('tres tarjetas separadas, cascada, donut, texto de la IA como texto plano y nota', async () => {
+  it('tres tarjetas separadas, cascada, reparto, texto de la IA como texto plano y nota', async () => {
     servir();
     montarDetalle();
     const cifras = await screen.findByRole('region', { name: 'Cifras del mes' });
@@ -189,8 +189,8 @@ describe('Detalle del análisis', () => {
     expect(within(cifras).getByText('+367,16 €')).toBeInTheDocument();
     expect(within(cifras).getByText('Balance 339,72 € + revalorización 27,44 € + ajustes 0,00 €')).toBeInTheDocument();
 
-    // Donut de Inicio: la categoría negativa no entra en el gráfico (2 arcos), pero se lista.
-    expect(screen.getAllByTestId('arco-donut')).toHaveLength(2);
+    // Reparto de Inicio: la categoría negativa no entra en la barra (2 arcos), pero se lista.
+    expect(screen.getAllByTestId('tramo-categoria')).toHaveLength(2);
     expect(screen.getAllByText('Otros gastos').length).toBeGreaterThan(1);
 
     // Cascada: Ingresos → categorías → Balance, con los importes de SQL.

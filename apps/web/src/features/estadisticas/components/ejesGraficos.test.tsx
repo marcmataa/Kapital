@@ -83,7 +83,7 @@ describe('GraficoMeses · pocos meses', () => {
   it('las barras tienen ancho máximo y el mes en curso es provisional con relleno', () => {
     renderConApp(<GraficoMeses hoy="2026-10-19" meses={[mes('2026-09-01', '0.00', '1168.28', '0.00'), mes('2026-10-01', '0.00', '80.00', '0.00')]} />);
     const superficie = screen.getByTestId('superficie-meses');
-    expect(superficie.querySelectorAll('.max-w-14')).toHaveLength(2);
+    expect(superficie.querySelectorAll('.max-w-10')).toHaveLength(2);
     expect(superficie.querySelector('[data-provisional="true"]')).toHaveClass('relleno-provisional', 'text-acento');
     expect(etiquetasEje(superficie.parentElement as HTMLElement)).toEqual(['0 €', '500 €', '1.000 €', '1.500 €']);
   });
@@ -113,11 +113,12 @@ describe('GraficoBalanceMeses · una barra de balance por mes', () => {
 });
 
 describe('FilasComparadas · leyenda de las barras dobles', () => {
-  it('dice cuál es este mes y cuál el anterior; sin anterior no hay leyenda', () => {
+  it('dice cuál es este mes y cuál el anterior (raya); el nombre entero, sin cortar; sin anterior no hay leyenda', () => {
     const fila = { id: 'o', nombre: 'Ocio con un nombre muy largo de verdad', color: '#9b6bff', actual: '30.00', anterior: '20.00' };
     const { unmount } = renderConApp(<FilasComparadas filas={[fila]} etiqueta="Categorías" etiquetaAnterior="antes" />);
     expect(screen.getByTestId('leyenda-comparada')).toHaveTextContent('Este mesMes anterior');
-    expect(screen.getByText(fila.nombre)).toHaveAttribute('title', fila.nombre);
+    expect(screen.getByText(fila.nombre)).not.toHaveClass('truncate');
+    expect(screen.getByTestId('marca-anterior')).toHaveStyle({ left: '66.66%' });
     unmount();
     renderConApp(<FilasComparadas filas={[{ ...fila, anterior: null }]} etiqueta="Categorías" etiquetaAnterior="antes" />);
     expect(screen.queryByTestId('leyenda-comparada')).not.toBeInTheDocument();

@@ -44,9 +44,9 @@ export function CabeceraPagina({ titulo, descripcion, acciones, volverA, tituloD
           {descripcion !== undefined && <p className="mt-1 text-sm text-apagado">{descripcion}</p>}
         </div>
       </div>
-      {/* En el móvil las acciones (selector de mes, filtros…) van en su propia fila, centradas. */}
+      {/* Acciones (selector de mes, filtros…): junto al título si caben; si no, debajo, sin ocupar todo el ancho. */}
       {acciones !== undefined && (
-        <div className="flex w-full items-center justify-center gap-2 sm:w-auto sm:justify-end">{acciones}</div>
+        <div className="flex items-center gap-2 sm:justify-end">{acciones}</div>
       )}
     </header>
   );

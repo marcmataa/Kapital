@@ -35,27 +35,25 @@ export function useTituloComparativa(periodos: PeriodosComparacion, clave: 'comp
 }
 
 /**
- * «+38,00 € vs +382,00 € el mes pasado»: los dos importes, sin porcentaje (el % va aparte, en
- * `LineaVariacion`). null si no hay periodo anterior (sección 8).
+ * «vs +382,00 € el mes pasado»: solo el importe anterior (el actual ya es la cifra grande de
+ * encima) y sin porcentaje (el % va aparte, en `LineaVariacion`). null si no hay periodo
+ * anterior (sección 8).
  */
 export function useLineaVs() {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
-  return (actual: string, anterior: string | null, opciones: OpcionesEuros = {}) =>
+  return (anterior: string | null, opciones: OpcionesEuros = {}) =>
     anterior === null
       ? null
-      : t('comparativa.vs', {
-          actual: formatearEuros(actual, locale, opciones),
-          anterior: formatearEuros(anterior, locale, opciones),
-        });
+      : t('comparativa.vs', { anterior: formatearEuros(anterior, locale, opciones) });
 }
 
 function Tarjeta({ etiqueta, valor, children, testId }: { etiqueta: string; valor: string; children: ReactNode; testId?: string }) {
   return (
-    <article data-testid={testId} className="flex min-w-0 flex-col gap-1 rounded-xl bg-superficie-2 p-3.5">
+    <article data-testid={testId} className="flex min-w-0 flex-col gap-1 rounded-xl bg-superficie-2 p-3 sm:p-3.5">
       <h3 className="text-sm text-apagado">{etiqueta}</h3>
-      <p className="cifras truncate text-2xl font-bold tracking-tight text-texto">{valor}</p>
+      <p className="cifras truncate text-xl font-bold tracking-tight text-texto sm:text-2xl">{valor}</p>
       {children}
     </article>
   );
@@ -81,22 +79,22 @@ export function ComparativaMes({ periodos, datos, modo, ritmo }: Props) {
     datos.mayor_concepto !== null && datos.mayor_importe !== null
       ? t('comparativa.mayor', { concepto: datos.mayor_concepto, importe: euros(datos.mayor_importe) })
       : t('comparativa.sinMayor');
-  const vs = lineaVs(actual, anterior);
+  const vs = lineaVs(anterior);
   const devoluciones = ritmo !== undefined && aCentimos(ritmo.devoluciones) > 0n ? ritmo.devoluciones : null;
   const medioAnterior = ritmo?.gasto_medio_diario_anterior ?? null;
   const proyeccion = ritmo?.proyeccion_fin_mes ?? null;
 
   return (
     <Card titulo={titulo}>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid={`comparativa-${modo}`}>
+      <div className={gastos ? 'grid grid-cols-2 gap-2.5 sm:gap-3' : 'grid grid-cols-1'} data-testid={`comparativa-${modo}`}>
         <Tarjeta etiqueta={t(gastos ? 'comparativa.gastos' : 'comparativa.ingresos')} valor={euros(actual)}>
-          {vs !== null && <p className="cifras text-xs text-apagado sm:text-sm">{vs}</p>}
+          {vs !== null && <p className="cifras text-[13px] text-apagado sm:text-sm">{vs}</p>}
           <LineaVariacion actual={actual} anterior={anterior} porcentaje={variacion} subirEsBueno={!gastos} />
         </Tarjeta>
         {gastos && (
           <Tarjeta etiqueta={t('comparativa.medioDiario')} valor={euros(datos.gasto_medio_diario)}>
             {medioAnterior !== null && (
-              <p data-testid="medio-diario-anterior" className="cifras text-xs text-apagado sm:text-sm">
+              <p data-testid="medio-diario-anterior" className="cifras text-[13px] text-apagado sm:text-sm">
                 {t('comparativa.medioDiarioVs', { importe: euros(medioAnterior) })}
               </p>
             )}
@@ -108,7 +106,7 @@ export function ComparativaMes({ periodos, datos, modo, ritmo }: Props) {
                 subirEsBueno={false}
               />
             )}
-            <p className="text-xs text-apagado sm:text-sm">{t('comparativa.dias', { dias: String(datos.dias) })}</p>
+            <p className="text-[13px] text-apagado sm:text-sm">{t('comparativa.dias', { dias: String(datos.dias) })}</p>
             {/* Concepto largo: hasta dos líneas y el texto completo en el title, nunca «Ave Madrid Champio…». */}
             <p data-testid="mayor-gasto" title={mayor} className="line-clamp-2 min-w-0 text-xs break-words text-apagado sm:text-sm">
               {mayor}
@@ -116,9 +114,9 @@ export function ComparativaMes({ periodos, datos, modo, ritmo }: Props) {
           </Tarjeta>
         )}
         {gastos && ritmo !== undefined && proyeccion !== null && (
-          <div className="sm:col-span-2">
+          <div className="col-span-2">
             <Tarjeta testId="proyeccion-fin-mes" etiqueta={t('comparativa.proyeccion')} valor={euros(proyeccion)}>
-              <p className="text-xs text-apagado sm:text-sm">
+              <p className="text-[13px] text-apagado sm:text-sm">
                 {t('comparativa.proyeccionNota', { dias: String(ritmo.dias_mes) })}
               </p>
             </Tarjeta>

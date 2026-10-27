@@ -40,11 +40,11 @@ const TENDENCIA: Record<-1 | 0 | 1, Tendencia> = { [-1]: 'baja', 0: 'igual', 1: 
  * Resumen del mes: Patrimonio · Ingresos · Gastos netos · Balance.
  * - En curso: patrimonio a hoy vs d', ingresos, gastos netos y balance de 1..hoy vs 1..d'.
  * - Cerrado: patrimonio al último día vs su d', y el mes completo vs el anterior completo.
- * Móvil: UNA tarjeta, el patrimonio grande arriba (con su desglose) y debajo tres columnas.
+ * Móvil: UNA tarjeta, el patrimonio grande arriba (con su desglose) y debajo una lista compacta.
  * Escritorio: dos tarjetas del mismo ancho que las de debajo. A un lado el patrimonio con sus
  * cuentas (lo que tienes); al otro el mes (lo que ha pasado): Ingresos, Gastos netos y, separado
  * como resultado, el Balance. La altura la marca el patrimonio. Las categorías no se repiten aquí:
- * están en el donut.
+ * están en el reparto por categoría.
  * Color por significado (sección 8): que suban los gastos es rojo. Base 0 o sin datos →
  * «Sin datos del mes anterior». El balance (sección 3) no se mezcla con el patrimonio (sección 4);
  * su ahorro (%) viene de SQL y es «—» si los ingresos son 0.
@@ -113,7 +113,7 @@ export function TarjetasKpi({
   return (
     <section
       aria-label={t('kpi.region')}
-      className="grid grid-cols-3 gap-x-5 gap-y-5 rounded-2xl border border-borde bg-superficie p-4 shadow-tarjeta lg:grid-cols-2 lg:gap-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
+      className="grid grid-cols-1 rounded-2xl border border-borde bg-superficie p-4 shadow-tarjeta lg:grid-cols-2 lg:gap-5 lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none"
     >
       <KpiMes
         titulo={t('kpi.patrimonio', { fecha: formatearFecha(fecha, locale, 'corta') })}
@@ -123,7 +123,7 @@ export function TarjetasKpi({
       >
         {cuentas !== undefined && <DesgloseCuentas cuentas={cuentas} fecha={fecha} />}
       </KpiMes>
-      {/* En el móvil `contents`: sus tres cifras son columnas de la tarjeta única. En escritorio, una tarjeta. */}
+      {/* En el móvil `contents`: sus tres cifras son filas de la tarjeta única. En escritorio, una tarjeta. */}
       <div
         className="contents lg:flex lg:flex-col lg:justify-center lg:rounded-2xl lg:border lg:border-borde lg:bg-superficie lg:px-5 lg:py-2 lg:shadow-tarjeta"
       >
@@ -147,7 +147,7 @@ export function TarjetasKpi({
           {...(balanceNegativo && { tonoValor: 'negativo' as const })}
           {...(balance ? { variacion: balance } : { pie: sinAnterior })}
         >
-          <p data-testid="kpi-ahorro" className="mt-1 text-xs text-apagado">
+          <p data-testid="kpi-ahorro" className="mt-1 text-[13px] text-apagado">
             {t('kpi.ahorro', { porcentaje: formatearPorcentaje(resumenActual.ahorro_pct, locale) })}
           </p>
         </KpiMes>

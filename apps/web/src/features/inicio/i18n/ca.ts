@@ -25,7 +25,6 @@ export default {
   'kpi.ahorro': 'Estalvi {porcentaje}',
 
   'grafico.titulo': 'Evolució del teu capital',
-  'grafico.ejeX': 'Dia del mes',
   'grafico.hoy': '{fecha} (avui)',
   'grafico.control': 'Dia del gràfic de capital',
   'grafico.alternativa':
@@ -50,7 +49,7 @@ export default {
   'categorias.gastoNeto': 'despesa neta',
   'categorias.vacio': 'Encara no tens despeses aquest mes.',
   'categorias.vacioCerrado': 'No vas tenir despeses a {mes}.',
-  'categorias.grafico': 'Gràfic circular de la despesa neta per categoria',
+  'categorias.grafico': 'Repartiment de la despesa neta per categoria',
   'categorias.lista': 'Despesa neta per categoria',
   'categorias.otras': 'Altres ({n})',
   'categorias.negativa': "T'han retornat més del que vas gastar: no entra al gràfic.",
@@ -81,6 +80,7 @@ export default {
   'objetivos.progreso': '{actual} / {objetivo}',
   'objetivos.superado': 'Superat',
   'objetivos.conseguido': 'Aconseguit',
+  'objetivos.desviado': 'Desviat',
   'objetivos.superadoEn': 'Superat en {importe}',
   'objetivos.margen': 'Et queden {importe} aquest mes',
   'objetivos.proyeccion': 'Et queden {dias} dies · has d’estalviar {importe}/dia',

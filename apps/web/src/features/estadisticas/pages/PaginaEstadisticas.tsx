@@ -108,7 +108,15 @@ export default function PaginaEstadisticas() {
   const nombreMes = etiquetaMes(mes, locale);
   const graficoDiario = (modo: 'gastos' | 'ingresos') => (
     <EstadoConsulta datos={porDia.data} {...estado(porDia)}>
-      {(filas) => <GraficoDiario key={`${mes}-${modo}`} modo={modo} nombreMes={nombreMes} dias={serieDiaria(filas, mes, hoy)} />}
+      {(filas) => (
+        <GraficoDiario
+          key={`${mes}-${modo}`}
+          modo={modo}
+          nombreMes={nombreMes}
+          dias={serieDiaria(filas, mes, hoy)}
+          media={modo === 'gastos' ? comparativa.data?.gasto_medio_diario : undefined}
+        />
+      )}
     </EstadoConsulta>
   );
   const bloqueComparativa = (modo: 'gastos' | 'ingresos') => (
@@ -127,7 +135,7 @@ export default function PaginaEstadisticas() {
             etiquetaOculta
             value={mes}
             onChange={(e) => setMes(e.target.value)}
-            className="w-full max-w-xs sm:w-auto sm:min-w-56"
+            className="w-auto min-w-48 sm:min-w-56"
           >
             {meses.map((m) => (
               <option key={m} value={m}>

@@ -67,8 +67,6 @@ export default {
   'cascada.otras': 'Altres',
   'cascada.sinCategoria': 'Sense categoria',
   'cascada.vacio': 'No hi ha dades per a aquest gràfic.',
-  'cascada.control': 'Pas del gràfic en cascada',
-  'cascada.acumulado': 'Queden {importe}',
   'cascada.leyendaTotal': 'Ingressos i balanç',
   'cascada.leyendaGasto': 'Despesa per categoria',
   'cascada.paso': 'Pas',

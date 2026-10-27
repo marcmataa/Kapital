@@ -271,7 +271,7 @@ describe('PaginaInicio · saludo', () => {
   });
 });
 
-describe('PaginaInicio · análisis bajo el donut', () => {
+describe('PaginaInicio · análisis bajo el reparto por categoría', () => {
   it('sin análisis listo muestra el aviso del primer análisis', async () => {
     pintar();
     expect(await screen.findByText('Tu primer análisis con IA llegará el día 1 del mes que viene.')).toBeInTheDocument();
@@ -637,6 +637,13 @@ describe('PaginaInicio · objetivos y movimientos', () => {
     );
   });
 
+  it('ahorro con el balance en negativo: «Desviado» explícito en lugar de solo una barra vacía', async () => {
+    escenario({ progreso: [{ ...PROGRESO_AHORRO, importe: '200.00', actual: '-194.19', restante: '394.19' }] });
+    pintar();
+    expect(await screen.findByTestId('estado-desviado')).toHaveTextContent('Desviado');
+    expect(screen.getByRole('progressbar').firstElementChild).toHaveAttribute('data-estado', 'desviado');
+  });
+
   it('últimos movimientos: signo por tipo y traspaso neutro', async () => {
     escenario({
       movimientos: [
@@ -760,7 +767,7 @@ describe('PaginaInicio · balance del mes, top 3 y enlaces', () => {
   });
 
 
-  it('cada categoría del donut abre Movimientos filtrado por esa categoría y el tramo del mes', async () => {
+  it('cada categoría del reparto abre Movimientos filtrado por esa categoría y el tramo del mes', async () => {
     pintar();
     const lista = await screen.findByRole('list', { name: 'Gasto neto por categoría' });
     expect(within(lista).getByRole('link', { name: /Ocio/ })).toHaveAttribute(
@@ -769,7 +776,7 @@ describe('PaginaInicio · balance del mes, top 3 y enlaces', () => {
     );
   });
 
-  it('mes cerrado: el enlace del donut lleva el mes completo', async () => {
+  it('mes cerrado: el enlace del reparto lleva el mes completo', async () => {
     pintarEn('/?mes=2026-09');
     const lista = await screen.findByRole('list', { name: 'Gasto neto por categoría' });
     expect(within(lista).getByRole('link', { name: /Transporte/ })).toHaveAttribute(

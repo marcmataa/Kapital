@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { skipToken } from '@reduxjs/toolkit/query';
 import { Sparkles } from 'lucide-react';
 import { useIdioma, useT } from '@/shared/i18n';
+import { normalizarCifrasTexto } from '@/shared/lib/dinero';
 import { useInicioAnalisisMesQuery, useInicioUltimoAnalisisQuery } from '../api/inicioApi';
 import { mesLargo } from '../lib/calculos';
 
@@ -14,7 +15,7 @@ interface Props {
 }
 
 /**
- * Bajo el donut: un consejo accionable del análisis (su primera recomendación, tal cual la generó
+ * Bajo el reparto por categoría: un consejo accionable del análisis (su primera recomendación, tal cual la generó
  * la IA; las cifras ya están en las tarjetas), como texto plano, y enlace al análisis completo
  * (`/analisis/YYYY-MM`).
  * - Mes en curso sin análisis: aviso de que el primero llega el día 1.
@@ -61,7 +62,7 @@ export function AnalisisDestacado({ mes }: Props) {
       </div>
       {data.consejo[idioma] !== null && (
         <p data-testid="consejo-analisis" className="text-sm leading-relaxed text-texto">
-          {data.consejo[idioma]}
+          {normalizarCifrasTexto(data.consejo[idioma], locale)}
         </p>
       )}
       <Link to={`/analisis/${data.mes.slice(0, 7)}`} className="text-sm font-semibold text-enlace hover:underline">

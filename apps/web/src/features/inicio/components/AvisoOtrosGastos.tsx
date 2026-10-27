@@ -16,7 +16,7 @@ interface Props {
 
 /**
  * Aviso cuando «Otros gastos» (clave otros_gastos) pasa del 20 % del gasto del mes
- * (`peso_otros_gastos`, SQL: % sobre la misma base que el donut, sección 8). El botón
+ * (`peso_otros_gastos`, SQL: % sobre la misma base que el reparto por categoría, sección 8). El botón
  * «Recategorizar» abre Movimientos filtrado por esa categoría y el mes. Si falla la carga no se
  * muestra nada: es una sugerencia, no un dato.
  */

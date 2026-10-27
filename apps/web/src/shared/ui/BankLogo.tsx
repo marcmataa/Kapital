@@ -16,6 +16,11 @@ interface Props {
 const TAMANOS = { sm: 'size-7 text-[10px]', md: 'size-10 text-xs', lg: 'size-14 text-base' } as const;
 const COLOR_HEX = /^#([0-9a-f]{6})$/i;
 const COLOR_POR_DEFECTO = '#5fd3a0';
+/**
+ * Logos que ya son una baldosa cuadrada con su fondo (BBVA: el logotipo es muy ancho y en la
+ * baldosa blanca se veía diminuto). Van a sangre, sin el fondo blanco ni el margen interior.
+ */
+const BALDOSA_PROPIA: ReadonlySet<string> = new Set(['bbva']);
 
 /** Texto blanco u oscuro según la luminancia del fondo (WCAG). */
 export function colorTextoSobre(fondo: string): '#ffffff' | '#0b1220' {
@@ -44,7 +49,7 @@ export function BankLogo({ entidad, nombre, color, tamano = 'md', className }: P
       <img
         src={`/bancos/${entidad}.svg`}
         alt={etiqueta}
-        className={cx(clases, 'bg-white object-contain p-1')}
+        className={cx(clases, BALDOSA_PROPIA.has(entidad) ? 'object-cover' : 'bg-white object-contain p-1')}
         loading="lazy"
         decoding="async"
         draggable={false}

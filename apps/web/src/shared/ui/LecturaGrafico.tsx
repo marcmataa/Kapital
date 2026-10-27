@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { cx } from '@/shared/lib/cx';
 
 interface Props {
@@ -9,6 +9,8 @@ interface Props {
   /** Líneas de detalle: ahorro, comparación con el periodo anterior… */
   children?: ReactNode;
   className?: string;
+  /** Posición cuando flota sobre el gráfico. */
+  style?: CSSProperties;
   'data-testid'?: string;
 }
 
@@ -16,9 +18,9 @@ interface Props {
  * Panel con la posición elegida de un gráfico interactivo («título · importe» y detalle debajo),
  * con el mismo estilo que la lectura del gráfico de capital de Inicio.
  */
-export function LecturaGrafico({ titulo, valor, children, className, 'data-testid': testId }: Props) {
+export function LecturaGrafico({ titulo, valor, children, className, style, 'data-testid': testId }: Props) {
   return (
-    <div data-testid={testId} className={cx('flex min-h-12 flex-col gap-0.5 rounded-xl bg-superficie-2 px-3 py-2', className)}>
+    <div data-testid={testId} style={style} className={cx('flex min-h-12 flex-col gap-0.5 rounded-xl bg-superficie-2 px-3 py-2', className)}>
       <span className="text-sm font-semibold text-texto">
         {titulo} · <span className="cifras">{valor}</span>
       </span>

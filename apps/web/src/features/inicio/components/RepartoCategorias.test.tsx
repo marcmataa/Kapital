@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { renderConApp } from '@/test/render';
-import { DonutCategorias, type CategoriaDonut } from './DonutCategorias';
+import { RepartoCategorias, type CategoriaReparto } from './RepartoCategorias';
 
 const fila = (nombre: string) => {
   const li = within(screen.getByRole('list', { name: 'Gasto neto por categoría' })).getByText(nombre).closest('li');
@@ -9,15 +9,15 @@ const fila = (nombre: string) => {
   return li;
 };
 
-describe('DonutCategorias', () => {
-  it('una categoría en negativo se muestra en rojo con −30,00 € y no entra en el donut (sección 11)', () => {
+describe('RepartoCategorias', () => {
+  it('una categoría en negativo se muestra en rojo con −30,00 € y no entra en la barra (sección 11)', () => {
     // Otros gastos: 20 € de gasto y 50 € de devoluciones → −30,00 €.
-    const categorias: CategoriaDonut[] = [
+    const categorias: CategoriaReparto[] = [
       { id: 'ocio', nombre: 'Ocio', color: '#9b6bff', gasto: '40.00' },
       { id: 'restaurantes', nombre: 'Restaurantes', color: '#ff8a3d', gasto: '60.00' },
       { id: 'otros', nombre: 'Otros gastos', color: '#8f9bbd', gasto: '-30.00' },
     ];
-    renderConApp(<DonutCategorias categorias={categorias} totalGastoNeto="70.00" />);
+    renderConApp(<RepartoCategorias categorias={categorias} totalGastoNeto="70.00" />);
 
     const otros = fila('Otros gastos');
     const importe = within(otros).getByText(/30,00/);
@@ -29,17 +29,17 @@ describe('DonutCategorias', () => {
     expect(within(fila('Ocio')).getByText('40,0 %')).toBeInTheDocument();
     expect(within(otros).queryByText(/%/)).not.toBeInTheDocument();
 
-    const arcos = screen.getAllByTestId('arco-donut');
-    expect(arcos).toHaveLength(2);
-    expect(arcos.map((a) => a.getAttribute('stroke'))).not.toContain('#8f9bbd');
+    const tramos = screen.getAllByTestId('tramo-categoria');
+    expect(tramos).toHaveLength(2);
+    expect(tramos.map((a) => a.style.backgroundColor)).not.toContain('rgb(143, 155, 189)');
   });
 
-  it('sin negativas, el % coincide con el de los gastos netos y el total va en el centro', () => {
-    const categorias: CategoriaDonut[] = [
+  it('sin negativas, el % coincide con el de los gastos netos y el total va en la cabecera', () => {
+    const categorias: CategoriaReparto[] = [
       { id: 'a', nombre: 'Restaurantes', color: '#ff8a3d', gasto: '279.85' },
       { id: 'b', nombre: 'Ocio', color: '#9b6bff', gasto: '681.83' },
     ];
-    renderConApp(<DonutCategorias categorias={categorias} totalGastoNeto="961.68" />);
+    renderConApp(<RepartoCategorias categorias={categorias} totalGastoNeto="961.68" />);
     expect(within(fila('Restaurantes')).getByText('29,1 %')).toBeInTheDocument();
     expect(within(fila('Ocio')).getByText('70,9 %')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: /961,68/ })).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe('DonutCategorias', () => {
 
   it('acepta una etiqueta propia para el total y omite categorías a 0 €', () => {
     renderConApp(
-      <DonutCategorias
+      <RepartoCategorias
         categorias={[
           { id: 'a', nombre: 'Ocio', color: '#9b6bff', gasto: '10.00' },
           { id: 'b', nombre: 'Viajes', color: '#3b82ff', gasto: '0.00' },
@@ -64,9 +64,9 @@ describe('DonutCategorias', () => {
 
   it('a partir de la 7.ª categoría, el resto se suma en «Otras (n)» (sin enlace) y la tarjeta no crece', () => {
     const importes = ['90.00', '80.00', '70.00', '60.00', '50.00', '40.00', '30.00', '20.00', '10.00'];
-    const categorias: CategoriaDonut[] = importes.map((gasto, i) => ({ id: `c${i}`, nombre: `Cat ${i}`, color: '#123456', gasto }));
+    const categorias: CategoriaReparto[] = importes.map((gasto, i) => ({ id: `c${i}`, nombre: `Cat ${i}`, color: '#123456', gasto }));
     renderConApp(
-      <DonutCategorias categorias={categorias} totalGastoNeto="450.00" enlace={(id) => `/movimientos?categoria=${id}`} />,
+      <RepartoCategorias categorias={categorias} totalGastoNeto="450.00" enlace={(id) => `/movimientos?categoria=${id}`} />,
     );
 
     const lista = screen.getByRole('list', { name: 'Gasto neto por categoría' });
@@ -78,6 +78,6 @@ describe('DonutCategorias', () => {
     expect(otras).toHaveTextContent('13,3 %');
     expect(within(otras).queryByRole('link')).not.toBeInTheDocument();
     expect(within(fila('Cat 0')).getByRole('link')).toHaveAttribute('href', '/movimientos?categoria=c0');
-    expect(screen.getAllByTestId('arco-donut')).toHaveLength(7);
+    expect(screen.getAllByTestId('tramo-categoria')).toHaveLength(7);
   });
 });

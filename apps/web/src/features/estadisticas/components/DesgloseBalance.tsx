@@ -86,8 +86,8 @@ export function DesgloseBalance(props: Props) {
   });
 
   const sBalance = signo(c.balance);
-  // «+38,00 € vs +382,00 € el mes pasado», con el % aparte.
-  const vsBalance = lineaVs(c.balance, c.balance_anterior, { signo: 'siempre' });
+  // «vs +382,00 € el mes pasado», con el % aparte.
+  const vsBalance = lineaVs(c.balance_anterior, { signo: 'siempre' });
   return (
     <Card titulo={titulo}>
       <section aria-labelledby="desglose-cuenta" className="flex flex-col gap-3">

@@ -67,8 +67,6 @@ export default {
   'cascada.otras': 'Other',
   'cascada.sinCategoria': 'Uncategorised',
   'cascada.vacio': 'No data for this chart.',
-  'cascada.control': 'Waterfall chart step',
-  'cascada.acumulado': '{importe} left',
   'cascada.leyendaTotal': 'Income and balance',
   'cascada.leyendaGasto': 'Spending by category',
   'cascada.paso': 'Step',
