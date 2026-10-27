@@ -29,7 +29,7 @@ export function Card({
       {...resto}
     >
       {(titulo !== undefined || accion !== undefined) && (
-        <header className={cx('mb-3 flex items-center justify-between gap-3', sinPadding && 'px-4 pt-4 sm:px-5 sm:pt-5')}>
+        <header className={cx('mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2', sinPadding && 'px-4 pt-4 sm:px-5 sm:pt-5')}>
           {titulo !== undefined && <h2 className="text-base font-semibold text-texto">{titulo}</h2>}
           {accion}
         </header>

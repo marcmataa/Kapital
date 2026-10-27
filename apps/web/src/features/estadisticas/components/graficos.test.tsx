@@ -218,19 +218,38 @@ describe('GraficoBalanceMeses', () => {
     renderConApp(<GraficoBalanceMeses hoy="2026-10-19" meses={meses} />);
     const lectura = () => normal(screen.getByTestId('lectura-balance').textContent);
     expect(lectura()).toContain('Octubre de 2026 · hasta hoy (provisional) · balance · -50,00 €');
-    expect(lectura()).toContain('Ingresos 0,00 € · Gastos netos 50,00 € · Ahorro —');
+    expect(lectura()).toContain('Ingresos 0,00 € · Gastos netos 50,00 € · Tasa de ahorro —');
     const control = screen.getByRole('slider', { name: 'Mes del gráfico de balance' });
     control.focus();
     await userEvent.keyboard('{ArrowLeft}');
     // Sección 11: 1.508,00 − 1.168,28 = 339,72 € y ahorro 22,5 %.
     expect(lectura()).toContain('Septiembre de 2026 · balance · +339,72 €');
-    expect(lectura()).toContain('Ingresos 1.508,00 € · Gastos netos 1.168,28 € · Ahorro 22,5 %');
+    expect(lectura()).toContain('Ingresos 1.508,00 € · Gastos netos 1.168,28 € · Tasa de ahorro 22,5 %');
     expect(screen.getByTestId('superficie-balance').querySelectorAll('[data-balance]')).toHaveLength(3);
     const superficie = screen.getByTestId('superficie-balance');
     expect(superficie).toHaveClass('touch-pan-y');
     conTamano(superficie, 300, 208);
     fireEvent.pointerMove(superficie, { clientX: 10, clientY: 50 });
     expect(lectura()).toContain('Agosto de 2026');
+  });
+
+  it('título por contenido y, en el mes en curso, la marca del mes anterior al mismo día', () => {
+    renderConApp(
+      <GraficoBalanceMeses hoy="2026-10-19" meses={meses} referencia={{ mes: '2026-09-01', dia: 19, balance: '120.00' }} />,
+    );
+    expect(screen.getByRole('heading', { name: 'Balance mensual · desde agosto' })).toBeInTheDocument();
+    const marca = screen.getByTestId('marca-referencia');
+    expect(marca).toHaveAttribute('data-balance', '120.00');
+    expect(normal(screen.getByTestId('lectura-balance').textContent)).toContain('Septiembre al día 19: +120,00 €');
+    expect(screen.getByText('Rayado: mes en curso, provisional')).toBeInTheDocument();
+  });
+
+  it('sin el mes en curso en el gráfico no hay marca ni leyenda de provisional', () => {
+    renderConApp(
+      <GraficoBalanceMeses hoy="2026-11-05" meses={meses} referencia={{ mes: '2026-10-01', dia: 5, balance: '10.00' }} />,
+    );
+    expect(screen.queryByTestId('marca-referencia')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rayado/)).not.toBeInTheDocument();
   });
 });
 
@@ -271,23 +290,61 @@ describe('DesgloseBalance', () => {
       />,
     );
 
-  it('mes cerrado: «vs agosto completo», balance con % y lo que no cuenta, aparte', () => {
+  it('mes cerrado: «vs agosto completo», Δ por fila con color por significado y lo que no cuenta, aparte', () => {
     pintar(false);
     expect(screen.getByText('Este mes vs agosto completo')).toBeInTheDocument();
-    const cuenta = screen.getByRole('list', { name: 'Cuenta en el balance' });
-    expect(within(cuenta).getByText('Ingresos').closest('li')).toHaveTextContent('1.508,00 €');
-    expect(within(cuenta).getByText('Gastos netos').closest('li')).toHaveTextContent('1.168,28 €');
+    const ingresos = screen.getByRole('list', { name: 'Ingresos' });
+    const gastos = screen.getByRole('list', { name: 'Gastos netos' });
+    const fila = (lista: HTMLElement, nombre: string) => within(lista).getByText(nombre).closest('li') as HTMLElement;
+    expect(fila(ingresos, 'Ingresos')).toHaveTextContent('1.508,00 €');
+    // Ingresos suben 88,00 €: verde. Una sola categoría de ingreso repetiría el total: no sale.
+    expect(within(fila(ingresos, 'Ingresos')).getByTestId('diferencia-fila')).toHaveTextContent(/^diferencia \+88,00\s€$/);
+    expect(within(fila(ingresos, 'Ingresos')).getByTestId('diferencia-fila')).toHaveClass('text-positivo');
+    expect(within(ingresos).queryByText('Nómina')).not.toBeInTheDocument();
+    // Gastar 22,12 € menos en Ocio es bueno: verde.
+    expect(fila(gastos, 'Gastos netos')).toHaveTextContent('1.168,28 €');
+    expect(within(fila(gastos, 'Ocio')).getByTestId('diferencia-fila')).toHaveTextContent(/-22,12\s€$/);
+    expect(within(fila(gastos, 'Ocio')).getByTestId('diferencia-fila')).toHaveClass('text-positivo');
     const balance = screen.getByTestId('fila-balance');
     expect(within(balance).getByText('+339,72 €')).toHaveClass('text-positivo');
-    expect(within(balance).getByText('+48,0 %').parentElement).toHaveClass('text-positivo');
-    // «vs +229,60 € el mes pasado», con el % aparte (nada de «+48,0 % antes»).
-    expect(normal(within(balance).getByTestId('balance-vs').textContent)).toBe('vs +229,60 € el mes pasado');
-    expect(normal(balance.textContent)).not.toContain('antes');
-    // Grupo B: traspasos y ajustes, fuera de cualquier total.
+    // La variación del balance está en la cabecera de la pestaña: aquí ni % ni «vs».
+    expect(balance).toHaveTextContent('= Balance');
+    expect(balance).not.toHaveTextContent(/%|vs/);
+    // Grupo B: traspasos y ajustes, fuera de cualquier total, en gris (ni bueno ni malo) y sin Δ.
     const fuera = screen.getByTestId('fuera-del-balance');
     expect(within(fuera).getByText('Traspaso BBVA → Trade Republic').closest('li')).toHaveTextContent('100,00 €');
     expect(within(fuera).getByText('Ajuste BBVA (resta)').closest('li')).toHaveTextContent('-5,00 €');
-    expect(within(cuenta).queryByText(/Traspaso|Ajuste/)).not.toBeInTheDocument();
+    expect(fuera.querySelector('.bg-acento')).toBeNull();
+    expect(within(fuera).queryByTestId('diferencia-fila')).not.toBeInTheDocument();
+    expect(within(gastos).queryByText(/Traspaso|Ajuste/)).not.toBeInTheDocument();
+  });
+
+  it('ordenar por diferencia: arriba la categoría que más ha cambiado', async () => {
+    renderConApp(
+      <DesgloseBalance
+        periodos={{ actual: { desde: '2026-09-01', hasta: '2026-09-30' }, anterior: { desde: '2026-08-01', hasta: '2026-08-31' }, enCurso: false }}
+        comparativa={{ ...comparativa, gastos_netos: '400.00', gastos_netos_anterior: '320.00' }}
+        ingresos={[]}
+        ingresosAnterior={[]}
+        gastos={[
+          { categoria_id: 'a', nombre: 'Alquiler', color: '#111111', gasto: '300.00' },
+          { categoria_id: 'o', nombre: 'Ocio', color: '#222222', gasto: '100.00' },
+        ]}
+        gastosAnterior={[
+          { categoria_id: 'a', nombre: 'Alquiler', color: '#111111', gasto: '300.00' },
+          { categoria_id: 'o', nombre: 'Ocio', color: '#222222', gasto: '20.00' },
+        ]}
+        fuera={[]}
+        fueraAnterior={[]}
+      />,
+    );
+    const nombres = () =>
+      within(screen.getByRole('list', { name: 'Gastos netos' }))
+        .getAllByRole('listitem')
+        .map((li) => li.querySelector('.break-words')?.textContent);
+    expect(nombres()).toEqual(['Gastos netos', 'Alquiler', 'Ocio']);
+    await userEvent.click(screen.getByRole('radio', { name: 'Diferencia' }));
+    expect(nombres()).toEqual(['Gastos netos', 'Ocio', 'Alquiler']);
   });
 
   it('mes en curso: «vs mes anterior al día 23»', () => {

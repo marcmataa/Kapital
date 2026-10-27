@@ -1,24 +1,13 @@
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useT, type FuncionT } from '@/shared/i18n';
+import { geometriaCascada, type TramoCascada } from '@/shared/lib/cascada';
 import { aCentimos, formatearEuros } from '@/shared/lib/dinero';
 import { cx } from '@/shared/lib/cx';
 import { Card, EmptyState } from '@/shared/ui';
 import { useLocale } from '../hooks/useLocale';
 import type { PasoCascada } from '../schemas/esquemas';
 
-/** Fracción (0–1) de `c` entre `min` y `max`, con céntimos bigint: solo es una coordenada. */
-function fraccion(c: bigint, min: bigint, max: bigint): number {
-  if (max <= min) return 0;
-  return Number(((c - min) * 10_000n) / (max - min)) / 10_000;
-}
-
-export interface BarraCascada {
-  paso: PasoCascada;
-  /** Tramo horizontal en % desde la izquierda: empieza en `abajo` y mide `alto`. */
-  abajo: number;
-  alto: number;
-  /** Posición (%) donde termina el paso: de ahí sale la línea que lo une con el siguiente. */
-  fin: number;
+export interface BarraCascada extends TramoCascada<PasoCascada> {
   /** ¿Sube (ingresos, categoría en negativo) o baja (gasto)? Los totales son 'total'. */
   sentido: 'total' | 'sube' | 'baja';
 }
@@ -28,22 +17,16 @@ export interface BarraCascada {
  * siempre el 0; un balance negativo queda a la izquierda de la línea del cero.
  */
 export function barrasCascada(pasos: readonly PasoCascada[]): { barras: BarraCascada[]; cero: number } {
-  const valores = pasos.flatMap((p) => [aCentimos(p.inicio), aCentimos(p.fin)]);
-  const min = valores.reduce((a, b) => (b < a ? b : a), 0n);
-  const max = valores.reduce((a, b) => (b > a ? b : a), 0n);
-  const barras = pasos.map((paso) => {
-    const a = fraccion(aCentimos(paso.inicio), min, max) * 100;
-    const b = fraccion(aCentimos(paso.fin), min, max) * 100;
+  const { tramos, cero } = geometriaCascada(pasos);
+  const barras = tramos.map((tramo) => {
+    const { paso } = tramo;
     const total = paso.tipo === 'ingresos' || paso.tipo === 'balance';
     return {
-      paso,
-      abajo: Math.min(a, b),
-      alto: Math.max(Math.abs(b - a), 0.6),
-      fin: b,
+      ...tramo,
       sentido: total ? ('total' as const) : aCentimos(paso.fin) >= aCentimos(paso.inicio) ? ('sube' as const) : ('baja' as const),
     };
   });
-  return { barras, cero: fraccion(0n, min, max) * 100 };
+  return { barras, cero };
 }
 
 function etiquetaPaso(paso: PasoCascada, t: FuncionT<'analisis'>, nombreDe: ReturnType<typeof useNombreCategoria>): string {

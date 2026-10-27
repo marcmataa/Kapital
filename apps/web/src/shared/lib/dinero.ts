@@ -172,6 +172,27 @@ export function variacionPorcentual(actual: string | null, anterior: string | nu
   return `${negativo ? '-' : ''}${(abs / 10_000n).toString()}.${(abs % 10_000n).toString().padStart(4, '0')}`;
 }
 
+export interface VariacionImporte {
+  /** Actual − Anterior en euros ('-447.45'), exacto. */
+  diferencia: string;
+  /** Variación (%) con 4 decimales; null si alguna de las dos bases no es > 0. */
+  porcentaje: string | null;
+}
+
+/**
+ * Variación de una métrica que puede ser ≤ 0, como el balance (reglas, sección 8, cambio del
+ * 27/10/2026): siempre la diferencia en euros y el porcentaje solo si los dos valores son > 0.
+ * Un % sobre una base que cambia de signo (243,32 € → −204,13 € = −183,9 %) no se puede leer.
+ */
+export function variacionImporte(actual: string, anterior: string): VariacionImporte {
+  const a = aCentimos(actual);
+  const b = aCentimos(anterior);
+  return {
+    diferencia: desdeCentimos(a - b),
+    porcentaje: a > 0n && b > 0n ? variacionPorcentual(actual, anterior) : null,
+  };
+}
+
 /** Compara dos importes string sin float: -1, 0, 1. */
 export function compararImportes(a: string, b: string): -1 | 0 | 1 {
   const ca = aCentimos(a);

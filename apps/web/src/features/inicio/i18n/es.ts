@@ -21,7 +21,8 @@ export default {
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Patrimonio por cuenta',
   'kpi.balance': 'Balance · 1–{dia} {mes}',
-  'kpi.ahorro': 'Ahorro {porcentaje}',
+  'kpi.ahorro': 'Tasa de ahorro {porcentaje}',
+  'kpi.vsTramoImporte': 'vs {importe} (1–{dia} {mes})',
 
   'grafico.titulo': 'Evolución de tu capital',
   'grafico.hoy': '{fecha} (hoy)',

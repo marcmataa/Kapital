@@ -22,7 +22,8 @@ export default {
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Patrimoni per compte',
   'kpi.balance': 'Balanç · 1–{dia} {mes}',
-  'kpi.ahorro': 'Estalvi {porcentaje}',
+  'kpi.ahorro': 'Taxa d’estalvi {porcentaje}',
+  'kpi.vsTramoImporte': 'vs {importe} (1–{dia} {mes})',
 
   'grafico.titulo': 'Evolució del teu capital',
   'grafico.hoy': '{fecha} (avui)',

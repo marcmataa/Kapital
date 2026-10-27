@@ -10,6 +10,7 @@ import {
   parsearImporte,
   parsearImporteLocal,
   separadorDecimal,
+  variacionImporte,
   variacionPorcentual,
 } from './dinero';
 
@@ -227,5 +228,22 @@ describe('normalizarCifrasTexto (texto de la IA)', () => {
 
   it('en inglés no cambia nada', () => {
     expect(normalizarCifrasTexto('Leisure was 23.4% of spending.', 'en-GB')).toBe('Leisure was 23.4% of spending.');
+  });
+});
+
+describe('variacionImporte (balance: sección 8, cambio del 27/10/2026)', () => {
+  it('cambio de signo: solo la diferencia en euros, sin % (243,32 € → −204,13 €)', () => {
+    expect(variacionImporte('-204.13', '243.32')).toEqual({ diferencia: '-447.45', porcentaje: null });
+  });
+
+  it('de negativo a positivo, entre negativos y desde base cero: diferencia sin %', () => {
+    expect(variacionImporte('50.00', '-100.00')).toEqual({ diferencia: '150.00', porcentaje: null });
+    expect(variacionImporte('-50.00', '-100.00')).toEqual({ diferencia: '50.00', porcentaje: null });
+    expect(variacionImporte('30.00', '0.00')).toEqual({ diferencia: '30.00', porcentaje: null });
+    expect(variacionImporte('0.00', '100.00')).toEqual({ diferencia: '-100.00', porcentaje: null });
+  });
+
+  it('las dos bases > 0: diferencia y el % de la sección 8', () => {
+    expect(variacionImporte('339.72', '229.60')).toEqual({ diferencia: '110.12', porcentaje: '47.9617' });
   });
 });

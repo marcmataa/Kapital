@@ -5,7 +5,7 @@ import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { aCentimos, formatearEuros, type OpcionesEuros } from '@/shared/lib/dinero';
 import { partesDe, sumarMeses } from '@/shared/lib/fechas';
 import type { Comparativa, RitmoGasto } from '../api/estadisticasApi';
-import { nombreMes } from '../lib/formato';
+import { mesDesde, nombreMes } from '../lib/formato';
 import type { PeriodosComparacion } from '../lib/periodos';
 import { LineaVariacion } from './LineaVariacion';
 
@@ -23,12 +23,14 @@ interface Props {
 
 /**
  * Título de una comparativa (sección 8, misma longitud): mes en curso → «… al día D»; mes cerrado
- * → «… septiembre completo».
+ * → «… septiembre completo». Sin mes anterior con datos no hay comparación: «Categorías de
+ * septiembre» (nunca «vs agosto» sin datos de agosto).
  */
 export function useTituloComparativa(periodos: PeriodosComparacion, clave: 'comparativa.titulo' | 'desglose.titulo' | 'categorias.titulo') {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
+  if (periodos.anterior === null) return t(`${clave}.sinAnterior`, { mes: mesDesde(periodos.actual.desde, locale) });
   return periodos.enCurso
     ? t(`${clave}.alDia`, { dia: String(partesDe(periodos.actual.hasta).dia) })
     : t(`${clave}.completo`, { mes: nombreMes(sumarMeses(periodos.actual.desde, -1), locale) });

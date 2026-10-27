@@ -4,7 +4,8 @@ import { useListarCuentasQuery } from '@/shared/api/catalogos';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
-import { finDeMes, inicioDeMes } from '@/shared/lib/fechas';
+import { cx } from '@/shared/lib/cx';
+import { finDeMes, inicioDeMes, partesDe } from '@/shared/lib/fechas';
 import { SegmentedControl, Select } from '@/shared/ui';
 import {
   useEstadisticasComparativaQuery,
@@ -17,6 +18,8 @@ import {
   useEstadisticasResumenPeriodoQuery,
   useEstadisticasRitmoQuery,
 } from '../api/estadisticasApi';
+import { CabeceraBalance } from '../components/CabeceraBalance';
+import { CascadaVariacion } from '../components/CascadaVariacion';
 import { ComparativaMes, useTituloComparativa } from '../components/ComparativaMes';
 import { DesgloseBalance } from '../components/DesgloseBalance';
 import { EstadoConsulta } from '../components/EstadoConsulta';
@@ -61,6 +64,7 @@ export default function PaginaEstadisticas() {
   // Mes en curso: 1..D contra 1..d' del mes anterior; mes cerrado: completo contra completo.
   const periodos = periodosComparacion(mes, hoy, inicioDatos);
   const anterior = periodos.anterior;
+  const periodosConAnterior = anterior === null ? null : { ...periodos, anterior };
   const tituloCategorias = useTituloComparativa(periodos, 'categorias.titulo');
 
   const verGastos = pestana === 'gastos';
@@ -86,11 +90,17 @@ export default function PaginaEstadisticas() {
   const resumenMensual = useEstadisticasResumenMensualQuery(
     si((verGastos || verBalance) && primerMes !== undefined, { desde: primerMes ?? mes, hasta: finDeMes(mes) }),
   );
-  const filasMeses = (resumenMensual.data ?? []).filter((m) => mesesGrafico.includes(m.mes));
+  // currentData, no data: mientras llega el rango nuevo (p. ej. al cargar las cuentas, de [oct] a
+  // [sept, oct]) el gráfico no se monta con los meses del rango viejo, que dejaban elegido el mes
+  // equivocado (el índice inicial solo se lee al montar).
+  const datosMeses = resumenMensual.currentData;
+  const filasMeses = (datosMeses ?? []).filter((m) => mesesGrafico.includes(m.mes));
+  const claveMeses = `${mes}-${primerMes ?? ''}`;
 
   const conInteranual = hayInteranual(mes, hoy, inicioDatos);
   const rangoAnio = rangoInteranual(periodos.actual, periodos.enCurso);
-  const resumen = useEstadisticasResumenPeriodoQuery(si(verBalance && conInteranual, periodos.actual));
+  // Balance: tasa de ahorro del tramo (SQL) para la cabecera; también el lado actual del interanual.
+  const resumen = useEstadisticasResumenPeriodoQuery(si(verBalance, periodos.actual));
   const resumenAnio = useEstadisticasResumenPeriodoQuery(si(verBalance && conInteranual, rangoAnio));
 
   const reintentar = (...qs: Reintentable[]) => () => {
@@ -181,8 +191,8 @@ export default function PaginaEstadisticas() {
                 )}
               </EstadoConsulta>
               <div className="flex flex-col gap-4">
-                <EstadoConsulta datos={primerMes === undefined ? [] : resumenMensual.data} {...estado(resumenMensual)}>
-                  {() => <GraficoMeses key={mes} meses={filasMeses} hoy={hoy} />}
+                <EstadoConsulta datos={primerMes === undefined ? [] : datosMeses} {...estado(resumenMensual)}>
+                  {() => <GraficoMeses key={claveMeses} meses={filasMeses} hoy={hoy} />}
                 </EstadoConsulta>
                 <EstadoConsulta datos={metodos.data} {...estado(metodos)}>
                   {(ms) => <MetodosPago metodos={ms} />}
@@ -212,9 +222,50 @@ export default function PaginaEstadisticas() {
 
         {verBalance && (
           <>
-            <EstadoConsulta datos={primerMes === undefined ? [] : resumenMensual.data} {...estado(resumenMensual)}>
-              {() => <GraficoBalanceMeses key={mes} meses={filasMeses} hoy={hoy} />}
+            {/* 1. Cabecera: balance del tramo, diferencia con el mismo tramo del mes anterior y tasa de ahorro. */}
+            <EstadoConsulta datos={todas(comparativa.data, comparativa, resumen)} {...estado(comparativa, resumen)}>
+              {(c) => (
+                <CabeceraBalance
+                  periodos={periodos}
+                  balance={c.balance}
+                  balanceAnterior={c.balance_anterior}
+                  ahorroPct={resumen.data?.ahorro_pct ?? null}
+                />
+              )}
             </EstadoConsulta>
+            {/* 2. Por qué cambia (solo con mes anterior) y su evolución mes a mes. */}
+            <div className={cx('grid grid-cols-1 items-start gap-4', periodosConAnterior !== null && 'lg:grid-cols-2')}>
+              {periodosConAnterior !== null && (
+                <EstadoConsulta
+                  datos={todas(comparativa.data, comparativa, categorias, categoriasAnt)}
+                  {...estado(comparativa, categorias, categoriasAnt)}
+                >
+                  {(c) => (
+                    <CascadaVariacion
+                      periodos={periodosConAnterior}
+                      comparativa={c}
+                      gastos={categorias.data ?? []}
+                      gastosAnterior={categoriasAnt.data ?? []}
+                    />
+                  )}
+                </EstadoConsulta>
+              )}
+              <EstadoConsulta datos={primerMes === undefined ? [] : datosMeses} {...estado(resumenMensual)}>
+                {() => (
+                  <GraficoBalanceMeses
+                    key={claveMeses}
+                    meses={filasMeses}
+                    hoy={hoy}
+                    referencia={
+                      periodos.enCurso && anterior !== null && comparativa.data?.balance_anterior != null
+                        ? { mes: anterior.desde, dia: partesDe(anterior.hasta).dia, balance: comparativa.data.balance_anterior }
+                        : undefined
+                    }
+                  />
+                )}
+              </EstadoConsulta>
+            </div>
+            {/* 3. El detalle por categoría, con su diferencia, y lo que no cuenta en el balance. */}
             <EstadoConsulta
               datos={todas(comparativa.data, comparativa, ingresos, ingresosAnt, categorias, categoriasAnt, fuera, fueraAnt)}
               {...estado(comparativa, ingresos, ingresosAnt, categorias, categoriasAnt, fuera, fueraAnt)}

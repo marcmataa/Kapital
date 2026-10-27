@@ -22,7 +22,8 @@ export default {
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Net worth by account',
   'kpi.balance': 'Balance · 1–{dia} {mes}',
-  'kpi.ahorro': 'Savings {porcentaje}',
+  'kpi.ahorro': 'Savings rate {porcentaje}',
+  'kpi.vsTramoImporte': 'vs {importe} (1–{dia} {mes})',
 
   'grafico.titulo': 'How your wealth is evolving',
   'grafico.hoy': '{fecha} (today)',

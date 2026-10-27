@@ -2,16 +2,30 @@ import { AyudaGrafico, Card, EmptyState, EtiquetasEje, LecturaGrafico, LineasEje
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { useSeleccionGrafico } from '@/shared/hooks/useSeleccionGrafico';
 import { aCentimos, formatearEuros, formatearPorcentaje } from '@/shared/lib/dinero';
-import { escalaDeImportes, formatearEurosEje, tramoBarra } from '@/shared/lib/ejes';
+import { escalaDeImportes, formatearEurosEje, posicionEnEje, tramoBarra } from '@/shared/lib/ejes';
 import { inicioDeMes } from '@/shared/lib/fechas';
 import { cx } from '@/shared/lib/cx';
 import type { ResumenMes } from '../api/estadisticasApi';
-import { etiquetaMes, mesCorto, mesDesde } from '../lib/formato';
+import { capitalizar, etiquetaMes, mesCorto, mesDesde, nombreMes } from '../lib/formato';
+
+/** Balance del mes anterior al mismo día que hoy (comparativa, SQL): referencia del mes en curso. */
+export interface ReferenciaEnCurso {
+  /** Mes anterior (día 1). */
+  mes: string;
+  /** Día d' hasta el que se suma (sección 7). */
+  dia: number;
+  balance: string;
+}
 
 interface Props {
   /** Meses a dibujar (resumen_mensual), en orden cronológico. */
   meses: readonly ResumenMes[];
   hoy: string;
+  /**
+   * Solo con el mes en curso: el balance del mes anterior hasta el mismo día. Se marca sobre la
+   * barra provisional para no comparar un mes completo con uno a medias.
+   */
+  referencia?: ReferenciaEnCurso | undefined;
 }
 
 /** Ancho fijo de la columna de etiquetas del eje: la fila de meses queda alineada con las barras. */
@@ -30,20 +44,32 @@ function etiquetaBarra(balance: string, locale: string): string {
  * (resumen_mensual, sección 3); aquí solo se dibuja. El mes en curso es provisional (rayado).
  * Ahorro «—» si no hay ingresos. Se recorre mes a mes con ratón, dedo o teclado.
  */
-export function GraficoBalanceMeses({ meses, hoy }: Props) {
+export function GraficoBalanceMeses({ meses, hoy, referencia }: Props) {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   // Con menos de 6 meses de datos, el título dice desde cuándo: «Últimos 6 meses» con 2 barras engaña.
   const primero = meses[0];
   const tituloTarjeta =
-    primero !== undefined && meses.length < 6 ? t('meses.tituloDesde', { mes: mesDesde(primero.mes, locale) }) : t('balanceMeses.titulo');
+    primero !== undefined && meses.length < 6
+      ? t('balanceMeses.tituloDesde', { mes: mesDesde(primero.mes, locale) })
+      : t('balanceMeses.titulo');
   const mesActual = inicioDeMes(hoy);
   const { indice, superficie, alTeclado } = useSeleccionGrafico({ total: meses.length, inicial: meses.length - 1 });
   const elegido = meses[indice];
+  const hayEnCurso = meses.some((m) => m.mes === mesActual);
+  const ref = hayEnCurso ? referencia : undefined;
+  const textoRef =
+    ref === undefined
+      ? null
+      : t('balanceMeses.referencia', {
+          mes: capitalizar(nombreMes(ref.mes, locale)),
+          dia: String(ref.dia),
+          importe: formatearEuros(ref.balance, locale, { signo: 'siempre' }),
+        });
 
-  // Con el cero siempre dentro: los meses en negativo quedan por debajo.
-  const escala = escalaDeImportes(meses.map((m) => m.balance));
+  // Con el cero siempre dentro: los meses en negativo quedan por debajo. La referencia, también dentro.
+  const escala = escalaDeImportes([...meses.map((m) => m.balance), ...(ref ? [ref.balance] : [])]);
   const n = meses.length;
 
   const lectura = (m: ResumenMes) => {
@@ -53,6 +79,7 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
       t('balanceMeses.ingresos', { importe: formatearEuros(m.ingresos, locale) }),
       t('balanceMeses.gastos', { importe: formatearEuros(m.gastos_netos, locale) }),
       t('balanceMeses.ahorro', { porcentaje: formatearPorcentaje(m.ahorro_pct, locale) }),
+      ...(m.mes === mesActual && textoRef !== null ? [textoRef] : []),
     ];
     return { titulo, valor, detalle };
   };
@@ -73,6 +100,18 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
               <span className="size-2.5 rounded-sm bg-negativo" />
               {t('balanceMeses.leyenda.deficit')}
             </span>
+            {hayEnCurso && (
+              <span className="flex items-center gap-1.5">
+                <span className="relleno-provisional size-2.5 rounded-sm text-apagado" />
+                {t('balanceMeses.leyenda.provisional')}
+              </span>
+            )}
+            {ref !== undefined && (
+              <span className="flex items-center gap-1.5">
+                <span className="block h-0 w-3 border-t-2 border-dashed border-texto" />
+                {t('balanceMeses.leyenda.referencia', { mes: capitalizar(nombreMes(ref.mes, locale)), dia: String(ref.dia) })}
+              </span>
+            )}
           </span>
           <LecturaGrafico data-testid="lectura-balance" titulo={`${sel.titulo} · ${t('balanceMeses.balance')}`} valor={sel.valor}>
             <span className="cifras text-xs text-apagado sm:text-sm">{sel.detalle.join(' · ')}</span>
@@ -133,6 +172,14 @@ export function GraficoBalanceMeses({ meses, hoy }: Props) {
                         >
                           {etiquetaBarra(m.balance, locale)}
                         </span>
+                        {provisional && ref !== undefined && (
+                          <span
+                            data-testid="marca-referencia"
+                            data-balance={ref.balance}
+                            className="absolute -inset-x-1 border-t-2 border-dashed border-texto"
+                            style={{ bottom: `${posicionEnEje(ref.balance, escala) * 100}%` }}
+                          />
+                        )}
                       </div>
                     </div>
                   );

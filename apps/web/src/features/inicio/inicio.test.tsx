@@ -753,7 +753,7 @@ describe('PaginaInicio · balance del mes, top 3 y enlaces', () => {
     const balance = (await screen.findByRole('heading', { name: 'Balance · 1–19 oct' })).closest('article');
     if (!balance) throw new Error('sin tarjeta');
     expect(within(balance).getByText(/^\+342,00\s€$/)).toBeInTheDocument();
-    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Ahorro 10,0 %');
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro 10,0 %');
   });
 
   it('mes cerrado: balance del mes completo con el ahorro de la sección 3 (22,5 %)', async () => {
@@ -761,9 +761,9 @@ describe('PaginaInicio · balance del mes, top 3 y enlaces', () => {
     const balance = (await screen.findByRole('heading', { name: 'Balance · 1–30 sept' })).closest('article');
     if (!balance) throw new Error('sin tarjeta');
     expect(within(balance).getByText(/^\+339,72\s€$/)).toBeInTheDocument();
-    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Ahorro 22,5 %');
-    // 400,00 → 339,72: −15,1 %; que baje el balance es rojo.
-    expect(within(balance).getByText('-15,1 %').parentElement).toHaveClass('text-negativo');
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro 22,5 %');
+    // 400,00 → 339,72: las dos bases > 0, diferencia y % (−15,1 %); que baje el balance es rojo.
+    expect(within(balance).getByText(/^-60,28\s€ \(-15,1\s%\)$/).parentElement).toHaveClass('text-negativo');
   });
 
 

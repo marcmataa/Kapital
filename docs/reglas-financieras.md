@@ -155,6 +155,7 @@ Variación (%) = (Actual − Anterior) / |Anterior| × 100
 ```
 
 - Base cero o sin datos: si el periodo anterior vale 0 € o no existe, se muestra «Sin datos del mes anterior» en lugar de un porcentaje.
+- Balance (y cualquier medida que pueda ser 0 o negativa): se muestra siempre la diferencia en euros (Actual − Anterior) y el porcentaje solo si los dos valores son mayores que 0, igual que el patrimonio de la sección 7. Ejemplo: de +243,32 € a −204,13 € se muestra «−447,45 €», no «−183,9 %». *(Cambio del 27/10/2026: antes se mostraba el porcentaje con cualquier base distinta de 0, que con un cambio de signo no se puede interpretar.)*
 - Color por significado, no por signo: que suban los ingresos o el balance es verde; que suban los gastos es rojo.
 - Interanual: solo aparece cuando hay al menos 12 meses de datos. Compara un mes con el mismo mes del año anterior (octubre 2026 con octubre 2025) o el año en curso hasta hoy con el mismo tramo del año anterior.
 - Media mensual: se calcula solo con meses completos; el mes en curso no entra.
