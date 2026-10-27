@@ -24,7 +24,8 @@ export function ComentarioIA({ contenido, pie }: Props) {
   const locale = useLocale();
   const nombreDe = useNombreCategoria();
   const [accion, setAccion] = useState<AccionAnalisis | null>(null);
-  const subtitulo = 'text-xs font-semibold tracking-wider text-apagado uppercase';
+  // Mismo estilo de subtítulo que el resto de tarjetas: frase normal, sin mayúsculas forzadas (F29).
+  const subtitulo = 'text-sm font-semibold text-texto';
   const hayObservaciones = contenido.observaciones.length > 0;
   return (
     <section

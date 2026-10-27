@@ -8,6 +8,9 @@
  * Utilidades Tailwind generadas desde @theme: bg-fondo, bg-nav, bg-superficie, text-texto, text-apagado,
  * border-borde, border-borde-input, bg-acento, text-sobre-acento, text-enlace, text-positivo, text-negativo…
  * Los colores de categorías en gráficos son datos (multicolor), no tokens de marca.
+ * Color con significado en los datos: positivo/negativo solo para un resultado bueno o malo
+ * (ahorro, mejora); gasto (azul pizarra) e ingreso (cian) para importes sin juicio; traspasos y
+ * totales en gris (apagado). El verde nunca marca un gasto.
  */
 :root {
   color-scheme: dark;
@@ -39,6 +42,8 @@
   --k-aviso-borde: #6b5418;
   --k-morado: #a78bfa;
   --k-morado-suave: rgb(167 139 250 / 0.14);
+  --k-gasto: #8ea4c8;
+  --k-ingreso: #6cc4e0;
   --k-sombra: 0 1px 2px rgb(0 0 0 / 0.45), 0 8px 24px rgb(0 0 0 / 0.25);
   --k-overlay: rgb(2 8 6 / 0.72);
 }
@@ -74,6 +79,8 @@
     --k-aviso-borde: #e4c27a;
     --k-morado: #6d3fe0;
     --k-morado-suave: rgb(109 63 224 / 0.1);
+    --k-gasto: #52698c;
+    --k-ingreso: #1b7a9c;
     --k-sombra: 0 1px 2px rgb(13 31 25 / 0.06), 0 8px 24px rgb(13 31 25 / 0.06);
     --k-overlay: rgb(13 31 25 / 0.45);
   }
@@ -109,6 +116,8 @@
   --k-aviso-borde: #e4c27a;
   --k-morado: #6d3fe0;
   --k-morado-suave: rgb(109 63 224 / 0.1);
+  --k-gasto: #52698c;
+  --k-ingreso: #1b7a9c;
   --k-sombra: 0 1px 2px rgb(13 31 25 / 0.06), 0 8px 24px rgb(13 31 25 / 0.06);
   --k-overlay: rgb(13 31 25 / 0.45);
 }
@@ -144,6 +153,9 @@
   --color-aviso-borde: var(--k-aviso-borde);
   --color-morado: var(--k-morado);
   --color-morado-suave: var(--k-morado-suave);
+  /* Semánticos de datos (auditoría F22): verde y rojo solo para resultado bueno o malo. */
+  --color-gasto: var(--k-gasto);
+  --color-ingreso: var(--k-ingreso);
   --color-overlay: var(--k-overlay);
   --shadow-tarjeta: var(--k-sombra);
   /* Texto secundario mínimo 13 px (WCAG / revisión UX): text-xs = 13 px en toda la app. */

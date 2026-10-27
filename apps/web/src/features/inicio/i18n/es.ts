@@ -52,7 +52,8 @@ export default {
   'categorias.vacioCerrado': 'No tuviste gastos en {mes}.',
   'categorias.grafico': 'Reparto del gasto neto por categoría',
   'categorias.lista': 'Gasto neto por categoría',
-  'categorias.otras': 'Otras ({n})',
+  'categorias.resto': 'Resto ({n} categorías)',
+  'categorias.restoUna': 'Resto (1 categoría)',
   'categorias.negativa': 'Te han devuelto más de lo que gastaste: no entra en el gráfico.',
   'categorias.verMovimientos': 'Ver los movimientos de {categoria} de este mes',
 

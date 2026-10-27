@@ -100,6 +100,7 @@ function servir({
   filas = [FILA],
   detalle = { ...FILA, datos: DATOS, contenido: CONTENIDO } as unknown,
   objetivos = [] as unknown[],
+  categorias = CATEGORIAS as unknown[],
 } = {}) {
   estado.responder = (ll: Llamada): Respuesta => {
     if (ll.nombre === 'perfiles') return { data: PERFIL, error: null };
@@ -107,7 +108,7 @@ function servir({
       return { data: [{ id: 'c1', nombre: 'BBVA', fecha_inicial: '2026-08-01', saldo_inicial: '1000.00' }], error: null };
     }
     if (ll.nombre === 'v_saldos') return { data: [], error: null };
-    if (ll.nombre === 'categorias') return { data: CATEGORIAS, error: null };
+    if (ll.nombre === 'categorias') return { data: categorias, error: null };
     if (ll.nombre === 'objetivos') {
       return { data: ll.cadena.some(([m]) => m === 'insert') ? null : objetivos, error: null };
     }
@@ -179,6 +180,31 @@ describe('Entrada a Análisis', () => {
 });
 
 describe('Detalle del análisis', () => {
+  it('reparto con el color de HOY de cada categoría, no el guardado en el snapshot (F07)', async () => {
+    // El snapshot guarda Restaurantes en #ff8a3d; hoy, en el catálogo, es #c2885a.
+    servir({ categorias: [{ ...CATEGORIAS[0], color: '#c2885a' }, CATEGORIAS[1]] });
+    montarDetalle();
+    await screen.findByRole('region', { name: 'Cifras del mes' });
+    await waitFor(() => expect(screen.getAllByTestId('tramo-categoria')[0]).toHaveStyle({ backgroundColor: '#c2885a' }));
+    // Sin color en el catálogo, el del snapshot.
+    expect(screen.getAllByTestId('tramo-categoria')[1]).toHaveStyle({ backgroundColor: '#9b6bff' });
+  });
+
+  it('la barra agrupa en «Resto» lo mismo que la cascada de la pantalla (F07)', async () => {
+    const cascada = [
+      { tipo: 'ingresos', nombre: null, clave: null, color: null, importe: '1508.00', inicio: '0.00', fin: '1508.00' },
+      { tipo: 'categoria', nombre: 'Restaurantes', clave: 'restaurantes', color: '#ff8a3d', importe: '-1158.28', inicio: '1508.00', fin: '349.72' },
+      { tipo: 'otras', nombre: null, clave: null, color: null, importe: '-10.00', inicio: '349.72', fin: '339.72' },
+      { tipo: 'balance', nombre: null, clave: null, color: null, importe: '339.72', inicio: '0.00', fin: '339.72' },
+    ];
+    servir({ detalle: { ...FILA, datos: { ...DATOS, cascada }, contenido: CONTENIDO } });
+    montarDetalle();
+    // Ocio no está suelto en la cascada: tampoco en la barra (la negativa, Otros gastos, se lista aparte).
+    expect(await screen.findByText('Resto (1 categoría)')).toBeInTheDocument();
+    expect(screen.getByTestId('contenido-resto')).toHaveTextContent('Ocio');
+    expect(within(screen.getByRole('table', { name: 'De tus ingresos a tu balance' })).getByText('Resto')).toBeInTheDocument();
+  });
+
   it('tres tarjetas separadas, cascada, reparto, texto de la IA como texto plano y nota', async () => {
     servir();
     montarDetalle();

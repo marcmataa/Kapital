@@ -62,7 +62,7 @@ describe('RepartoCategorias', () => {
     expect(within(fila('Ocio')).getByText('100,0 %')).toBeInTheDocument();
   });
 
-  it('a partir de la 7.ª categoría, el resto se suma en «Otras (n)» (sin enlace) y la tarjeta no crece', () => {
+  it('a partir de la 7.ª categoría, el resto se suma en «Resto (n categorías)» (sin enlace) y la tarjeta no crece', () => {
     const importes = ['90.00', '80.00', '70.00', '60.00', '50.00', '40.00', '30.00', '20.00', '10.00'];
     const categorias: CategoriaReparto[] = importes.map((gasto, i) => ({ id: `c${i}`, nombre: `Cat ${i}`, color: '#123456', gasto }));
     renderConApp(
@@ -73,11 +73,22 @@ describe('RepartoCategorias', () => {
     expect(within(lista).getAllByRole('listitem')).toHaveLength(7);
     expect(within(lista).queryByText('Cat 6')).not.toBeInTheDocument();
     // 30 + 20 + 10 = 60 € sobre 450 €: 13,3 %.
-    const otras = fila('Otras (3)');
+    const otras = fila('Resto (3 categorías)');
     expect(otras).toHaveTextContent(/60,00\s€/);
     expect(otras).toHaveTextContent('13,3 %');
+    // Dice qué hay dentro (F07: no se confunde con «Otros gastos») y va rayado, no en un gris sólido.
+    expect(within(otras).getByTestId('contenido-resto')).toHaveTextContent('Cat 6, Cat 7, Cat 8');
+    expect(screen.getAllByTestId('tramo-categoria').at(-1)?.getAttribute('style')).toContain('repeating-linear-gradient');
     expect(within(otras).queryByRole('link')).not.toBeInTheDocument();
     expect(within(fila('Cat 0')).getByRole('link')).toHaveAttribute('href', '/movimientos?categoria=c0');
     expect(screen.getAllByTestId('tramo-categoria')).toHaveLength(7);
+  });
+
+  it('con `sueltas`, agrupa exactamente lo que agrupa el otro gráfico, aunque sea una sola', () => {
+    const importes = ['90.00', '80.00', '70.00'];
+    const categorias: CategoriaReparto[] = importes.map((gasto, i) => ({ id: `c${i}`, nombre: `Cat ${i}`, color: '#123456', gasto }));
+    renderConApp(<RepartoCategorias categorias={categorias} totalGastoNeto="240.00" sueltas={new Set(['c0', 'c1'])} />);
+    expect(fila('Resto (1 categoría)')).toHaveTextContent(/70,00\s€/);
+    expect(screen.getAllByTestId('tramo-categoria')).toHaveLength(3);
   });
 });

@@ -39,3 +39,15 @@ export function useNombreCategoriaCatalogo(): (categoria: { id?: string | null; 
     [porId, porNombre, t],
   );
 }
+
+/**
+ * Color ACTUAL de una categoría, buscado en el catálogo por nombre (único por usuario). El snapshot
+ * de un análisis guarda el color del día en que se generó: si luego cambia (p. ej. la migración
+ * 20261027000000 pasó Ropa de índigo a marrón), Análisis debe pintar con el de hoy, como Inicio y
+ * Estadísticas (auditoría F07). Si no está en el catálogo (categoría borrada), el del snapshot.
+ */
+export function useColorCategoriaCatalogo(): (nombre: string, colorGuardado: string | null) => string | null {
+  const { data = SIN_CATEGORIAS } = useListarCategoriasQuery();
+  const porNombre = useMemo(() => new Map(data.map((c) => [c.nombre, c.color])), [data]);
+  return useCallback((nombre: string, colorGuardado: string | null) => porNombre.get(nombre) ?? colorGuardado, [porNombre]);
+}
