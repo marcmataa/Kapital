@@ -31,7 +31,7 @@ export function MetodosPago({ metodos }: { metodos: readonly GastoMetodo[] }) {
             <li key={m.metodo ?? 'sin'} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] items-center gap-x-3">
               <span className="truncate text-texto">{t(m.metodo === null ? 'metodo.sin' : `metodo.${m.metodo}`)}</span>
               <span aria-hidden="true" className="block h-2 rounded bg-borde">
-                <span className="block h-2 rounded bg-acento" style={{ width: `${proporcion(m.gasto, maximo)}%` }} />
+                <span className="block h-2 rounded bg-gasto" style={{ width: `${proporcion(m.gasto, maximo)}%` }} />
               </span>
               <span className="cifras text-right text-texto">{formatearEuros(m.gasto, locale)}</span>
             </li>

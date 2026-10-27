@@ -63,7 +63,7 @@ export default {
   'cascada.titulo': 'Dels teus ingressos al teu balanç',
   'cascada.ingresos': 'Ingressos',
   'cascada.balance': 'Balanç',
-  'cascada.otras': 'Altres',
+  'cascada.otras': 'Resta',
   'cascada.sinCategoria': 'Sense categoria',
   'cascada.vacio': 'No hi ha dades per a aquest gràfic.',
   'cascada.leyendaTotal': 'Ingressos i balanç',

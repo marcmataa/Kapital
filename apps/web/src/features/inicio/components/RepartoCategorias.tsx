@@ -23,16 +23,28 @@ interface Props {
    * categoría y el mes.
    */
   enlace?: ((categoriaId: string) => string) | undefined;
+  /**
+   * Ids de las categorías que se ven una a una; el resto se agrupa. Así la barra agrupa lo mismo
+   * que otro gráfico de la misma pantalla (la cascada de Análisis, auditoría F07). Sin él, las
+   * MAX_CATEGORIAS_VISIBLES con más gasto.
+   */
+  sueltas?: ReadonlySet<string> | undefined;
 }
 
 interface Fila extends CategoriaReparto {
   centimos: bigint;
 }
 
-/** Categorías que se ven una a una; a partir de ahí, el resto se suma en «Otras». */
+/** Categorías que se ven una a una; a partir de ahí, el resto se suma en «Resto». */
 export const MAX_CATEGORIAS_VISIBLES = 6;
-const ID_OTRAS = '__otras__';
-const COLOR_OTRAS = '#8a958f';
+const ID_RESTO = '__resto__';
+/**
+ * El grupo «Resto» no es una categoría: rayado neutro, no un gris sólido que se confundía con el
+ * de «Otros gastos» (auditoría F07).
+ */
+const RAYADO_RESTO = 'repeating-linear-gradient(135deg, var(--k-apagado) 0 2px, transparent 2px 5px)';
+const estilo = (f: { id: string; color: string }) =>
+  f.id === ID_RESTO ? { backgroundImage: RAYADO_RESTO } : { backgroundColor: f.color };
 
 /** Tramos de la barra (en % del ancho), acumulando en céntimos exactos. */
 function calcularTramos(positivas: readonly Fila[], total: bigint) {
@@ -53,11 +65,12 @@ function calcularTramos(positivas: readonly Fila[], total: bigint) {
  * - Una categoría en negativo se lista en rojo con su importe, pero no entra en la barra
  *   (solo admite valores positivos). Las de 0 € no se muestran.
  * Los importes se muestran desde sus strings; los tramos se calculan en céntimos (bigint).
- * Las MAX_CATEGORIAS_VISIBLES con más gasto se ven una a una; el resto se suma (en céntimos) en
- * «Otras (n)», para que la tarjeta no crezca con cada categoría nueva. Con `enlace`, cada fila
- * es un enlace; «Otras» no enlaza: son varias.
+ * Las MAX_CATEGORIAS_VISIBLES con más gasto (o las de `sueltas`) se ven una a una; el resto se
+ * suma (en céntimos) en «Resto (n categorías)», rayado y con sus nombres debajo, para que la
+ * tarjeta no crezca con cada categoría nueva. Con `enlace`, cada fila es un enlace; «Resto» no
+ * enlaza: son varias.
  */
-export function RepartoCategorias({ categorias, totalGastoNeto, etiquetaTotal, enlace }: Props) {
+export function RepartoCategorias({ categorias, totalGastoNeto, etiquetaTotal, enlace, sueltas }: Props) {
   const t = useT('inicio');
   const { locale } = useIdioma();
 
@@ -69,22 +82,25 @@ export function RepartoCategorias({ categorias, totalGastoNeto, etiquetaTotal, e
   const positivas = filas.filter((f) => f.centimos > 0n);
   const totalPositivo = positivas.reduce((s, f) => s + f.centimos, 0n);
 
-  const resto = positivas.slice(MAX_CATEGORIAS_VISIBLES);
-  const otras = resto.reduce((s, f) => s + f.centimos, 0n);
-  // Agrupar una sola categoría no ahorra nada: solo con dos o más.
-  const visibles: Fila[] =
-    resto.length > 1
-      ? [
-          ...positivas.slice(0, MAX_CATEGORIAS_VISIBLES),
-          {
-            id: ID_OTRAS,
-            nombre: t('categorias.otras', { n: resto.length }),
-            color: COLOR_OTRAS,
-            gasto: desdeCentimos(otras),
-            centimos: otras,
-          },
-        ]
-      : positivas;
+  const suelta = (f: Fila, i: number) => (sueltas ? sueltas.has(f.id) : i < MAX_CATEGORIAS_VISIBLES);
+  const resto = positivas.filter((f, i) => !suelta(f, i));
+  const sumaResto = resto.reduce((s, f) => s + f.centimos, 0n);
+  // Agrupar una sola categoría no ahorra nada: solo con dos o más (con `sueltas`, lo que diga el
+  // otro gráfico, que puede agrupar una sola).
+  const agrupar = sueltas ? resto.length > 0 : resto.length > 1;
+  const visibles: Fila[] = agrupar
+    ? [
+        ...positivas.filter((f, i) => suelta(f, i)),
+        {
+          id: ID_RESTO,
+          nombre: resto.length === 1 ? t('categorias.restoUna') : t('categorias.resto', { n: resto.length }),
+          color: '',
+          gasto: desdeCentimos(sumaResto),
+          centimos: sumaResto,
+        },
+      ]
+    : positivas;
+  const nombresResto = resto.map((f) => f.nombre).join(', ');
   const leyenda = [...visibles, ...filas.filter((f) => f.centimos < 0n)];
 
   const tramos = calcularTramos(visibles, totalPositivo);
@@ -110,7 +126,7 @@ export function RepartoCategorias({ categorias, totalGastoNeto, etiquetaTotal, e
             key={tramo.id}
             data-testid="tramo-categoria"
             className="h-full first:rounded-l-full last:rounded-r-full"
-            style={{ width: `${tramo.ancho}%`, backgroundColor: tramo.color }}
+            style={{ width: `${tramo.ancho}%`, ...estilo(tramo) }}
           />
         ))}
       </div>
@@ -121,8 +137,16 @@ export function RepartoCategorias({ categorias, totalGastoNeto, etiquetaTotal, e
           const contenido: ReactNode = (
             <>
               <span className="flex min-w-0 items-center gap-2">
-                <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
-                <span className="break-words text-texto">{f.nombre}</span>
+                <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={estilo(f)} />
+                <span className="flex min-w-0 flex-col">
+                  <span className="break-words text-texto">{f.nombre}</span>
+                  {/* Qué hay dentro del grupo: así no se confunde con «Otros gastos». */}
+                  {f.id === ID_RESTO && (
+                    <span data-testid="contenido-resto" className="text-[13px] break-words text-apagado">
+                      {nombresResto}
+                    </span>
+                  )}
+                </span>
               </span>
               {negativa ? (
                 <span className="flex flex-col items-end text-right">
@@ -142,7 +166,7 @@ export function RepartoCategorias({ categorias, totalGastoNeto, etiquetaTotal, e
           const clases = 'flex items-start justify-between gap-3';
           return (
             <li key={f.id}>
-              {enlace && f.id !== ID_OTRAS ? (
+              {enlace && f.id !== ID_RESTO ? (
                 <Link
                   to={enlace(f.id)}
                   title={t('categorias.verMovimientos', { categoria: f.nombre })}

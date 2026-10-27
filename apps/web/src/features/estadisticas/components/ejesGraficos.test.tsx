@@ -84,7 +84,7 @@ describe('GraficoMeses · pocos meses', () => {
     renderConApp(<GraficoMeses hoy="2026-10-19" meses={[mes('2026-09-01', '0.00', '1168.28', '0.00'), mes('2026-10-01', '0.00', '80.00', '0.00')]} />);
     const superficie = screen.getByTestId('superficie-meses');
     expect(superficie.querySelectorAll('.max-w-10')).toHaveLength(2);
-    expect(superficie.querySelector('[data-provisional="true"]')).toHaveClass('relleno-provisional', 'text-acento');
+    expect(superficie.querySelector('[data-provisional="true"]')).toHaveClass('relleno-provisional', 'text-gasto');
     expect(etiquetasEje(superficie.parentElement as HTMLElement)).toEqual(['0 €', '500 €', '1.000 €', '1.500 €']);
   });
 });

@@ -192,7 +192,7 @@ export function GraficoBalanceMeses({ meses, hoy, referencia }: Props) {
               <span className={ANCHO_ETIQUETAS} />
               <div className="flex min-w-0 flex-1">
                 {meses.map((m, i) => (
-                  <span key={m.mes} className={cx('flex-1 text-center capitalize', i === indice && 'font-semibold text-texto')}>
+                  <span key={m.mes} className={cx('flex-1 text-center', i === indice && 'font-semibold text-texto')}>
                     {mesCorto(m.mes, locale)}
                   </span>
                 ))}

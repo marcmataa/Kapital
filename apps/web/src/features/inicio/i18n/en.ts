@@ -53,7 +53,8 @@ export default {
   'categorias.vacioCerrado': 'You had no spending in {mes}.',
   'categorias.grafico': 'Net spending split by category',
   'categorias.lista': 'Net spending by category',
-  'categorias.otras': 'Others ({n})',
+  'categorias.resto': 'Rest ({n} categories)',
+  'categorias.restoUna': 'Rest (1 category)',
   'categorias.negativa': 'You got back more than you spent: not included in the chart.',
   'categorias.verMovimientos': 'See this month’s {categoria} transactions',
 

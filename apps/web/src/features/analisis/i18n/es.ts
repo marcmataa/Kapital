@@ -62,7 +62,7 @@ export default {
   'cascada.titulo': 'De tus ingresos a tu balance',
   'cascada.ingresos': 'Ingresos',
   'cascada.balance': 'Balance',
-  'cascada.otras': 'Otras',
+  'cascada.otras': 'Resto',
   'cascada.sinCategoria': 'Sin categoría',
   'cascada.vacio': 'No hay datos para este gráfico.',
   'cascada.leyendaTotal': 'Ingresos y balance',

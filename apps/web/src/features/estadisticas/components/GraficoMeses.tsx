@@ -33,6 +33,9 @@ const TEXTOS = {
     ayudaCerrado: 'meses.ayudaCerrado',
     definicion: 'ayuda.gastoNeto',
     tabla: 'tabla.gastoNeto',
+    // Tokens neutros de datos: el verde queda para lo bueno (auditoría F22).
+    fondo: 'bg-gasto',
+    texto: 'text-gasto',
   },
   ingresos: {
     titulo: 'mesesIngresos.titulo',
@@ -42,6 +45,8 @@ const TEXTOS = {
     ayudaCerrado: 'mesesIngresos.ayudaCerrado',
     definicion: 'ayuda.ingresos',
     tabla: 'tabla.ingresos',
+    fondo: 'bg-ingreso',
+    texto: 'text-ingreso',
   },
 } as const;
 
@@ -140,10 +145,10 @@ export function GraficoMeses({ meses, hoy, campo = 'gastos_netos', referencia, p
                             'absolute inset-x-0',
                             negativo ? 'rounded-b-md' : fantasma === null && 'rounded-t-md',
                             enCurso
-                              ? cx('relleno-provisional', negativo ? 'text-negativo' : 'text-acento')
+                              ? cx('relleno-provisional', negativo ? 'text-negativo' : textos.texto)
                               : negativo
                                 ? 'bg-negativo'
-                                : 'bg-acento',
+                                : textos.fondo,
                             !esElegido && !enCurso && 'opacity-70',
                           )}
                           style={{ bottom: `${abajo}%`, height: `${alto}%` }}
@@ -173,7 +178,7 @@ export function GraficoMeses({ meses, hoy, campo = 'gastos_netos', referencia, p
               </div>
               <div className="mt-1.5 flex gap-3 px-1.5 text-xs text-apagado">
                 {meses.map((m, i) => (
-                  <span key={m.mes} className={cx('flex-1 text-center capitalize', i === indice && 'font-semibold text-texto')}>
+                  <span key={m.mes} className={cx('flex-1 text-center', i === indice && 'font-semibold text-texto')}>
                     {mesCorto(m.mes, locale)}
                   </span>
                 ))}

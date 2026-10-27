@@ -158,7 +158,8 @@ export function GraficoDiario({ dias, modo, nombreMes, media }: Props) {
                     {barras(d).map((v, j) => {
                       // Negativo (te devolvieron más de lo que gastaste): barra roja bajo el cero.
                       const negativo = aCentimos(v) < 0n;
-                      const color = negativo ? 'negativo' : gastos ? 'acento' : 'positivo';
+                      // Gasto e ingreso con sus tokens neutros: el verde queda para lo bueno (auditoría F22).
+                      const color = negativo ? 'negativo' : gastos ? 'gasto' : 'ingreso';
                       const { abajo, alto } = tramoBarra(v, escala);
                       return (
                         <span key={j} data-testid="columna-barra" className="relative h-full w-[76%] min-w-[2px]">
@@ -218,6 +219,6 @@ export function GraficoDiario({ dias, modo, nombreMes, media }: Props) {
   );
 }
 
-const FONDO = { acento: 'bg-acento', positivo: 'bg-positivo', negativo: 'bg-negativo' } as const;
+const FONDO = { gasto: 'bg-gasto', ingreso: 'bg-ingreso', negativo: 'bg-negativo' } as const;
 /** Color del rayado provisional (`relleno-provisional` usa currentColor). */
-const TEXTO = { acento: 'text-acento', positivo: 'text-positivo', negativo: 'text-negativo' } as const;
+const TEXTO = { gasto: 'text-gasto', ingreso: 'text-ingreso', negativo: 'text-negativo' } as const;

@@ -63,7 +63,7 @@ export default {
   'cascada.titulo': 'From your income to your balance',
   'cascada.ingresos': 'Income',
   'cascada.balance': 'Balance',
-  'cascada.otras': 'Other',
+  'cascada.otras': 'Rest',
   'cascada.sinCategoria': 'Uncategorised',
   'cascada.vacio': 'No data for this chart.',
   'cascada.leyendaTotal': 'Income and balance',
