@@ -21,6 +21,8 @@ interface Props {
   agrupado?: boolean;
   /** El balance: resultado de la tarjeta del mes, separado de las filas de arriba con una línea más marcada. */
   resultado?: boolean;
+  /** Botón (i) junto al título (p. ej. por qué el patrimonio no cambia lo mismo que el balance). */
+  ayuda?: ReactNode;
   children?: ReactNode;
 }
 
@@ -48,6 +50,7 @@ export function KpiMes({
   destacado = false,
   agrupado = false,
   resultado = false,
+  ayuda,
   children,
 }: Props) {
   const Flecha = FLECHA[variacion?.tendencia ?? 'igual'];
@@ -65,9 +68,10 @@ export function KpiMes({
         destacado && 'border-b border-borde pb-4 lg:border-b-0 lg:pb-5',
       )}
     >
-      <h3 className={cx('text-sm text-apagado', agrupado && 'col-start-1')}>
-        {titulo}
-      </h3>
+      <div className={cx('flex items-center gap-1', agrupado && 'col-start-1')}>
+        <h3 className="text-sm text-apagado">{titulo}</h3>
+        {ayuda}
+      </div>
       <p
         className={cx(
           'cifras font-semibold tracking-tight lg:text-2xl xl:text-3xl',

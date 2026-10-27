@@ -43,6 +43,7 @@ export default {
   'tema.sistema': 'Automático',
   'tema.cambiar': 'Cambiar tema',
   'grafico.ayudaEtiqueta': 'Cómo leer el gráfico',
+  'grafico.ayudaDefinicionEtiqueta': 'Qué significa esta cifra',
   'grafico.ayuda.dia.puntero': 'Pasa el ratón por el gráfico, o usa las flechas del teclado, para ver cada día.',
   'grafico.ayuda.dia.tactil': 'Toca o arrastra por el gráfico para ver cada día.',
   'grafico.ayuda.mes.puntero': 'Pasa el ratón por el gráfico, o usa las flechas del teclado, para ver cada mes.',

@@ -40,7 +40,6 @@ export default {
   'generar.boton': 'Generar anàlisi',
   'generar.enCurso': 'Generant… pot trigar un minut.',
   'regenerar.boton': 'Regenerar (1 disponible)',
-  'regenerar.botonAgotado': 'Regenerar (0 disponibles)',
   'regenerar.agotado': 'Ja has regenerat aquesta anàlisi.',
   'reintentar.boton': 'Torna-ho a provar',
   'reintentar.noConsume': 'No gasta la teva regeneració.',

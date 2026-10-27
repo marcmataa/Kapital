@@ -40,7 +40,6 @@ export default {
   'generar.boton': 'Generate analysis',
   'generar.enCurso': 'Generating… it may take a minute.',
   'regenerar.boton': 'Regenerate (1 left)',
-  'regenerar.botonAgotado': 'Regenerate (0 left)',
   'regenerar.agotado': 'You already regenerated this analysis.',
   'reintentar.boton': 'Retry',
   'reintentar.noConsume': 'It doesn’t use up your regeneration.',

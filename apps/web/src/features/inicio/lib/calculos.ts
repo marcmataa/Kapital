@@ -42,6 +42,33 @@ export function restarImportes(a: string, b: string): string {
 }
 
 /** Progreso de 0 a 100 (entero, para el ancho de una barra). Negativo → 0; más de 100 → 100. */
+/** Geometría de la barra del objetivo de ahorro (en %, solo dibujo). */
+export interface BarraAhorro {
+  /** Dónde está el 0 (más de 0 si el balance es negativo). */
+  cero: number;
+  /** La barra va de `desde` a `desde + ancho`: a la derecha del 0 si es positivo, a la izquierda si no. */
+  desde: number;
+  ancho: number;
+  /** Marca del objetivo. */
+  objetivo: number;
+}
+
+/**
+ * Barra tipo «bullet» del ahorro mensual (auditoría F21): el eje va del menor de (balance, 0) al
+ * mayor de (objetivo, balance), así que un balance negativo se ve como una barra a la izquierda
+ * del 0 en lugar de una barra vacía. Céntimos bigint; a `number` solo la coordenada final.
+ */
+export function barraAhorro(actual: string, objetivo: string): BarraAhorro {
+  const a = aCentimos(actual);
+  const o = aCentimos(objetivo);
+  const min = a < 0n ? a : 0n;
+  const max = [o, a, 0n].reduce((x, y) => (y > x ? y : x));
+  const pos = (c: bigint) => (max <= min ? 0 : Number(((c - min) * 10_000n) / (max - min)) / 100);
+  const cero = pos(0n);
+  const fin = pos(a);
+  return { cero, desde: Math.min(cero, fin), ancho: Math.abs(fin - cero), objetivo: pos(o) };
+}
+
 export function progresoBarra(actual: string, objetivo: string): number {
   const o = aCentimos(objetivo);
   if (o <= 0n) return 0;

@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { datosAnalisisSchema, type RespuestaIA } from '../../supabase/functions/_shared/analisis/esquemas.ts';
 import { generarAnalisis } from '../../supabase/functions/_shared/analisis/generar.ts';
-import { construirMensajes } from '../../supabase/functions/_shared/analisis/prompt.ts';
+import { construirMensajes, estadoObjetivo } from '../../supabase/functions/_shared/analisis/prompt.ts';
 import { normalizarImporte, validarContenido } from '../../supabase/functions/_shared/analisis/validar.ts';
 
 function datosBase(): Record<string, unknown> {
@@ -251,5 +251,38 @@ describe('validarContenido: acciones y límites contra los datos reales', () => 
     expect(normalizarImporte('1.258,00')).toBeNull();
     expect(normalizarImporte('0.00')).toBeNull();
     expect(normalizarImporte('abc')).toBeNull();
+  });
+});
+
+describe('objetivos: el estado llega decidido a la IA (auditoría F03)', () => {
+  const lim = (actual: string | null) => ({ tipo: 'limite_categoria', importe: '200.00', actual });
+  const ahorro = (actual: string) => ({ tipo: 'ahorro_mensual', importe: '200.00', actual });
+
+  it('límite: pasarse es «limite_excedido», nunca un logro; «cerca» desde el 80 %', () => {
+    expect(estadoObjetivo(lim('405.60'))).toBe('limite_excedido');
+    expect(estadoObjetivo(lim('200.01'))).toBe('limite_excedido');
+    expect(estadoObjetivo(lim('200.00'))).toBe('cerca_del_limite');
+    expect(estadoObjetivo(lim('160.00'))).toBe('cerca_del_limite');
+    expect(estadoObjetivo(lim('159.99'))).toBe('dentro_del_limite');
+    expect(estadoObjetivo(lim(null))).toBeNull();
+  });
+
+  it('ahorro: llegar al importe es «conseguido»; un balance negativo se distingue', () => {
+    expect(estadoObjetivo(ahorro('200.00'))).toBe('conseguido');
+    expect(estadoObjetivo(ahorro('339.72'))).toBe('conseguido');
+    expect(estadoObjetivo(ahorro('150.00'))).toBe('no_conseguido');
+    expect(estadoObjetivo(ahorro('-204.13'))).toBe('balance_negativo');
+  });
+
+  it('el JSON del prompt lleva el estado y las instrucciones prohíben «superar» con límites', () => {
+    const [sistema, usuario] = construirMensajes(datosBase());
+    expect(sistema?.content).toContain('nunca uses «superar» ni «superado»');
+    const enviado = JSON.parse((usuario?.content ?? '').slice((usuario?.content ?? '').indexOf('{'))) as {
+      objetivos: { tipo: string; estado: string }[];
+    };
+    expect(enviado.objetivos.map((o) => [o.tipo, o.estado])).toEqual([
+      ['ahorro_mensual', 'conseguido'],
+      ['limite_categoria', 'cerca_del_limite'],
+    ]);
   });
 });

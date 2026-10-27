@@ -210,6 +210,8 @@ describe('construirMensajes', () => {
     'categoria',
     'importe',
     'actual',
+    // Estado del objetivo, derivado de importe y actual (auditoría F03): no añade datos personales.
+    'estado',
   ]);
 
   function clavesDe(valor: unknown, acc = new Set<string>()): Set<string> {

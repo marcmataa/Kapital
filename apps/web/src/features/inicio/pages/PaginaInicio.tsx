@@ -46,9 +46,10 @@ const pendiente = (q: EstadoConsulta) => !q.isUninitialized && !q.isError && q.c
  * la misma función que Estadísticas; las cifras, de las RPC (nada de dinero calculado aquí).
  * - Resumen: Patrimonio · Ingresos · Gastos netos · Balance (con su ahorro, sección 3).
  * - Aviso si «Otros gastos» pasa del 20 % del gasto del mes (peso_otros_gastos).
- * - Gráfico de capital (serie diaria), reparto por categoría (cada una abre Movimientos con ese
- *   filtro y el mes) y un consejo del análisis del mes.
- * - Últimos movimientos y objetivos (progreso_objetivos): siempre del mes en curso.
+ * - Objetivos (progreso_objetivos, siempre del mes en curso), justo debajo: piden acción.
+ * - Gráfico de capital (serie diaria) y reparto por categoría (cada una abre Movimientos con ese
+ *   filtro y el mes).
+ * - Al final, últimos movimientos y un consejo del análisis del mes.
  */
 export default function PaginaInicio() {
   const t = useT('inicio');
@@ -147,6 +148,8 @@ export default function PaginaInicio() {
         )}
 
         <AvisoOtrosGastos periodo={resuelto ? periodos.actual : undefined} />
+        {/* Los objetivos piden acción: justo después del resumen del mes (auditoría, sección 6). */}
+        <TarjetaObjetivos hoy={hoy} />
 
         <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-2">
           <Card className="flex min-w-0 flex-col">
@@ -188,14 +191,17 @@ export default function PaginaInicio() {
                 className="py-6"
               />
             )}
-            {resuelto && <AnalisisDestacado mes={enCurso ? undefined : mes} />}
           </Card>
         </div>
 
-        {/* items-start: cada tarjeta mide lo que su contenido (Objetivos no queda vacía al lado de la lista). */}
+        {/*
+          Al final, lo que se consulta de vez en cuando: los últimos movimientos y el consejo del
+          análisis (del mes anterior en el mes en curso: no compite con las cifras de este mes, F26).
+          items-start: cada tarjeta mide lo que su contenido.
+        */}
         <div className="grid grid-cols-1 items-start gap-4 sm:gap-5 lg:grid-cols-2">
           <UltimosMovimientos />
-          <TarjetaObjetivos hoy={hoy} />
+          {resuelto && <AnalisisDestacado mes={enCurso ? undefined : mes} />}
         </div>
       </div>
     </>

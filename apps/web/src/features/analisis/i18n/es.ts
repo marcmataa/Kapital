@@ -39,7 +39,6 @@ export default {
   'generar.boton': 'Generar análisis',
   'generar.enCurso': 'Generando… puede tardar un minuto.',
   'regenerar.boton': 'Regenerar (1 disponible)',
-  'regenerar.botonAgotado': 'Regenerar (0 disponibles)',
   'regenerar.agotado': 'Ya regeneraste este análisis.',
   'reintentar.boton': 'Reintentar',
   'reintentar.noConsume': 'No gasta tu regeneración.',
