@@ -40,21 +40,14 @@ export function BotonGenerar({ mes, modo, regeneraciones = 0, ocupado = false }:
   const [generar, { isLoading, error, reset }] = useAnalisisGenerarMutation({ fixedCacheKey: `analisis-${mes}` });
   const agotado = modo === 'regenerar' && regeneraciones >= 1;
 
+  // Sin regeneraciones: un texto, no un botón deshabilitado con el peso visual de una acción
+  // (auditoría F26). La regeneración es una por análisis y no se recupera (solicitar_regeneracion).
   if (agotado) {
     return (
-      <div className="flex flex-col items-start gap-2 sm:items-end">
-        <Button
-          variante="secundario"
-          disabled
-          aria-describedby={`agotado-${mes}`}
-          icono={<RefreshCw aria-hidden="true" className="size-4" />}
-        >
-          {t('regenerar.botonAgotado')}
-        </Button>
-        <p id={`agotado-${mes}`} className="text-sm text-apagado">
-          {t('regenerar.agotado')}
-        </p>
-      </div>
+      <p data-testid="regeneracion-agotada" className="flex items-center gap-1.5 text-sm text-apagado">
+        <RefreshCw aria-hidden="true" className="size-4 shrink-0" />
+        {t('regenerar.agotado')}
+      </p>
     );
   }
   return (

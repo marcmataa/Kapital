@@ -23,7 +23,8 @@ describe('TarjetasKpi', () => {
     );
     const patrimonio = tarjeta('Patrimonio a 19/10/2026');
     expect(within(patrimonio).getByText(/2\.458,32/)).toBeInTheDocument();
-    expect(within(patrimonio).getByText('+24,5 %')).toBeInTheDocument();
+    // Sección 7: la diferencia en euros siempre y el % porque la base es > 0.
+    expect(within(patrimonio).getByText(/^\+483,32\s€ \(\+24,5\s%\)$/)).toBeInTheDocument();
     expect(within(patrimonio).getByText('vs 19/09/2026')).toBeInTheDocument();
 
     const ingresos = tarjeta('Ingresos · 1–19 oct');
@@ -62,8 +63,8 @@ describe('TarjetasKpi', () => {
     // Ingresos: +10,0 % → verde.
     const ingresos = within(tarjeta('Ingresos · 1–19 oct')).getByText('+10,0 %');
     expect(ingresos.parentElement).toHaveClass('text-positivo');
-    // Patrimonio baja: −16,7 % → rojo.
-    const patrimonio = within(tarjeta('Patrimonio a 19/10/2026')).getByText('-16,7 %');
+    // Patrimonio baja: −200,00 € (−16,7 %) → rojo.
+    const patrimonio = within(tarjeta('Patrimonio a 19/10/2026')).getByText(/^-200,00\s€ \(-16,7\s%\)$/);
     expect(patrimonio.parentElement).toHaveClass('text-negativo');
   });
 
@@ -94,7 +95,10 @@ describe('TarjetasKpi', () => {
     );
     const patrimonio = tarjeta('Patrimonio a 30/09/2026');
     expect(within(patrimonio).getByText('vs 30/08/2026')).toBeInTheDocument();
-    expect(within(patrimonio).getByText('+16,4 %')).toBeInTheDocument();
+    expect(within(patrimonio).getByText(/^\+327,44\s€ \(\+16,4\s%\)$/)).toBeInTheDocument();
+    // El (i) explica por qué esta cifra no es el balance del mes (auditoría F10).
+    expect(within(patrimonio).getByRole('tooltip')).toHaveTextContent('Compara tu patrimonio del 30/09/2026 con el del 30/08/2026.');
+    expect(within(patrimonio).getByRole('button', { name: 'Qué significa esta cifra' })).toBeInTheDocument();
     expect(within(tarjeta('Ingresos · 1–30 sept')).getByText('vs 1–31 ago')).toBeInTheDocument();
     expect(within(tarjeta('Gastos netos · 1–30 sept')).getByText('+16,8 %')).toBeInTheDocument();
   });

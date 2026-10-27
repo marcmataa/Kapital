@@ -601,8 +601,21 @@ const PROGRESO_LIMITE = {
   exceso: '15.00', restante: null, dias_restantes: 13, ahorro_diario_necesario: null,
 };
 
+describe('PaginaInicio · orden de los bloques (auditoría, sección 6)', () => {
+  it('objetivos justo tras el resumen; categorías después; últimos movimientos al final', async () => {
+    escenario({ progreso: [PROGRESO_AHORRO] });
+    pintar();
+    const objetivos = await screen.findByRole('heading', { name: 'Objetivos · octubre' });
+    const categorias = screen.getByRole('heading', { name: 'Gastos por categoría' });
+    const movimientos = screen.getByRole('heading', { name: 'Últimos movimientos' });
+    const antes = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(antes(objetivos, categorias)).toBe(true);
+    expect(antes(categorias, movimientos)).toBe(true);
+  });
+});
+
 describe('PaginaInicio · objetivos y movimientos', () => {
-  it('ahorro: balance frente al objetivo con los días que quedan y el ahorro diario (SQL); límite superado: cuánto', async () => {
+  it('ahorro: lo que falta, días y ahorro diario (SQL); límite pasado: «Límite excedido», nunca «Superado»', async () => {
     escenario({ progreso: [PROGRESO_AHORRO, PROGRESO_LIMITE] });
     pintar();
     expect(await screen.findByText('Objetivos · octubre')).toBeInTheDocument();
@@ -611,21 +624,38 @@ describe('PaginaInicio · objetivos y movimientos', () => {
     const sinEspacios = (t: string | null | undefined) => (t ?? '').replace(/\s+/g, ' ');
     // 158 € en 13 días (19..31): 12,153846… → 12,15 €/día, redondeado solo al mostrar.
     expect(sinEspacios(ahorro.getAttribute('aria-valuetext'))).toBe(
-      '342,00 € / 500,00 € · Te quedan 13 días · necesitas ahorrar 12,15 €/día',
+      '342,00 € / 500,00 € · En camino · Te faltan 158,00 € · quedan 13 días · necesitas ahorrar 12,15 €/día',
     );
 
     const limite = screen.getByRole('progressbar', { name: /^Ocio por debajo de 200,00\s€$/ });
     expect(limite).toHaveAttribute('aria-valuenow', '100');
     expect(limite.firstElementChild).toHaveClass('bg-negativo');
-    expect(screen.getByText('Superado')).toHaveClass('text-negativo');
+    // Cada objetivo lleva su estado con icono y texto, no solo color.
+    const estados = screen.getAllByTestId('estado-objetivo');
+    expect(estados.map((e) => e.textContent)).toEqual(['En camino', 'Límite excedido']);
+    for (const e of estados) expect(e.querySelector('svg')).not.toBeNull();
+    expect(screen.queryByText(/[Ss]uperado/)).not.toBeInTheDocument();
     const detalles = screen.getAllByTestId('detalle-objetivo').map((d) => sinEspacios(d.textContent));
-    expect(detalles).toEqual(['Te quedan 13 días · necesitas ahorrar 12,15 €/día', 'Superado en 15,00 €']);
+    expect(detalles).toEqual(['Te faltan 158,00 € · quedan 13 días · necesitas ahorrar 12,15 €/día', 'Te has pasado 15,00 €']);
+  });
+
+  it('límite: «Dentro del límite» y, desde el 80 %, «Cerca del límite»', async () => {
+    escenario({
+      progreso: [
+        { ...PROGRESO_LIMITE, actual: '100.00', exceso: null },
+        { ...PROGRESO_LIMITE, objetivo_id: 'o3', actual: '180.00', exceso: null },
+      ],
+    });
+    pintar();
+    const estados = await screen.findAllByTestId('estado-objetivo');
+    expect(estados.map((e) => e.getAttribute('data-estado'))).toEqual(['dentro', 'cerca']);
   });
 
   it('ahorro conseguido: «Conseguido» y sin proyección; último día: «hoy»', async () => {
     escenario({ progreso: [{ ...PROGRESO_AHORRO, actual: '600.00', restante: null, ahorro_diario_necesario: null }] });
     const { unmount } = pintar();
-    expect(await screen.findByText('Conseguido')).toHaveClass('text-positivo');
+    expect(await screen.findByText('Conseguido')).toBeInTheDocument();
+    expect(screen.getByTestId('estado-objetivo')).toHaveClass('text-positivo');
     expect(screen.queryByTestId('detalle-objetivo')).not.toBeInTheDocument();
     unmount();
     escenario({
@@ -633,15 +663,19 @@ describe('PaginaInicio · objetivos y movimientos', () => {
     });
     pintar();
     expect((await screen.findByTestId('detalle-objetivo')).textContent?.replace(/\s+/g, ' ')).toBe(
-      'Queda 1 día · necesitas ahorrar 158,00 € hoy',
+      'Te faltan 158,00 € · queda 1 día · necesitas ahorrar 158,00 € hoy',
     );
   });
 
-  it('ahorro con el balance en negativo: «Desviado» explícito en lugar de solo una barra vacía', async () => {
-    escenario({ progreso: [{ ...PROGRESO_AHORRO, importe: '200.00', actual: '-194.19', restante: '394.19' }] });
+  it('ahorro con el balance en negativo: «Balance negativo» y la barra hacia la izquierda del 0', async () => {
+    escenario({ progreso: [{ ...PROGRESO_AHORRO, importe: '200.00', actual: '-200.00', restante: '400.00' }] });
     pintar();
-    expect(await screen.findByTestId('estado-desviado')).toHaveTextContent('Desviado');
-    expect(screen.getByRole('progressbar').firstElementChild).toHaveAttribute('data-estado', 'desviado');
+    expect(await screen.findByTestId('estado-objetivo')).toHaveTextContent('Balance negativo');
+    const barra = screen.getByRole('progressbar').querySelector('[data-estado="negativo"]');
+    // Eje −200 … +200: el 0 en el centro y la barra de −200 a 0.
+    expect(barra).toHaveStyle({ left: '0%', width: '50%' });
+    expect(screen.getByTestId('cero-ahorro')).toHaveStyle({ left: '50%' });
+    expect(screen.getByTestId('marca-objetivo')).toHaveStyle({ left: '100%' });
   });
 
   it('últimos movimientos: signo por tipo y traspaso neutro', async () => {

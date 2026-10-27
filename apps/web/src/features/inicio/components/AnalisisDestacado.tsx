@@ -15,7 +15,7 @@ interface Props {
 }
 
 /**
- * Bajo el reparto por categoría: un consejo accionable del análisis (su primera recomendación, tal cual la generó
+ * Al final de Inicio: un consejo accionable del análisis (su primera recomendación, tal cual la generó
  * la IA; las cifras ya están en las tarjetas), como texto plano, y enlace al análisis completo
  * (`/analisis/YYYY-MM`).
  * - Mes en curso sin análisis: aviso de que el primero llega el día 1.
@@ -36,7 +36,7 @@ export function AnalisisDestacado({ mes }: Props) {
   if (!data) {
     if (mes !== undefined) {
       return (
-        <p className="mt-auto flex flex-col gap-1.5 rounded-xl border border-borde bg-superficie-2 p-4 text-sm text-apagado">
+        <p className="flex flex-col gap-1.5 rounded-xl border border-borde bg-superficie-2 p-4 text-sm text-apagado">
           <span>{t('analisis.sinAnalisisMes', { mes: mesLargo(mes, locale) })}</span>
           <Link to={`/analisis/${mes.slice(0, 7)}`} className="font-semibold text-enlace hover:underline">
             {t('analisis.irAnalisis')}
@@ -45,14 +45,14 @@ export function AnalisisDestacado({ mes }: Props) {
       );
     }
     return (
-      <p className="mt-auto rounded-xl border border-borde bg-superficie-2 p-4 text-sm text-apagado">
+      <p className="rounded-xl border border-borde bg-superficie-2 p-4 text-sm text-apagado">
         {t('analisis.pendiente')}
       </p>
     );
   }
 
   return (
-    <aside className="mt-auto flex flex-col gap-2.5 rounded-xl border border-acento-borde bg-acento-suave p-4">
+    <aside className="flex flex-col gap-2.5 rounded-xl border border-acento-borde bg-acento-suave p-4">
       <div className="flex items-center justify-between gap-2.5">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-texto">
           <Sparkles aria-hidden="true" className="size-4.5 text-enlace" />

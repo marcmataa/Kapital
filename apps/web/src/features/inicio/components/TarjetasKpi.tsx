@@ -8,7 +8,7 @@ import {
   variacionPorcentual,
 } from '@/shared/lib/dinero';
 import { finDeMes, formatearFecha, inicioDeMes, mismoDiaMesAnterior, partesDe, sumarMeses } from '@/shared/lib/fechas';
-import type { Tendencia, VariacionStat } from '@/shared/ui';
+import { AyudaGrafico, type Tendencia, type VariacionStat } from '@/shared/ui';
 import type { ResumenPeriodo } from '../api/inicioApi';
 import { mesCorto, restarImportes } from '../lib/calculos';
 import type { CuentaDesglose } from '../lib/desglose';
@@ -83,25 +83,20 @@ export function TarjetasKpi({
     };
   };
 
-  // Patrimonio: % solo si patrimonio(d') > 0 (sección 7); si no, la diferencia en euros.
+  // Patrimonio (sección 7): la diferencia en euros siempre y, si patrimonio(d') > 0, también el %.
+  // Así «−107,73 €» se puede poner junto al balance sin confundir una cifra con la otra (F10).
   let variacionPatrimonio: VariacionStat | undefined;
   if (patrimonioHoy !== null && patrimonioAnterior !== null) {
-    const tendencia = TENDENCIA[compararImportes(patrimonioHoy, patrimonioAnterior)];
-    const contexto = t('kpi.vsFecha', { fecha: formatearFecha(dPrima, locale, 'corta') });
-    variacionPatrimonio =
+    const euros = formatearEuros(restarImportes(patrimonioHoy, patrimonioAnterior), locale, { signo: 'siempre' });
+    const pct =
       aCentimos(patrimonioAnterior) > 0n
-        ? {
-            texto: formatearPorcentaje(variacionPorcentual(patrimonioHoy, patrimonioAnterior), locale, {
-              signo: 'siempre',
-            }),
-            tendencia,
-            contexto,
-          }
-        : {
-            texto: formatearEuros(restarImportes(patrimonioHoy, patrimonioAnterior), locale, { signo: 'siempre' }),
-            tendencia,
-            contexto,
-          };
+        ? formatearPorcentaje(variacionPorcentual(patrimonioHoy, patrimonioAnterior), locale, { signo: 'siempre' })
+        : null;
+    variacionPatrimonio = {
+      texto: pct === null ? euros : `${euros} (${pct})`,
+      tendencia: TENDENCIA[compararImportes(patrimonioHoy, patrimonioAnterior)],
+      contexto: t('kpi.vsFecha', { fecha: formatearFecha(dPrima, locale, 'corta') }),
+    };
   }
 
   const sinAnterior = t('kpi.sinAnterior');
@@ -136,6 +131,16 @@ export function TarjetasKpi({
         titulo={t('kpi.patrimonio', { fecha: formatearFecha(fecha, locale, 'corta') })}
         valor={patrimonioHoy !== null ? formatearEuros(patrimonioHoy, locale) : t('kpi.sinValor')}
         {...(variacionPatrimonio ? { variacion: variacionPatrimonio } : { pie: sinAnterior })}
+        // Patrimonio y balance miden ventanas y cosas distintas (secciones 3–5): se explica aquí (F10).
+        ayuda={
+          <AyudaGrafico
+            alinear="izquierda"
+            definicion={t('kpi.patrimonioAyuda', {
+              fecha: formatearFecha(fecha, locale, 'corta'),
+              anterior: formatearFecha(dPrima, locale, 'corta'),
+            })}
+          />
+        }
         destacado
       >
         {cuentas !== undefined && <DesgloseCuentas cuentas={cuentas} fecha={fecha} />}

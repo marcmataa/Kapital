@@ -44,6 +44,7 @@ export default {
   'tema.sistema': 'Automàtic',
   'tema.cambiar': 'Canvia el tema',
   'grafico.ayudaEtiqueta': 'Com llegir el gràfic',
+  'grafico.ayudaDefinicionEtiqueta': 'Què significa aquesta xifra',
   'grafico.ayuda.dia.puntero': 'Passa el ratolí pel gràfic, o fes servir les fletxes del teclat, per veure cada dia.',
   'grafico.ayuda.dia.tactil': 'Toca o arrossega pel gràfic per veure cada dia.',
   'grafico.ayuda.mes.puntero': 'Passa el ratolí pel gràfic, o fes servir les fletxes del teclat, per veure cada mes.',

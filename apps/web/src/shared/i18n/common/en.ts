@@ -44,6 +44,7 @@ export default {
   'tema.sistema': 'Automatic',
   'tema.cambiar': 'Change theme',
   'grafico.ayudaEtiqueta': 'How to read the chart',
+  'grafico.ayudaDefinicionEtiqueta': 'What this figure means',
   'grafico.ayuda.dia.puntero': 'Hover over the chart, or use the arrow keys, to see each day.',
   'grafico.ayuda.dia.tactil': 'Tap or drag across the chart to see each day.',
   'grafico.ayuda.mes.puntero': 'Hover over the chart, or use the arrow keys, to see each month.',

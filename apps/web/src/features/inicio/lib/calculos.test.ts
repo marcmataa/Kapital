@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  barraAhorro,
   formatearDiaMes,
   fraccion,
   porcentajeSobre,
@@ -43,5 +44,20 @@ describe('formatearDiaMes', () => {
   it('día y mes corto', () => {
     expect(formatearDiaMes('2026-10-15', 'es-ES')).toBe('15 oct');
     expect(formatearDiaMes('2026-09-30', 'es-ES')).toBe('30 sept');
+  });
+});
+
+describe('barraAhorro (auditoría F21: el ahorro negativo se ve a la izquierda del 0)', () => {
+  it('balance positivo por debajo del objetivo: desde el 0 hasta el balance, marca al final', () => {
+    expect(barraAhorro('150.00', '200.00')).toEqual({ cero: 0, desde: 0, ancho: 75, objetivo: 100 });
+  });
+
+  it('balance negativo: el eje incluye la parte negativa y la barra va hacia la izquierda', () => {
+    // Eje −200 … +200: el 0 en el centro, la barra de −200 a 0 y el objetivo al final.
+    expect(barraAhorro('-200.00', '200.00')).toEqual({ cero: 50, desde: 0, ancho: 50, objetivo: 100 });
+  });
+
+  it('objetivo superado: la barra llega al balance y la marca queda antes', () => {
+    expect(barraAhorro('400.00', '200.00')).toEqual({ cero: 0, desde: 0, ancho: 100, objetivo: 50 });
   });
 });

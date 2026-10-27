@@ -277,11 +277,11 @@ describe('Detalle del análisis', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No hay conexión.');
   });
 
-  it('ya regenerado: botón desactivado y «Ya regeneraste este análisis»', async () => {
+  it('ya regenerado: solo el texto «Ya regeneraste este análisis», sin botón desactivado', async () => {
     servir({ detalle: { ...FILA, regeneraciones: 1, datos: DATOS, contenido: CONTENIDO } });
     montarDetalle();
-    expect(await screen.findByRole('button', { name: 'Regenerar (0 disponibles)' })).toBeDisabled();
-    expect(screen.getByText('Ya regeneraste este análisis.')).toBeInTheDocument();
+    expect(await screen.findByTestId('regeneracion-agotada')).toHaveTextContent('Ya regeneraste este análisis.');
+    expect(screen.queryByRole('button', { name: /Regenerar/ })).not.toBeInTheDocument();
   });
 
   it('estado error con intentos < 3 → «Reintentar» (no consume) y no «Regenerar»', async () => {
