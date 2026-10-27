@@ -24,14 +24,15 @@ import { ComparativaMes, useTituloComparativa } from '../components/ComparativaM
 import { DesgloseBalance } from '../components/DesgloseBalance';
 import { EstadoConsulta } from '../components/EstadoConsulta';
 import { GastoPorCategoria } from '../components/GastoPorCategoria';
-import { GraficoBalanceMeses } from '../components/GraficoBalanceMeses';
+import { GraficoBalanceMeses, type ReferenciaEnCurso } from '../components/GraficoBalanceMeses';
 import { GraficoDiario } from '../components/GraficoDiario';
 import { GraficoMeses } from '../components/GraficoMeses';
 import { IngresosPorCategoria } from '../components/IngresosPorCategoria';
+import { ListaIngresos } from '../components/ListaIngresos';
 import { Interanual } from '../components/Interanual';
 import { MetodosPago } from '../components/MetodosPago';
 import { repartirIngresos, serieDiaria } from '../lib/agregaciones';
-import { etiquetaMes } from '../lib/formato';
+import { etiquetaMes, mesDesde } from '../lib/formato';
 import {
   hayInteranual,
   inicioDeDatos,
@@ -88,7 +89,7 @@ export default function PaginaEstadisticas() {
   const mesesGrafico = ultimosMeses(mes, MESES_GRAFICO, inicioDatos);
   const primerMes = mesesGrafico[0];
   const resumenMensual = useEstadisticasResumenMensualQuery(
-    si((verGastos || verBalance) && primerMes !== undefined, { desde: primerMes ?? mes, hasta: finDeMes(mes) }),
+    si(primerMes !== undefined, { desde: primerMes ?? mes, hasta: finDeMes(mes) }),
   );
   // currentData, no data: mientras llega el rango nuevo (p. ej. al cargar las cuentas, de [oct] a
   // [sept, oct]) el gráfico no se monta con los meses del rango viejo, que dejaban elegido el mes
@@ -116,6 +117,14 @@ export default function PaginaEstadisticas() {
   });
 
   const nombreMes = etiquetaMes(mes, locale);
+  /**
+   * Marca del mes en curso en los históricos: el mismo importe del mes anterior hasta el día d'
+   * (comparativa, SQL). Solo en el mes en curso: un mes cerrado ya se compara completo.
+   */
+  const referenciaDe = (importe: string | null | undefined): ReferenciaEnCurso | undefined =>
+    periodos.enCurso && anterior !== null && importe != null
+      ? { mes: anterior.desde, dia: partesDe(anterior.hasta).dia, importe }
+      : undefined;
   const graficoDiario = (modo: 'gastos' | 'ingresos') => (
     <EstadoConsulta datos={porDia.data} {...estado(porDia)}>
       {(filas) => (
@@ -192,7 +201,15 @@ export default function PaginaEstadisticas() {
               </EstadoConsulta>
               <div className="flex flex-col gap-4">
                 <EstadoConsulta datos={primerMes === undefined ? [] : datosMeses} {...estado(resumenMensual)}>
-                  {() => <GraficoMeses key={claveMeses} meses={filasMeses} hoy={hoy} />}
+                  {() => (
+                    <GraficoMeses
+                      key={claveMeses}
+                      meses={filasMeses}
+                      hoy={hoy}
+                      referencia={referenciaDe(comparativa.data?.gastos_netos_anterior)}
+                      proyeccion={periodos.enCurso ? ritmo.currentData?.proyeccion_fin_mes : null}
+                    />
+                  )}
                 </EstadoConsulta>
                 <EstadoConsulta datos={metodos.data} {...estado(metodos)}>
                   {(ms) => <MetodosPago metodos={ms} />}
@@ -205,15 +222,35 @@ export default function PaginaEstadisticas() {
         {verIngresos && (
           <>
             {/*
-              La comparativa de ingresos es corta: el reparto por categoría va debajo, en su columna.
-              items-start: cada columna mide lo suyo (el gráfico no se estira con hueco abajo).
+              Los ingresos llegan en pocos movimientos: en lugar de una serie diaria casi siempre a
+              cero, la lista del mes y, al lado, la comparativa, el reparto (solo con más de una
+              categoría: con una, repetiría el total) y la evolución mensual (auditoría F13).
+              items-start: cada columna mide lo suyo.
             */}
             <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-              {graficoDiario('ingresos')}
               <div className="flex flex-col gap-4">
                 {bloqueComparativa('ingresos')}
+                <EstadoConsulta datos={porDia.data} {...estado(porDia)}>
+                  {(filas) => <ListaIngresos dias={filas} mes={mesDesde(mes, locale)} />}
+                </EstadoConsulta>
+              </div>
+              <div className="flex flex-col gap-4">
                 <EstadoConsulta datos={ingresos.data} {...estado(ingresos)}>
-                  {(filas) => <IngresosPorCategoria key={mes} ingresos={repartirIngresos(filas)} />}
+                  {(filas) => {
+                    const reparto = repartirIngresos(filas);
+                    return reparto.length > 1 ? <IngresosPorCategoria key={mes} ingresos={reparto} /> : null;
+                  }}
+                </EstadoConsulta>
+                <EstadoConsulta datos={primerMes === undefined ? [] : datosMeses} {...estado(resumenMensual)}>
+                  {() => (
+                    <GraficoMeses
+                      key={`${claveMeses}-ingresos`}
+                      meses={filasMeses}
+                      hoy={hoy}
+                      campo="ingresos"
+                      referencia={referenciaDe(comparativa.data?.ingresos_anterior)}
+                    />
+                  )}
                 </EstadoConsulta>
               </div>
             </div>
@@ -256,11 +293,7 @@ export default function PaginaEstadisticas() {
                     key={claveMeses}
                     meses={filasMeses}
                     hoy={hoy}
-                    referencia={
-                      periodos.enCurso && anterior !== null && comparativa.data?.balance_anterior != null
-                        ? { mes: anterior.desde, dia: partesDe(anterior.hasta).dia, balance: comparativa.data.balance_anterior }
-                        : undefined
-                    }
+                    referencia={referenciaDe(comparativa.data?.balance_anterior)}
                   />
                 )}
               </EstadoConsulta>
