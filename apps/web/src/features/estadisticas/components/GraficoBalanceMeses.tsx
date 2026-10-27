@@ -14,7 +14,8 @@ export interface ReferenciaEnCurso {
   mes: string;
   /** Día d' hasta el que se suma (sección 7). */
   dia: number;
-  balance: string;
+  /** Importe del mes anterior hasta ese día (balance, gasto neto o ingresos). */
+  importe: string;
 }
 
 interface Props {
@@ -65,11 +66,11 @@ export function GraficoBalanceMeses({ meses, hoy, referencia }: Props) {
       : t('balanceMeses.referencia', {
           mes: capitalizar(nombreMes(ref.mes, locale)),
           dia: String(ref.dia),
-          importe: formatearEuros(ref.balance, locale, { signo: 'siempre' }),
+          importe: formatearEuros(ref.importe, locale, { signo: 'siempre' }),
         });
 
   // Con el cero siempre dentro: los meses en negativo quedan por debajo. La referencia, también dentro.
-  const escala = escalaDeImportes([...meses.map((m) => m.balance), ...(ref ? [ref.balance] : [])]);
+  const escala = escalaDeImportes([...meses.map((m) => m.balance), ...(ref ? [ref.importe] : [])]);
   const n = meses.length;
 
   const lectura = (m: ResumenMes) => {
@@ -86,7 +87,7 @@ export function GraficoBalanceMeses({ meses, hoy, referencia }: Props) {
   const sel = elegido ? lectura(elegido) : null;
 
   return (
-    <Card titulo={tituloTarjeta} accion={<AyudaGrafico unidad="mes" />}>
+    <Card titulo={tituloTarjeta} accion={<AyudaGrafico unidad="mes" definicion={t('ayuda.balance')} />}>
       {!elegido || !sel ? (
         <EmptyState titulo={t('balance.vacio')} className="py-6" />
       ) : (
@@ -175,9 +176,9 @@ export function GraficoBalanceMeses({ meses, hoy, referencia }: Props) {
                         {provisional && ref !== undefined && (
                           <span
                             data-testid="marca-referencia"
-                            data-balance={ref.balance}
+                            data-balance={ref.importe}
                             className="absolute -inset-x-1 border-t-2 border-dashed border-texto"
-                            style={{ bottom: `${posicionEnEje(ref.balance, escala) * 100}%` }}
+                            style={{ bottom: `${posicionEnEje(ref.importe, escala) * 100}%` }}
                           />
                         )}
                       </div>

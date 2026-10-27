@@ -85,6 +85,9 @@ export function ComparativaMes({ periodos, datos, modo, ritmo }: Props) {
   const devoluciones = ritmo !== undefined && aCentimos(ritmo.devoluciones) > 0n ? ritmo.devoluciones : null;
   const medioAnterior = ritmo?.gasto_medio_diario_anterior ?? null;
   const proyeccion = ritmo?.proyeccion_fin_mes ?? null;
+  // Con tramos de la misma longitud, (a/d − b/d) / (b/d) = (a − b) / b: el % del gasto medio diario
+  // repetiría el de Gastos. Solo se muestra si los días difieren (31 de octubre contra 30 de septiembre).
+  const mismosDias = periodos.anterior !== null && partesDe(periodos.anterior.hasta).dia === datos.dias;
 
   return (
     <Card titulo={titulo}>
@@ -100,7 +103,7 @@ export function ComparativaMes({ periodos, datos, modo, ritmo }: Props) {
                 {t('comparativa.medioDiarioVs', { importe: euros(medioAnterior) })}
               </p>
             )}
-            {ritmo !== undefined && medioAnterior !== null && (
+            {ritmo !== undefined && medioAnterior !== null && !mismosDias && (
               <LineaVariacion
                 actual={ritmo.gasto_medio_diario}
                 anterior={medioAnterior}

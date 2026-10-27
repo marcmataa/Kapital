@@ -5,6 +5,7 @@ import { renderConApp } from '@/test/render';
 import type { Comparativa, ResumenMes } from '../api/estadisticasApi';
 import { serieDiaria, type FilaDia } from '../lib/agregaciones';
 import { BarrasCategorias } from './BarrasCategorias';
+import { ComparativaMes } from './ComparativaMes';
 import { DesgloseBalance } from './DesgloseBalance';
 import { GraficoBalanceMeses } from './GraficoBalanceMeses';
 import { GraficoDiario } from './GraficoDiario';
@@ -128,7 +129,9 @@ describe('GraficoDiario · ingresos', () => {
   it('solo ingresos reales: ni barra, ni leyenda, ni lectura, ni nota de devoluciones', async () => {
     renderConApp(<GraficoDiario dias={DIAS} modo="ingresos" nombreMes="Octubre de 2026" />);
     expect(screen.getByRole('heading', { name: 'Ingresos por día · Octubre de 2026' })).toBeInTheDocument();
-    expect(screen.queryByText(/[Dd]evoluci/)).not.toBeInTheDocument();
+    // Fuera de la definición del (i) («las devoluciones no son ingresos»), nada de devoluciones.
+    expect(within(screen.getByRole('slider')).queryByText(/[Dd]evoluci/)).not.toBeInTheDocument();
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Ingresos del periodo. Las devoluciones no son ingresos');
     const lectura = () => normal(screen.getByTestId('lectura-diario').textContent);
     fireEvent.keyDown(screen.getByRole('slider'), { key: 'Shift' });
     expect(lectura()).toContain('19 oct 2026 · hoy (provisional) · 900,00 €');
@@ -235,7 +238,7 @@ describe('GraficoBalanceMeses', () => {
 
   it('título por contenido y, en el mes en curso, la marca del mes anterior al mismo día', () => {
     renderConApp(
-      <GraficoBalanceMeses hoy="2026-10-19" meses={meses} referencia={{ mes: '2026-09-01', dia: 19, balance: '120.00' }} />,
+      <GraficoBalanceMeses hoy="2026-10-19" meses={meses} referencia={{ mes: '2026-09-01', dia: 19, importe: '120.00' }} />,
     );
     expect(screen.getByRole('heading', { name: 'Balance mensual · desde agosto' })).toBeInTheDocument();
     const marca = screen.getByTestId('marca-referencia');
@@ -246,7 +249,7 @@ describe('GraficoBalanceMeses', () => {
 
   it('sin el mes en curso en el gráfico no hay marca ni leyenda de provisional', () => {
     renderConApp(
-      <GraficoBalanceMeses hoy="2026-11-05" meses={meses} referencia={{ mes: '2026-10-01', dia: 5, balance: '10.00' }} />,
+      <GraficoBalanceMeses hoy="2026-11-05" meses={meses} referencia={{ mes: '2026-10-01', dia: 5, importe: '10.00' }} />,
     );
     expect(screen.queryByTestId('marca-referencia')).not.toBeInTheDocument();
     expect(screen.queryByText(/Rayado/)).not.toBeInTheDocument();
@@ -350,5 +353,73 @@ describe('DesgloseBalance', () => {
   it('mes en curso: «vs mes anterior al día 23»', () => {
     pintar(true);
     expect(screen.getByText('Este mes vs mes anterior al día 23')).toBeInTheDocument();
+  });
+});
+
+describe('GraficoDiario · las barras tienen ancho (auditoría F01)', () => {
+  it('ninguna columna usa padding en % (se calcula sobre el padre); cada barra mide un 76 % y al menos 2 px', () => {
+    renderConApp(<GraficoDiario dias={serieDiaria(FILAS, '2026-10-01', '2026-10-19')} modo="gastos" nombreMes="Octubre de 2026" />);
+    const superficie = screen.getByTestId('superficie-diario');
+    const columnas = Array.from(superficie.querySelectorAll('[data-dia]'));
+    expect(columnas).toHaveLength(31);
+    for (const c of columnas) expect(c.className).not.toMatch(/p[xl]?-\[\d+%\]/);
+    const barras = screen.getAllByTestId('columna-barra');
+    // 19 días hasta hoy (los futuros no tienen barra).
+    expect(barras).toHaveLength(19);
+    for (const b of barras) expect(b).toHaveClass('w-[76%]', 'min-w-[2px]');
+  });
+});
+
+describe('ComparativaMes · gasto medio diario (auditoría F14)', () => {
+  const datos: Comparativa = {
+    gastos_netos: '310.00',
+    gastos_netos_anterior: '300.00',
+    variacion_gastos: '3.3333',
+    ingresos: '0.00',
+    ingresos_anterior: '0.00',
+    variacion_ingresos: null,
+    balance: '-310.00',
+    balance_anterior: '-300.00',
+    variacion_balance: '-3.3333',
+    dias: 31,
+    gasto_medio_diario: '10.00',
+    mayor_concepto: null,
+    mayor_importe: null,
+  };
+  const ritmo = {
+    devoluciones: '0.00',
+    gasto_medio_diario: '10.00',
+    gasto_medio_diario_anterior: '10.00',
+    variacion_medio_diario: '0.0000',
+    dias_mes: 31,
+    proyeccion_fin_mes: null,
+  };
+  const pintar = (hastaAnterior: string) =>
+    renderConApp(
+      <ComparativaMes
+        periodos={{ actual: { desde: '2026-10-01', hasta: '2026-10-31' }, anterior: { desde: '2026-09-01', hasta: hastaAnterior }, enCurso: false }}
+        datos={datos}
+        modo="gastos"
+        ritmo={ritmo}
+      />,
+    );
+  const tarjetaMedio = () => screen.getByRole('heading', { name: 'Gasto medio diario' }).closest('article') as HTMLElement;
+
+  it('distinta longitud (31 contra 30 días): el % del gasto medio diario sí aporta y se muestra', () => {
+    pintar('2026-09-30');
+    expect(within(tarjetaMedio()).queryByTestId('linea-variacion')).toBeInTheDocument();
+  });
+
+  it('misma longitud (19 contra 19): sin % propio, que repetiría el de Gastos; queda el importe anterior', () => {
+    renderConApp(
+      <ComparativaMes
+        periodos={{ actual: { desde: '2026-10-01', hasta: '2026-10-19' }, anterior: { desde: '2026-09-01', hasta: '2026-09-19' }, enCurso: true }}
+        datos={{ ...datos, dias: 19 }}
+        modo="gastos"
+        ritmo={ritmo}
+      />,
+    );
+    expect(within(tarjetaMedio()).queryByTestId('linea-variacion')).not.toBeInTheDocument();
+    expect(within(tarjetaMedio()).getByTestId('medio-diario-anterior')).toHaveTextContent('vs 10,00 €/día el mes pasado');
   });
 });

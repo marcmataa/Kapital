@@ -6,6 +6,8 @@ import { cx } from '@/shared/lib/cx';
 interface Props {
   /** Qué se recorre en el gráfico: cada día, cada mes o cada categoría. */
   unidad: 'dia' | 'mes' | 'categoria';
+  /** Qué mide el gráfico («Gasto neto = gastos − devoluciones…»): va antes de cómo usarlo. */
+  definicion?: string;
   className?: string;
 }
 
@@ -15,7 +17,7 @@ interface Props {
  * (CSS `pointer: coarse`, sin JS de media queries): en táctil «Toca o arrastra…», sin mencionar
  * ratón ni teclado; con ratón, «Pasa el ratón… o usa las flechas del teclado».
  */
-export function AyudaGrafico({ unidad, className }: Props) {
+export function AyudaGrafico({ unidad, definicion, className }: Props) {
   const t = useT('common');
   const id = useId();
   const [abierta, setAbierta] = useState(false);
@@ -43,6 +45,7 @@ export function AyudaGrafico({ unidad, className }: Props) {
           abierta ? 'block' : 'hidden group-hover:block',
         )}
       >
+        {definicion !== undefined && <span className="mb-1.5 block font-semibold">{definicion}</span>}
         <span className="pointer-coarse:hidden">{t(`grafico.ayuda.${unidad}.puntero`)}</span>
         <span className="hidden pointer-coarse:inline">{t(`grafico.ayuda.${unidad}.tactil`)}</span>
       </span>

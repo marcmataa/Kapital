@@ -275,32 +275,89 @@ describe('Estadísticas: gastos', () => {
       'Efectivo20,00 €',
     ]);
     expect(screen.getByText(/sin restar devoluciones: no es el gasto neto/)).toBeInTheDocument();
-    expect(normal((await screen.findByTestId('lectura-meses')).textContent)).toBe(
-      'Octubre de 2026 · hasta hoy (provisional) · 80,00 €',
-    );
+    // Mes en curso: lo que llevas, el mes anterior al mismo día y la proyección (comparativa y ritmo, SQL).
+    const lecturaMeses = await screen.findByTestId('lectura-meses');
+    expect(lecturaMeses).toHaveTextContent('Octubre de 2026 · hasta hoy (provisional) · 80,00 €');
+    expect(lecturaMeses).toHaveTextContent('Septiembre al día 19: 1.038,47 € · Proyección a fin de mes: 1.906,14 €');
+    expect(screen.getByTestId('marca-referencia')).toHaveAttribute('data-importe', '1038.47');
+    expect(screen.getByTestId('proyeccion-mes')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Gasto neto mensual · desde septiembre' })).toBeInTheDocument();
+  });
+
+  it('mes cerrado: sin «hoy» ni «provisional» en las notas, sin marca ni proyección', async () => {
+    servir({
+      resumen_mensual: () => [
+        { mes: '2026-08-01', ...AGOSTO },
+        { mes: '2026-09-01', ...SEPTIEMBRE },
+      ],
+    });
+    montar();
+    await elegirMes('Septiembre de 2026');
+    expect(await screen.findByText('Gasto neto de cada día: gastos menos devoluciones.')).toBeInTheDocument();
+    expect(await screen.findByText('Gasto neto de cada mes.')).toBeInTheDocument();
+    expect(screen.queryByText(/provisional|futuros/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('marca-referencia')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('proyeccion-mes')).not.toBeInTheDocument();
   });
 });
 
 describe('Estadísticas: ingresos', () => {
-  it('solo ingresos reales por día (sin devoluciones), comparativa solo de ingresos e ingresos por categoría', async () => {
+  // movimientos_por_dia (SQL): un ingreso y, el mismo día, una devolución que no debe salir aquí.
+  const POR_DIA = () => [
+    {
+      fecha: '2026-10-01',
+      gastos: '0.00',
+      devoluciones: '15.00',
+      gasto_neto: '-15.00',
+      ingresos: '1258.00',
+      movimientos: [
+        { id: 'm1', tipo: 'ingreso', concepto: 'Nómina inventada', importe: '1258.00' },
+        { id: 'm2', tipo: 'devolucion', concepto: 'Devolución inventada', importe: '15.00' },
+      ],
+    },
+  ];
+
+  it('lista de ingresos del mes (no la serie diaria) e histórico mensual de ingresos', async () => {
     servir({
-      ingresos_por_categoria: () => [
-        { categoria_id: 'nomina', nombre: 'Nómina', color: '#5fd3a0', icono: null, ingreso: '1258.00' },
+      movimientos_por_dia: POR_DIA,
+      resumen_mensual: () => [
+        { mes: '2026-09-01', ...SEPTIEMBRE },
+        { mes: '2026-10-01', ...CEROS, ingresos: '1258.00', balance: '1258.00' },
       ],
     });
     montar();
     await userEvent.click(await screen.findByRole('radio', { name: 'Ingresos' }));
-    expect(await screen.findByRole('heading', { name: 'Ingresos por día · Octubre de 2026' })).toBeInTheDocument();
+    const lista = await screen.findByRole('list', { name: 'Ingresos de octubre' });
+    expect(within(lista).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(lista).getByRole('listitem')).toHaveTextContent('Nómina inventada');
+    expect(within(lista).getByRole('listitem')).toHaveTextContent('+1.258,00 €');
+    expect(screen.queryByRole('heading', { name: /Ingresos por día/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Ingresos mensuales · desde septiembre' })).toBeInTheDocument();
+    expect(screen.getByTestId('marca-referencia')).toHaveAttribute('data-importe', '1420.00');
+    // Con una sola categoría de ingreso, el reparto repetiría el total: no sale.
+    expect(screen.queryByRole('list', { name: 'Ingresos por categoría' })).not.toBeInTheDocument();
+  });
+
+  it('comparativa solo de ingresos; reparto por categoría con más de una; sin devoluciones', async () => {
+    servir({
+      movimientos_por_dia: POR_DIA,
+      ingresos_por_categoria: () => [
+        { categoria_id: 'nomina', nombre: 'Nómina', color: '#5fd3a0', icono: null, ingreso: '1258.00' },
+        { categoria_id: 'otros', nombre: 'Otros ingresos', color: '#8f9bbd', icono: null, ingreso: '250.00' },
+      ],
+    });
+    montar();
+    await userEvent.click(await screen.findByRole('radio', { name: 'Ingresos' }));
     const tarjetas = await screen.findByTestId('comparativa-ingresos');
     expect(within(tarjetas).getByText('1.508,00 €')).toBeInTheDocument();
     expect(within(tarjetas).getByText('+6,2 %').parentElement).toHaveClass('text-positivo');
     expect(within(tarjetas).getByText('vs 1.420,00 € el mes pasado')).toBeInTheDocument();
     expect(within(tarjetas).queryByText('Gasto medio diario')).not.toBeInTheDocument();
-    // Ni gráfico, ni leyenda, ni notas de devoluciones en la pestaña Ingresos.
-    expect(screen.queryByText(/[Dd]evoluci/)).not.toBeInTheDocument();
+    // Ni la devolución ni notas de devoluciones (fuera de las definiciones de los (i)).
+    expect(screen.queryByText('Devolución inventada')).not.toBeInTheDocument();
     expect(screen.queryByTestId('devoluciones-mes')).not.toBeInTheDocument();
     const lista = await screen.findByRole('list', { name: 'Ingresos por categoría' });
-    expect(within(lista).getByText('1.258,00 € · 100,0 %')).toBeInTheDocument();
+    expect(within(lista).getByText('1.258,00 € · 83,4 %')).toBeInTheDocument();
     expect(columnas(llamadas('ingresos_por_categoria')[0] as Llamada)).toBe('categoria_id, nombre, color, ingreso::text');
   });
 });

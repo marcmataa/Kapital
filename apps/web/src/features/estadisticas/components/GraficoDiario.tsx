@@ -43,6 +43,8 @@ export function GraficoDiario({ dias, modo, nombreMes, media }: Props) {
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   const gastos = modo === 'gastos';
+  // Mes en curso si hoy está en la serie: solo entonces hay días futuros vacíos y un día provisional.
+  const enCurso = dias.some((d) => d.hoy);
   const barras = (d: DiaSerie): string[] =>
     d.datos === null ? [] : [gastos ? d.datos.gasto_neto : d.datos.ingresos];
   const mediaVisible = gastos && media !== undefined && aCentimos(media) > 0n ? media : null;
@@ -96,7 +98,7 @@ export function GraficoDiario({ dias, modo, nombreMes, media }: Props) {
   const tituloCard = t(gastos ? 'diario.tituloGastos' : 'diario.tituloIngresos', { mes: nombreMes });
 
   return (
-    <Card titulo={tituloCard} accion={<AyudaGrafico unidad="dia" />}>
+    <Card titulo={tituloCard} accion={<AyudaGrafico unidad="dia" definicion={t(gastos ? 'ayuda.gastoNeto' : 'ayuda.ingresos')} />}>
       <div className="relative flex flex-col gap-3">
         {activo && elegido && (
           <LecturaGrafico
@@ -148,7 +150,10 @@ export function GraficoDiario({ dias, modo, nombreMes, media }: Props) {
               {dias.map((d, i) => {
                 const esElegido = activo && i === indice;
                 return (
-                  <div key={d.dia} data-dia={d.dia} className="relative flex h-full min-w-0 flex-1 gap-px px-[12%]">
+                  // El hueco entre barras sale del ancho de la barra (76 % de su columna), nunca de un
+                  // padding en %: el padding en % se calcula sobre el ancho del PADRE (toda la superficie)
+                  // y con 31 columnas dejaba cada barra en 0 px (auditoría F01).
+                  <div key={d.dia} data-dia={d.dia} className="relative flex h-full min-w-0 flex-1 justify-center">
                     {esElegido && <span className="absolute inset-y-0 left-1/2 w-[1.5px] -translate-x-1/2 bg-borde-fuerte" />}
                     {barras(d).map((v, j) => {
                       // Negativo (te devolvieron más de lo que gastaste): barra roja bajo el cero.
@@ -156,7 +161,7 @@ export function GraficoDiario({ dias, modo, nombreMes, media }: Props) {
                       const color = negativo ? 'negativo' : gastos ? 'acento' : 'positivo';
                       const { abajo, alto } = tramoBarra(v, escala);
                       return (
-                        <span key={j} className="relative h-full min-w-0 flex-1">
+                        <span key={j} data-testid="columna-barra" className="relative h-full w-[76%] min-w-[2px]">
                           <span
                             data-provisional={d.hoy ? 'true' : undefined}
                             className={cx(
@@ -183,7 +188,7 @@ export function GraficoDiario({ dias, modo, nombreMes, media }: Props) {
             </div>
           </div>
         </div>
-        <p className="text-xs text-apagado sm:text-sm">{t(gastos ? 'diario.nota' : 'diario.notaIngresos')}</p>
+        <p className="text-xs text-apagado sm:text-sm">{t(gastos ? (enCurso ? 'diario.nota' : 'diario.notaCerrado') : 'diario.notaIngresos')}</p>
       </div>
       <table className="sr-only">
         <caption>{tituloCard}</caption>
