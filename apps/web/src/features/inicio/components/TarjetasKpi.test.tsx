@@ -211,7 +211,7 @@ describe('TarjetasKpi · balance del mes (sección 3)', () => {
     );
     const balance = tarjeta('Balance · 1–19 oct');
     expect(within(balance).getByText(/^-900,00\s€$/)).toHaveClass('text-negativo');
-    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Ahorro —');
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro —');
     expect(within(balance).getByText('Sin datos del mes anterior')).toBeInTheDocument();
   });
 
@@ -226,9 +226,25 @@ describe('TarjetasKpi · balance del mes (sección 3)', () => {
       />,
     );
     const balance = tarjeta('Balance · 1–19 oct');
-    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Ahorro -15,0 %');
-    // 100 → −150: −250,0 %, que baje el balance es rojo.
-    expect(within(balance).getByText('-250,0 %').parentElement).toHaveClass('text-negativo');
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro -15,0 %');
+    // 100 → −150 cambia de signo: la diferencia en euros y ningún % (sección 8); que baje es rojo.
+    expect(within(balance).getByText(/^-250,00\s€$/).parentElement).toHaveClass('text-negativo');
+    expect(within(balance).getByText(/^vs \+100,00\s€ \(1–19 sept\)$/)).toBeInTheDocument();
+    expect(balance.textContent).not.toMatch(/250,0\s%/);
+  });
+
+  it('balance positivo en los dos periodos: diferencia en euros y, entre paréntesis, el %', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-10-19"
+        patrimonioHoy="1000.00"
+        patrimonioAnterior={null}
+        resumenActual={{ ingresos: '1000.00', gastos_netos: '850.00', balance: '150.00', ahorro_pct: '15.0' }}
+        resumenAnterior={{ ingresos: '1000.00', gastos_netos: '900.00', balance: '100.00', ahorro_pct: '10.0' }}
+      />,
+    );
+    const balance = tarjeta('Balance · 1–19 oct');
+    expect(within(balance).getByText(/^\+50,00\s€ \(\+50,0\s%\)$/).parentElement).toHaveClass('text-positivo');
   });
 
 });

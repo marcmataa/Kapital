@@ -327,7 +327,7 @@ describe('Estadísticas: balance', () => {
     await userEvent.click(await screen.findByRole('radio', { name: 'Balance' }));
     const lectura = await screen.findByTestId('lectura-balance');
     expect(normal(lectura.textContent)).toContain('Octubre de 2026 · hasta hoy (provisional) · balance · -50,00 €');
-    expect(normal(lectura.textContent)).toContain('Ahorro —');
+    expect(normal(lectura.textContent)).toContain('Tasa de ahorro —');
     expect(screen.queryByText(/Variación patrimonial/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Cómo pagas|método de pago/)).not.toBeInTheDocument();
     // Menos de 12 meses de datos: no hay interanual.
@@ -345,7 +345,8 @@ describe('Estadísticas: balance', () => {
     expect(await screen.findByText('Este mes vs mes anterior al día 19')).toBeInTheDocument();
     const balance = await screen.findByTestId('fila-balance');
     expect(within(balance).getByText('+339,72 €')).toHaveClass('text-positivo');
-    expect(within(balance).getByText('+48,0 %')).toBeInTheDocument();
+    // La variación vive en la cabecera; la fila del desglose solo cierra la cuenta.
+    expect(normal(balance.textContent)).not.toContain('%');
     const fuera = screen.getByTestId('fuera-del-balance');
     expect(within(fuera).getByText('Traspaso BBVA → Trade Republic').closest('li')).toHaveTextContent('100,00 €');
     expect(within(fuera).getByText('Ajuste BBVA (suma)').closest('li')).toHaveTextContent('+7,50 €');
@@ -354,6 +355,92 @@ describe('Estadísticas: balance', () => {
     for (const nombre of ['fuera_del_balance', 'gasto_por_categoria', 'ingresos_por_categoria']) {
       expect(llamadas(nombre)).toContainEqual(expect.objectContaining({ args: { p_desde: '2026-09-01', p_hasta: '2026-09-19' } }));
     }
+  });
+
+  it('cabecera: balance, diferencia en euros al mismo día del mes anterior y tasa de ahorro de SQL', async () => {
+    servir({ ...BALANCE, resumen_periodo: () => SEPTIEMBRE });
+    montar();
+    await userEvent.click(await screen.findByRole('radio', { name: 'Balance' }));
+    const cabecera = await screen.findByTestId('cabecera-balance');
+    expect(within(cabecera).getByRole('heading')).toHaveTextContent('Balance · 1–19 oct');
+    expect(within(cabecera).getByTestId('cabecera-balance-valor')).toHaveTextContent(/^\+339,72\s€$/);
+    // 229,60 → 339,72: las dos bases > 0, así que diferencia y % (sección 8).
+    const linea = within(cabecera).getByTestId('linea-variacion');
+    expect(linea).toHaveTextContent('+110,12 €');
+    expect(linea).toHaveTextContent('(+48,0 %)');
+    expect(linea).toHaveTextContent('vs +229,60 € al día 19 del mes pasado');
+    expect(normal(within(cabecera).getByTestId('tasa-ahorro').textContent)).toBe('Tasa de ahorro: 22,5 % de tus ingresos');
+    expect(llamadas('resumen_periodo')).toContainEqual(expect.objectContaining({ args: { p_desde: '2026-10-01', p_hasta: '2026-10-19' } }));
+  });
+
+  it('cabecera con cambio de signo: solo la diferencia en euros, sin %', async () => {
+    servir({ ...BALANCE, comparativa_estadisticas: () => ({ ...COMPARATIVA, balance: '-204.13', variacion_balance: '-188.9068' }) });
+    montar();
+    await userEvent.click(await screen.findByRole('radio', { name: 'Balance' }));
+    const linea = within(await screen.findByTestId('cabecera-balance')).getByTestId('linea-variacion');
+    expect(linea).toHaveTextContent('-433,73 €');
+    expect(linea).toHaveTextContent('vs +229,60 € al día 19 del mes pasado');
+    expect(linea).not.toHaveTextContent('%');
+    expect(linea.querySelector('.text-negativo')).not.toBeNull();
+  });
+
+  it('cascada: del balance de 1–19 sept al de 1–19 oct, cuadrando al céntimo', async () => {
+    // Coherente: 1.420,00 − 1.190,40 = 229,60 y 1.508,00 − 1.168,28 = 339,72.
+    const coherente = { ...COMPARATIVA, gastos_netos_anterior: '1190.40' };
+    servir({
+      ...BALANCE,
+      comparativa_estadisticas: () => coherente,
+      gasto_por_categoria: (a) => [
+        { categoria_id: 'o', nombre: 'Ocio', color: '#9b6bff', gasto: a.p_desde === '2026-10-01' ? '1168.28' : '1190.40' },
+      ],
+    });
+    montar();
+    await userEvent.click(await screen.findByRole('radio', { name: 'Balance' }));
+    const cascada = await screen.findByTestId('cascada-variacion');
+    const filas = within(cascada)
+      .getAllByRole('row')
+      .slice(1)
+      .map((f) => Array.from(f.children, (c) => normal(c.textContent)).join(' | '));
+    // 229,60 + 88,00 (ingresos) + 22,12 (Ocio: gastaste menos) = 339,72.
+    expect(filas).toEqual([
+      'Balance 1–19 sept | +229,60 € | +229,60 €',
+      'Ingresos | +88,00 € | +317,60 €',
+      'Ocio | +22,12 € | +339,72 €',
+      'Balance 1–19 oct | +339,72 € | +339,72 €',
+    ]);
+    const barras = within(cascada).getAllByTestId('barra-variacion');
+    expect(barras.map((b) => b.getAttribute('data-sentido'))).toEqual(['total', 'sube', 'sube', 'total']);
+  });
+
+  it('cascada que no cuadra con el balance de SQL: aviso, nunca pasos inventados', async () => {
+    servir(BALANCE);
+    montar();
+    await userEvent.click(await screen.findByRole('radio', { name: 'Balance' }));
+    const cascada = await screen.findByTestId('cascada-variacion');
+    expect(within(cascada).getByRole('alert')).toHaveTextContent('No se ha podido cuadrar el desglose con el balance.');
+    expect(within(cascada).queryByTestId('barra-variacion')).not.toBeInTheDocument();
+  });
+
+  it('primer mes con datos: sin «vs agosto», sin cascada y «Sin datos del mes anterior»', async () => {
+    servir({ ...BALANCE, comparativa_estadisticas: () => SIN_ANTERIOR }, '2026-09-01');
+    montar();
+    await elegirMes('Septiembre de 2026');
+    await userEvent.click(screen.getByRole('radio', { name: 'Balance' }));
+    expect(await screen.findByText('Desglose de septiembre')).toBeInTheDocument();
+    expect(screen.queryByText(/agosto/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cascada-variacion')).not.toBeInTheDocument();
+    expect(within(screen.getByTestId('cabecera-balance')).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+  });
+
+  it('el histórico arranca en el mes elegido aunque las cuentas lleguen después (F04)', async () => {
+    servir(BALANCE);
+    montar();
+    await userEvent.click(await screen.findByRole('radio', { name: 'Balance' }));
+    const lectura = await screen.findByTestId('lectura-balance');
+    await waitFor(() => expect(screen.getByTestId('superficie-balance').querySelectorAll('[data-balance]').length).toBeGreaterThan(1));
+    expect(normal(lectura.textContent)).toContain('Octubre de 2026 · hasta hoy (provisional)');
+    // El mes en curso lleva la marca del mes anterior al mismo día.
+    expect(screen.getByTestId('marca-referencia')).toHaveAttribute('data-balance', '229.60');
   });
 
   it('mes cerrado: «vs agosto completo» con meses completos', async () => {

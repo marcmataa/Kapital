@@ -4,6 +4,7 @@ import {
   compararImportes,
   formatearEuros,
   formatearPorcentaje,
+  variacionImporte as diferenciaBalance,
   variacionPorcentual,
 } from '@/shared/lib/dinero';
 import { finDeMes, formatearFecha, inicioDeMes, mismoDiaMesAnterior, partesDe, sumarMeses } from '@/shared/lib/fechas';
@@ -107,7 +108,23 @@ export function TarjetasKpi({
   const mes = mesCorto(fecha, locale);
   const ingresos = variacionImporte(resumenActual.ingresos, resumenAnterior?.ingresos ?? null, true);
   const gastos = variacionImporte(resumenActual.gastos_netos, resumenAnterior?.gastos_netos ?? null, false);
-  const balance = variacionImporte(resumenActual.balance, resumenAnterior?.balance ?? null, true);
+  // Balance (puede ser ≤ 0): la diferencia en euros y el % solo con las dos bases > 0 (sección 8,
+  // cambio del 27/10/2026); de +243 € a −204 € no se lee «−183,9 %».
+  let balance: VariacionStat | undefined;
+  if (resumenAnterior !== null) {
+    const { diferencia, porcentaje } = diferenciaBalance(resumenActual.balance, resumenAnterior.balance);
+    const euros = formatearEuros(diferencia, locale, { signo: 'siempre' });
+    balance = {
+      texto: porcentaje === null ? euros : `${euros} (${formatearPorcentaje(porcentaje, locale, { signo: 'siempre' })})`,
+      tendencia: TENDENCIA[compararImportes(resumenActual.balance, resumenAnterior.balance)],
+      subirEsBueno: true,
+      contexto: t('kpi.vsTramoImporte', {
+        importe: formatearEuros(resumenAnterior.balance, locale, { signo: 'siempre' }),
+        dia: partesDe(hastaAnterior).dia,
+        mes: mesCorto(hastaAnterior, locale),
+      }),
+    };
+  }
   const balanceNegativo = aCentimos(resumenActual.balance) < 0n;
 
   return (

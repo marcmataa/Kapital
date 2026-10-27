@@ -41,6 +41,8 @@ export function Interanual({ actual, anterior, rangoActual, rangoAnterior }: Pro
                 actual={actual[f.campo]}
                 anterior={anterior[f.campo]}
                 subirEsBueno={f.subirEsBueno}
+                // El balance puede ser ≤ 0: diferencia en euros y % solo con las dos bases > 0 (sección 8).
+                diferencia={f.campo === 'balance'}
                 contexto={t('interanual.vs', { importe: formatearEuros(anterior[f.campo], locale) })}
               />
             </dd>

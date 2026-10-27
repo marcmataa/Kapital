@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Card } from '@/shared/ui';
 import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { useNombreCuentaCatalogo } from '@/shared/hooks/useNombreCuenta';
@@ -5,16 +6,16 @@ import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
 import { cx } from '@/shared/lib/cx';
 import type { Comparativa, FilaFueraBalance, GastoCategoria } from '../api/estadisticasApi';
-import { emparejar, type FilaIngresoCategoria } from '../lib/agregaciones';
+import { emparejar, type FilaIngresoCategoria, type OrdenFilas } from '../lib/agregaciones';
 import { signo } from '../lib/formato';
 import type { PeriodosComparacion } from '../lib/periodos';
-import { useLineaVs, useTituloComparativa } from './ComparativaMes';
+import { useTituloComparativa } from './ComparativaMes';
 import { FilasComparadas, type FilaVista } from './FilasComparadas';
-import { LineaVariacion } from './LineaVariacion';
+import { OrdenFilasControl } from './OrdenFilas';
 
 interface Props {
   periodos: PeriodosComparacion;
-  /** Totales y variación del balance (comparativa_estadisticas). */
+  /** Totales del balance (comparativa_estadisticas). */
   comparativa: Comparativa;
   ingresos: readonly FilaIngresoCategoria[];
   ingresosAnterior: readonly FilaIngresoCategoria[];
@@ -27,7 +28,12 @@ interface Props {
 /**
  * «Este mes vs anterior»: lo que cuenta en el balance (ingresos y gastos netos por categoría y el
  * balance, sección 3) y, aparte, lo que no cuenta (traspasos y ajustes, secciones 2 y 3). Todos
- * los importes y la variación vienen de SQL; el grupo B nunca se suma a ningún total.
+ * los importes vienen de SQL; el grupo B nunca se suma a ningún total.
+ *
+ * Ingresos y gastos son dos listas con su propia escala: la barra de una categoría de gasto mide
+ * lo mismo aquí que en la pestaña Gastos. Cada fila lleva su diferencia (Δ, color por significado)
+ * y se ordenan por importe o por diferencia. La variación del balance está en la cabecera de la
+ * pestaña; aquí el balance solo cierra la cuenta.
  */
 export function DesgloseBalance(props: Props) {
   const { periodos, comparativa: c } = props;
@@ -35,8 +41,8 @@ export function DesgloseBalance(props: Props) {
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   const titulo = useTituloComparativa(periodos, 'desglose.titulo');
-  const lineaVs = useLineaVs();
   const hayAnterior = periodos.anterior !== null;
+  const [orden, setOrden] = useState<OrdenFilas>('importe');
   const nombreCategoria = useNombreCategoriaCatalogo();
   // v_fuera_balance trae el nombre de la cuenta, no la clave: la cuenta de efectivo se traduce por catálogo.
   const nombreCuenta = useNombreCuentaCatalogo();
@@ -53,11 +59,15 @@ export function DesgloseBalance(props: Props) {
     importe: f.gasto,
   });
 
-  const grupoA: FilaVista[] = [
+  const categoriasIngreso = emparejar(props.ingresos.map(deIngreso), props.ingresosAnterior.map(deIngreso), hayAnterior, orden);
+  const filasIngresos: FilaVista[] = [
     { id: 'total-ingresos', nombre: t('desglose.ingresos'), actual: c.ingresos, anterior: c.ingresos_anterior, total: true },
-    ...emparejar(props.ingresos.map(deIngreso), props.ingresosAnterior.map(deIngreso), hayAnterior),
+    // Con una sola categoría de ingreso, su fila repite el total: no se muestra.
+    ...(categoriasIngreso.length > 1 ? categoriasIngreso : []),
+  ];
+  const filasGastos: FilaVista[] = [
     { id: 'total-gastos', nombre: t('desglose.gastosNetos'), actual: c.gastos_netos, anterior: c.gastos_netos_anterior, total: true },
-    ...emparejar(props.gastos.map(deGasto), props.gastosAnterior.map(deGasto), hayAnterior),
+    ...emparejar(props.gastos.map(deGasto), props.gastosAnterior.map(deGasto), hayAnterior, orden),
   ];
 
   const nombreFuera = (f: FilaFueraBalance) =>
@@ -86,30 +96,34 @@ export function DesgloseBalance(props: Props) {
   });
 
   const sBalance = signo(c.balance);
-  // «vs +382,00 € el mes pasado», con el % aparte.
-  const vsBalance = lineaVs(c.balance_anterior, { signo: 'siempre' });
+  const comparables = hayAnterior && filasIngresos.length + filasGastos.length > 3;
   return (
-    <Card titulo={titulo}>
+    <Card titulo={titulo} accion={comparables ? <OrdenFilasControl valor={orden} onChange={setOrden} /> : undefined}>
       <section aria-labelledby="desglose-cuenta" className="flex flex-col gap-3">
         <h3 id="desglose-cuenta" className="text-sm font-semibold text-apagado">
           {t('desglose.cuenta')}
         </h3>
-        <FilasComparadas filas={grupoA} etiqueta={t('desglose.cuenta')} etiquetaAnterior={t('desglose.antes')} />
+        <FilasComparadas
+          filas={filasIngresos}
+          etiqueta={t('desglose.ingresos')}
+          etiquetaAnterior={t('desglose.antes')}
+          diferencia={{ subirEsBueno: true }}
+        />
+        <FilasComparadas
+          filas={filasGastos}
+          etiqueta={t('desglose.gastosNetos')}
+          etiquetaAnterior={t('desglose.antes')}
+          diferencia={{ subirEsBueno: false }}
+          leyenda={false}
+          className="border-t border-borde pt-3"
+        />
         <div
           data-testid="fila-balance"
           className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-borde-fuerte pt-3"
         >
           <span className="font-semibold text-texto">{t('desglose.balance')}</span>
-          <span className="flex flex-col items-end gap-0.5">
-            <span className={cx('cifras text-lg font-bold', sBalance < 0 ? 'text-negativo' : sBalance > 0 ? 'text-positivo' : 'text-texto')}>
-              {formatearEuros(c.balance, locale, { signo: 'siempre' })}
-            </span>
-            {vsBalance !== null && (
-              <span data-testid="balance-vs" className="cifras text-xs text-apagado sm:text-sm">
-                {vsBalance}
-              </span>
-            )}
-            <LineaVariacion actual={c.balance} anterior={c.balance_anterior} porcentaje={c.variacion_balance} subirEsBueno />
+          <span className={cx('cifras text-lg font-bold', sBalance < 0 ? 'text-negativo' : sBalance > 0 ? 'text-positivo' : 'text-texto')}>
+            {formatearEuros(c.balance, locale, { signo: 'siempre' })}
           </span>
         </div>
       </section>
@@ -126,7 +140,7 @@ export function DesgloseBalance(props: Props) {
         {grupoB.length === 0 ? (
           <p className="text-sm text-apagado">{t('desglose.sinFuera')}</p>
         ) : (
-          <FilasComparadas filas={grupoB} etiqueta={t('desglose.fuera')} etiquetaAnterior={t('desglose.antes')} leyenda={false} />
+          <FilasComparadas filas={grupoB} etiqueta={t('desglose.fuera')} etiquetaAnterior={t('desglose.antes')} leyenda={false} tono="neutro" />
         )}
       </section>
     </Card>

@@ -1,7 +1,7 @@
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
-import { formatearEuros, type OpcionesEuros } from '@/shared/lib/dinero';
+import { desdeCentimos, formatearEuros, type OpcionesEuros } from '@/shared/lib/dinero';
 import { cx } from '@/shared/lib/cx';
-import { maximoAbsoluto, proporcion, type FilaComparada } from '../lib/agregaciones';
+import { diferenciaFila, maximoAbsoluto, proporcion, type FilaComparada } from '../lib/agregaciones';
 
 export interface FilaVista extends FilaComparada {
   /** Fila de total (en negrita, sin color propio). */
@@ -18,57 +18,67 @@ interface Props {
   etiquetaAnterior: string;
   /** Leyenda «Este mes / Mes anterior» encima de las barras dobles (por defecto, sí). */
   leyenda?: boolean;
+  /**
+   * Columna Δ (actual − anterior) en cada fila con periodo anterior. El color va por significado
+   * (sección 8): `subirEsBueno` = true para ingresos (subir es verde), false para gastos (rojo).
+   */
+  diferencia?: { subirEsBueno: boolean };
+  /** 'neutro': barras grises, para lo que no es ni bueno ni malo (traspasos, ajustes). */
+  tono?: 'color' | 'neutro';
   className?: string;
 }
 
 /**
- * Qué es cada marca: la barra es este mes (con el color de cada categoría, así que la muestra
- * lleva los colores de las primeras filas) y la raya vertical, el mes anterior.
+ * Qué es cada marca: la barra es este mes (muestra neutra: cada categoría lleva su color) y la
+ * raya vertical, el mes anterior; con la columna Δ, también qué es esa cifra.
  */
-function Leyenda({ colores }: { colores: readonly string[] }) {
+function Leyenda({ conDiferencia }: { conDiferencia: boolean }) {
   const t = useT('common');
-  const muestra =
-    colores.length > 0 ? { background: `linear-gradient(to right, ${colores.join(', ')})` } : undefined;
+  const te = useT('estadisticas');
   return (
     <p aria-hidden="true" data-testid="leyenda-comparada" className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-apagado">
       <span className="flex items-center gap-1.5">
-        <span className={cx('block h-2 w-5 rounded', muestra === undefined && 'bg-acento')} style={muestra} />
+        <span className="block h-2 w-5 rounded bg-apagado" />
         {t('grafico.esteMes')}
       </span>
       <span className="flex items-center gap-1.5">
         <span className="block h-3 w-0.5 rounded-full bg-texto" />
         {t('grafico.mesAnterior')}
       </span>
+      {conDiferencia && <span>{te('filas.leyendaDiferencia')}</span>}
     </p>
   );
 }
 
 /**
  * Filas «este periodo vs el anterior» en dos líneas, para que el nombre se lea entero también en
- * el móvil: arriba el nombre y los importes (este mes y, apagado, el anterior); debajo, a todo el
- * ancho, la barra de este mes y una raya vertical donde llegó el anterior (estilo «objetivo»).
- * La anchura sale de los céntimos (dibujo, no dinero). Los importes negativos se muestran en
- * negativo y sin barra.
+ * el móvil: arriba el nombre y los importes (este mes y, apagado, el anterior) y, si se pide, la
+ * diferencia; debajo, a todo el ancho, la barra de este mes y una raya vertical donde llegó el
+ * anterior (estilo «objetivo»). La anchura sale de los céntimos (dibujo, no dinero) y la escala es
+ * el mayor importe de la lista, así que la misma lista mide igual en cualquier pestaña. Los
+ * importes negativos se muestran en negativo y sin barra.
  */
-export function FilasComparadas({ filas, etiqueta, etiquetaAnterior, leyenda = true, className }: Props) {
+export function FilasComparadas({ filas, etiqueta, etiquetaAnterior, leyenda = true, diferencia, tono = 'color', className }: Props) {
+  const te = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   const maximo = maximoAbsoluto(filas.flatMap((f) => (f.total ? [] : [f.actual, f.anterior])));
   const ancho = (v: string) => (v.trim().startsWith('-') ? 0 : proporcion(v, maximo));
   const hayDobles = filas.some((f) => !f.total && f.anterior !== null);
-  const colores = filas.flatMap((f) => (f.total || f.color === undefined ? [] : [f.color])).slice(0, 3);
+  const neutro = tono === 'neutro';
 
   return (
     <div className={cx('flex flex-col gap-3', className)}>
-      {leyenda && hayDobles && <Leyenda colores={colores} />}
+      {leyenda && hayDobles && <Leyenda conDiferencia={diferencia !== undefined} />}
       <ul aria-label={etiqueta} className="flex flex-col gap-3.5 text-sm">
         {filas.map((f) => {
           const opciones = f.signo !== undefined ? { signo: f.signo } : {};
+          const delta = diferencia !== undefined ? diferenciaFila(f) : null;
           return (
             <li key={f.id} className={cx('flex flex-col gap-1.5', f.total && 'font-semibold')}>
               <span className="flex items-baseline justify-between gap-3">
                 <span className="flex min-w-0 items-center gap-2">
-                  {f.color !== undefined && (
+                  {f.color !== undefined && !neutro && (
                     <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
                   )}
                   <span className="break-words text-texto">{f.nombre}</span>
@@ -83,13 +93,25 @@ export function FilasComparadas({ filas, etiqueta, etiquetaAnterior, leyenda = t
                   <span className={cx('text-texto', f.actual.trim().startsWith('-') && f.signo === undefined && 'text-negativo')}>
                     {formatearEuros(f.actual, locale, opciones)}
                   </span>
+                  {delta !== null && diferencia !== undefined && (
+                    <small
+                      data-testid="diferencia-fila"
+                      className={cx(
+                        'text-[13px] font-semibold sm:min-w-[4.75rem]',
+                        delta === 0n ? 'text-apagado' : delta > 0n === diferencia.subirEsBueno ? 'text-positivo' : 'text-negativo',
+                      )}
+                    >
+                      <span className="sr-only">{te('filas.diferencia')} </span>
+                      {formatearEuros(desdeCentimos(delta), locale, { signo: 'siempre' })}
+                    </small>
+                  )}
                 </span>
               </span>
               {!f.total && (
                 <span aria-hidden="true" className="relative block h-2 rounded bg-borde">
                   <span
-                    className="block h-2 rounded bg-acento"
-                    style={{ width: `${ancho(f.actual)}%`, ...(f.color !== undefined && { backgroundColor: f.color }) }}
+                    className={cx('block h-2 rounded', neutro ? 'bg-apagado' : 'bg-acento')}
+                    style={{ width: `${ancho(f.actual)}%`, ...(f.color !== undefined && !neutro && { backgroundColor: f.color }) }}
                   />
                   {f.anterior !== null && !f.anterior.trim().startsWith('-') && (
                     <span
