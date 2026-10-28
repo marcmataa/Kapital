@@ -22,6 +22,8 @@ export default {
   'kpi.sinAnterior': 'Sense dades del mes anterior',
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Patrimoni per compte',
+  'kpi.verMovimientosCuenta': 'Veure els moviments de {cuenta}',
+  'kpi.verMovimientos': 'Veure els moviments',
   'kpi.balance': 'Balanç · 1–{dia} {mes}',
   'kpi.ahorro': 'Taxa d’estalvi {porcentaje}',
   'kpi.vsTramoImporte': 'vs {importe} (1–{dia} {mes})',

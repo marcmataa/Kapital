@@ -22,6 +22,8 @@ export default {
   'kpi.sinAnterior': 'No data for the previous month',
   'kpi.sinValor': '—',
   'kpi.cuentas': 'Net worth by account',
+  'kpi.verMovimientosCuenta': 'See {cuenta} transactions',
+  'kpi.verMovimientos': 'See the transactions',
   'kpi.balance': 'Balance · 1–{dia} {mes}',
   'kpi.ahorro': 'Savings rate {porcentaje}',
   'kpi.vsTramoImporte': 'vs {importe} (1–{dia} {mes})',

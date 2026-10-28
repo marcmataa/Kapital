@@ -4,8 +4,6 @@ import type es from './es';
 export default {
   'titulo': 'Estadístiques',
   'descripcion': 'Gràfics i comparatives.',
-  'selector.etiqueta': 'Mes',
-  'selector.enCurso': '{mes} · fins avui',
   'pestanas.etiqueta': 'Vista',
   'pestanas.gastos': 'Despeses',
   'pestanas.ingresos': 'Ingressos',
@@ -126,6 +124,7 @@ export default {
   'orden.importe': 'Import',
   'orden.variacion': 'Diferència',
   'filas.diferencia': 'diferència',
+  'filas.verMovimientos': 'Veure els moviments de {nombre}',
   'filas.leyendaDiferencia': '± Diferència amb el mes anterior',
   'ayuda.gastoNeto': 'Despesa neta = despeses − devolucions. No inclou traspassos ni ajustos.',
   'ayuda.ingresos': 'Ingressos del període. Les devolucions no són ingressos: resten de la despesa de la seva categoria.',

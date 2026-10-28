@@ -1,3 +1,5 @@
+import { Link } from 'react-router';
+import { ChevronRight } from 'lucide-react';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { desdeCentimos, formatearEuros, type OpcionesEuros } from '@/shared/lib/dinero';
 import { cx } from '@/shared/lib/cx';
@@ -8,6 +10,8 @@ export interface FilaVista extends FilaComparada {
   total?: boolean;
   /** Signo con que se formatean los importes (p. ej. un ajuste que resta). */
   signo?: OpcionesEuros['signo'];
+  /** Movimientos que explican la fila (auditoría F08): el nombre enlaza ahí. */
+  href?: string;
 }
 
 interface Props {
@@ -81,7 +85,18 @@ export function FilasComparadas({ filas, etiqueta, etiquetaAnterior, leyenda = t
                   {f.color !== undefined && !neutro && (
                     <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.color }} />
                   )}
-                  <span className="break-words text-texto">{f.nombre}</span>
+                  {f.href === undefined ? (
+                    <span className="break-words text-texto">{f.nombre}</span>
+                  ) : (
+                    <Link
+                      to={f.href}
+                      title={te('filas.verMovimientos', { nombre: f.nombre })}
+                      className="inline-flex items-center gap-0.5 break-words text-texto hover:underline focus-visible:outline-2 focus-visible:outline-acento"
+                    >
+                      {f.nombre}
+                      <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-tenue" />
+                    </Link>
+                  )}
                 </span>
                 <span className="cifras flex shrink-0 items-baseline gap-2 text-right">
                   {f.anterior !== null && (

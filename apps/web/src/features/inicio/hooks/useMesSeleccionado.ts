@@ -22,21 +22,45 @@ export interface MesSeleccionado {
   elegir: (mes: string) => void;
 }
 
+/** Último mes elegido en la sesión de la pestaña: Inicio y Estadísticas lo comparten (F16). */
+const CLAVE_SESION = 'kapital.mes';
+
+function leerMesSesion(): string | null {
+  try {
+    return mesDeParametro(window.sessionStorage.getItem(CLAVE_SESION));
+  } catch {
+    return null;
+  }
+}
+
+function guardarMesSesion(mes: string | null): void {
+  try {
+    if (mes === null) window.sessionStorage.removeItem(CLAVE_SESION);
+    else window.sessionStorage.setItem(CLAVE_SESION, parametroDeMes(mes));
+  } catch {
+    // Sin almacenamiento (modo privado, bloqueado): cada pantalla vuelve al mes en curso.
+  }
+}
+
 /**
- * Mes de Inicio reflejado en la URL (`?mes=2026-09`). Rango: del mes de la primera cuenta
- * (`inicioDatos`) al mes en curso. Un valor inválido o fuera de rango cae al mes en curso; el
- * mes en curso no lleva parámetro. Cambiar de mes reemplaza la entrada del historial.
+ * Mes elegido en Inicio y en Estadísticas, reflejado en la URL (`?mes=2026-09`) y compartido entre
+ * las dos pantallas durante la sesión (auditoría F16: elegir septiembre en Inicio y abrir
+ * Estadísticas muestra septiembre). Manda la URL; sin `?mes`, el último mes elegido; si no, el mes
+ * en curso. Rango: del mes de la primera cuenta (`inicioDatos`) al mes en curso. Un valor inválido
+ * o fuera de rango cae al mes en curso; el mes en curso no lleva parámetro. Cambiar de mes
+ * reemplaza la entrada del historial.
  */
 export function useMesSeleccionado(hoy: string, inicioDatos: string | null, datosCargados: boolean): MesSeleccionado {
   const [params, setParams] = useSearchParams();
   const mesActual = inicioDeMes(hoy);
   const meses = useMemo(() => mesesDisponibles(hoy, inicioDatos), [hoy, inicioDatos]);
-  const pedido = mesDeParametro(params.get(PARAMETRO_MES));
+  const pedido = mesDeParametro(params.get(PARAMETRO_MES)) ?? leerMesSesion();
   const mes = pedido !== null && meses.includes(pedido) ? pedido : mesActual;
   const i = meses.indexOf(mes);
 
   const elegir = useCallback(
     (nuevo: string) => {
+      guardarMesSesion(nuevo === mesActual ? null : nuevo);
       setParams(
         (previos) => {
           const siguientes = new URLSearchParams(previos);

@@ -1,3 +1,4 @@
+import { enlaceMovimientos } from '@/shared/lib/enlaces';
 import type { Periodo } from '../api/inicioApi';
 
 /**
@@ -5,6 +6,5 @@ import type { Periodo } from '../api/inicioApi';
  * (`?categoria=&desde=&hasta=`, ver features/movimientos/lib/filtros.ts).
  */
 export function enlaceMovimientosCategoria(categoriaId: string, { desde, hasta }: Periodo): string {
-  const params = new URLSearchParams({ categoria: categoriaId, desde, hasta });
-  return `/movimientos?${params.toString()}`;
+  return enlaceMovimientos({ categoria: categoriaId, desde, hasta });
 }

@@ -186,6 +186,71 @@ describe('Lista de movimientos', () => {
     expect(paso(rpc, 'rpc')?.[1]).toEqual({ p_q: 'cena', p_desde: null, p_hasta: null, p_categoria: null, p_metodo: null, p_cuenta: null });
   });
 
+  it('chips: dicen de qué periodo son los totales y los traspasos solo llevan el número (F09)', async () => {
+    responderCon(LISTA, (l) =>
+      l.tabla === 'rpc:totales_por_tipo' ? { data: [{ tipo: 'traspaso', n: 6, total: '539.00' }], error: null } : undefined,
+    );
+    const { unmount } = renderRuta('/movimientos');
+    const nombre = (b: HTMLElement) => (b.textContent ?? '').replace(/\s/g, ' ');
+    // Idas y vueltas entre cuentas: su suma no es ningún total.
+    await waitFor(() => expect(nombre(screen.getByRole('button', { name: /^Traspasos/ }))).toBe('Traspasos · 6'));
+    expect(screen.getByTestId('periodo-totales')).toHaveTextContent('Totales de todo el historial');
+    unmount();
+    renderRuta('/movimientos?desde=2026-10-01&hasta=2026-10-31');
+    expect(await screen.findByTestId('periodo-totales')).toHaveTextContent('Totales del 01/10/2026 al 31/10/2026');
+  });
+
+  it('filtros activos como chips con ✕ sobre la lista; quitarlos actualiza la URL (F17)', async () => {
+    responderCon(LISTA);
+    renderRuta(`/movimientos?desde=2026-10-01&hasta=2026-10-31&categoria=${ID.restaurantes}&q=cena`);
+    const grupo = await screen.findByRole('group', { name: 'Filtros activos' });
+    const chips = within(grupo).getAllByTestId('filtro-activo').map((c) => c.textContent);
+    expect(chips).toEqual(['01/10/2026 – 31/10/2026', 'Restaurantes', '«cena»']);
+    await userEvent.click(within(grupo).getByRole('button', { name: 'Quitar filtro: Restaurantes' }));
+    await waitFor(() => expect(ubicacion()).not.toContain('categoria='));
+    expect(ubicacion()).toContain('desde=2026-10-01');
+    await userEvent.click(within(grupo).getByRole('button', { name: 'Quitar todos' }));
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'Filtros activos' })).not.toBeInTheDocument());
+    expect(ubicacion()).not.toMatch(/desde=|hasta=|q=/);
+  });
+
+  it('día cortado por la paginación: su total es del día entero y se avisa de lo que falta (F09)', async () => {
+    const muchos = Array.from({ length: 51 }, (_, i) =>
+      movimiento({
+        id: `eeeeeeee-0000-4000-8000-${String(i).padStart(12, '0')}`,
+        fecha: i < 48 ? '2026-10-14' : '2026-10-13',
+        created_at: `2026-10-14T10:${String(59 - i).padStart(2, '0')}:00+00:00`,
+        concepto: `Gasto ${i}`,
+      }),
+    );
+    responderCon([], (l) => {
+      if (l.tabla === 'rpc:subtotales_por_dia') {
+        // El 13 tiene 5 movimientos; la primera página solo trae 2.
+        return { data: [{ fecha: '2026-10-14', n: 48, balance: '-480.00' }, { fecha: '2026-10-13', n: 5, balance: '-50.00' }], error: null };
+      }
+      return l.tabla === 'movimientos' ? { data: muchos, error: null } : undefined;
+    });
+    renderRuta('/movimientos');
+    expect(await screen.findByTestId('mas-del-dia')).toHaveTextContent('Ver 3 movimientos más de este día');
+    expect(screen.getAllByTestId('mas-del-dia')).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: /^13 oct/ })).toHaveTextContent('incluidos los movimientos aún no cargados');
+  });
+
+  it('atajos de periodo en el panel de filtros: este mes, mes pasado y últimos 30 días (F17)', async () => {
+    responderCon(LISTA);
+    renderRuta('/movimientos');
+    await screen.findByRole('heading', { name: /^14 oct/ });
+    await userEvent.click(screen.getByRole('button', { name: 'Filtros' }));
+    const dialogo = await screen.findByRole('dialog', { name: 'Filtros' });
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Mes pasado' }));
+    expect(within(dialogo).getByLabelText('Desde')).toHaveValue('2026-09-01');
+    expect(within(dialogo).getByLabelText('Hasta')).toHaveValue('2026-09-30');
+    expect(within(dialogo).getByRole('button', { name: 'Mes pasado' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(within(dialogo).getByRole('button', { name: 'Aplicar' }));
+    await waitFor(() => expect(ubicacion()).toContain('desde=2026-09-01'));
+    expect(ubicacion()).toContain('hasta=2026-09-30');
+  });
+
   it('escritorio sin selección: resumen del filtro activo calculado en SQL', async () => {
     responderCon(LISTA, (l) =>
       l.tabla === 'rpc:resumen_filtro'
@@ -228,11 +293,14 @@ describe('Lista de movimientos', () => {
     const fila = await screen.findByRole('link', { name: /Cena con amigos/ });
     const acciones = within(fila.closest('li') as HTMLElement).getByTestId('acciones-fila');
     expect(acciones).toHaveAttribute('inert');
+    // En reposo no asoma ni un píxel del panel por las esquinas de la fila (F12).
+    expect(acciones).toHaveClass('invisible');
 
     fireEvent.touchStart(fila, { touches: [{ clientX: 300, clientY: 20 }] });
     fireEvent.touchMove(fila, { touches: [{ clientX: 120, clientY: 24 }] });
     fireEvent.touchEnd(fila, { touches: [] });
     expect(acciones).not.toHaveAttribute('inert');
+    expect(acciones).not.toHaveClass('invisible');
     expect(within(acciones).getByRole('link', { name: 'Editar' })).toHaveAttribute('href', `/movimientos/${ID.mov2}/editar`);
 
     await userEvent.click(within(acciones).getByRole('button', { name: 'Borrar' }));

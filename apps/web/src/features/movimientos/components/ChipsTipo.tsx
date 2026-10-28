@@ -9,15 +9,19 @@ interface Props {
   onChange: (tipo: TipoMovimiento | null) => void;
   /** Número y total de cada tipo con los demás filtros (de SQL). undefined mientras carga. */
   totales?: readonly TotalTipo[] | undefined;
+  /** De qué periodo son los totales («Totales de todo el historial», «Totales del 1/10 al 31/10»). */
+  periodo: string;
 }
 
 /**
  * Chips «Todos · 120», «Gastos · 38 · −863 €»… Botones con aria-pressed (filtro de selección
  * única). Los números vienen de `totales_por_tipo`; «Todos» solo lleva el número (sumar tipos
  * distintos no tiene sentido: los traspasos y ajustes no cuentan en el balance).
- * En móvil se deslizan en horizontal con un degradado en el borde derecho.
+ * En móvil se deslizan en horizontal con un degradado en el borde derecho. Encima, de qué periodo
+ * son los totales (auditoría F09: sin filtro de fechas son de todo el historial, no del mes).
+ * Traspasos: solo el número; su importe sumaría idas y vueltas entre cuentas, que no es ningún total.
  */
-export function ChipsTipo({ valor, onChange, totales }: Props) {
+export function ChipsTipo({ valor, onChange, totales, periodo }: Props) {
   const t = useT('movimientos');
   const { locale } = useIdioma();
   const porTipo = new Map(totales?.map((x) => [x.tipo, x]));
@@ -29,7 +33,12 @@ export function ChipsTipo({ valor, onChange, totales }: Props) {
       const x = porTipo.get(tipo);
       let detalle: string | null = null;
       if (totales !== undefined) {
-        detalle = x === undefined ? '0' : `${x.n} · ${eurosRedondos(x.total, locale, signoTotalTipo(tipo))}`;
+        detalle =
+          x === undefined
+            ? '0'
+            : tipo === 'traspaso'
+              ? String(x.n)
+              : `${x.n} · ${eurosRedondos(x.total, locale, signoTotalTipo(tipo))}`;
       }
       return { valor: tipo, etiqueta: t(`chips.${tipo}`), detalle };
     }),
@@ -37,6 +46,9 @@ export function ChipsTipo({ valor, onChange, totales }: Props) {
 
   return (
     <div className="relative min-w-0 lg:flex-[1_1_auto]">
+      <p data-testid="periodo-totales" className="mb-1.5 px-1 text-xs text-apagado">
+        {periodo}
+      </p>
       <div
         role="group"
         aria-label={t('chips.etiqueta')}

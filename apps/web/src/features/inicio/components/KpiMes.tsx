@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
+import { Link } from 'react-router';
+import { ArrowDown, ArrowUp, ChevronRight, Minus } from 'lucide-react';
 import { cx } from '@/shared/lib/cx';
 import type { VariacionStat } from '@/shared/ui';
 
@@ -23,6 +24,10 @@ interface Props {
   resultado?: boolean;
   /** Botón (i) junto al título (p. ej. por qué el patrimonio no cambia lo mismo que el balance). */
   ayuda?: ReactNode;
+  /** Movimientos que explican la cifra: el título enlaza ahí (auditoría F08). */
+  enlace?: string;
+  /** Texto de ayuda del enlace (title): «Ver los movimientos». */
+  etiquetaEnlace?: string;
   children?: ReactNode;
 }
 
@@ -51,6 +56,8 @@ export function KpiMes({
   agrupado = false,
   resultado = false,
   ayuda,
+  enlace,
+  etiquetaEnlace,
   children,
 }: Props) {
   const Flecha = FLECHA[variacion?.tendencia ?? 'igual'];
@@ -69,7 +76,20 @@ export function KpiMes({
       )}
     >
       <div className={cx('flex items-center gap-1', agrupado && 'col-start-1')}>
-        <h3 className="text-sm text-apagado">{titulo}</h3>
+        <h3 className="text-sm text-apagado">
+          {enlace === undefined ? (
+            titulo
+          ) : (
+            <Link
+              to={enlace}
+              title={etiquetaEnlace}
+              className="-mx-1 inline-flex items-center gap-0.5 rounded px-1 hover:text-texto hover:underline focus-visible:outline-2 focus-visible:outline-acento"
+            >
+              {titulo}
+              <ChevronRight aria-hidden="true" className="size-3.5" />
+            </Link>
+          )}
+        </h3>
         {ayuda}
       </div>
       <p

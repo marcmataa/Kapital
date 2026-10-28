@@ -3,8 +3,6 @@ import type { Mensajes } from '@/shared/i18n/tipos';
 export default {
   'titulo': 'Estadísticas',
   'descripcion': 'Gráficos y comparativas.',
-  'selector.etiqueta': 'Mes',
-  'selector.enCurso': '{mes} · hasta hoy',
   'pestanas.etiqueta': 'Vista',
   'pestanas.gastos': 'Gastos',
   'pestanas.ingresos': 'Ingresos',
@@ -125,6 +123,7 @@ export default {
   'orden.importe': 'Importe',
   'orden.variacion': 'Diferencia',
   'filas.diferencia': 'diferencia',
+  'filas.verMovimientos': 'Ver los movimientos de {nombre}',
   'filas.leyendaDiferencia': '± Diferencia con el mes anterior',
   'ayuda.gastoNeto': 'Gasto neto = gastos − devoluciones. No incluye traspasos ni ajustes.',
   'ayuda.ingresos': 'Ingresos del periodo. Las devoluciones no son ingresos: restan del gasto de su categoría.',

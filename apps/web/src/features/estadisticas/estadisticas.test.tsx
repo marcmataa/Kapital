@@ -90,10 +90,14 @@ function montar() {
   return renderConApp(<PaginaEstadisticas />, { sesion: sesionFalsa(), ruta: '/estadisticas' });
 }
 
+/** El selector ‹ mes › de Inicio (F16): se pulsa «Mes anterior» hasta llegar al mes pedido. */
 async function elegirMes(nombre: string) {
-  const selector = await screen.findByRole('combobox', { name: 'Mes' });
-  await waitFor(() => expect(within(selector).getByRole('option', { name: nombre })).toBeInTheDocument());
-  await userEvent.selectOptions(selector, nombre);
+  const anterior = await screen.findByRole('button', { name: 'Mes anterior' });
+  for (let i = 0; i < 24 && screen.getByTestId('mes-seleccionado').textContent !== nombre; i++) {
+    await waitFor(() => expect(anterior).toBeEnabled());
+    await userEvent.click(anterior);
+  }
+  expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent(nombre);
 }
 
 beforeEach(() => {
@@ -106,6 +110,25 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe('Estadísticas: mes compartido con Inicio (F16)', () => {
+  it('abre en el mes que se eligió en otra pantalla y guarda el que se elige aquí', async () => {
+    // Lo que deja Inicio al elegir septiembre.
+    window.sessionStorage.setItem('kapital.mes', '2026-09');
+    servir({});
+    const { unmount } = montar();
+    await waitFor(() => expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent('Septiembre de 2026'));
+    unmount();
+    // Volver al mes en curso lo olvida: la siguiente pantalla abre en el mes en curso.
+    window.sessionStorage.setItem('kapital.mes', '2026-09');
+    servir({});
+    montar();
+    await waitFor(() => expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent('Septiembre de 2026'));
+    await userEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }));
+    expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent('Octubre de 2026');
+    expect(window.sessionStorage.getItem('kapital.mes')).toBeNull();
+  });
+});
+
 describe('Estadísticas: gastos', () => {
   it('sin fila de tarjetas KPI: primero el gráfico por día; pestañas y selector siguen', async () => {
     servir({});
@@ -114,7 +137,9 @@ describe('Estadísticas: gastos', () => {
     expect(screen.queryByRole('region', { name: /Comparativa con el mismo tramo/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/^Gastos netos ·/)).not.toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Gastos' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Mes' })).toBeInTheDocument();
+    // El mismo selector ‹ mes › que Inicio (F16), no un desplegable.
+    expect(screen.getByRole('group', { name: 'Mes' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Mes' })).not.toBeInTheDocument();
   });
 
   it('mes en curso: comparativa al día 19 (1–19 oct vs 1–19 sept), solo gastos y gasto medio diario', async () => {
@@ -265,6 +290,8 @@ describe('Estadísticas: gastos', () => {
     const ocio = within(lista).getByText('Ocio').closest('li') as HTMLElement;
     expect(normal(ocio.textContent)).toContain('40,00 €');
     expect(normal(ocio.textContent)).toContain('antes 25,00 €');
+    // Cada categoría abre sus movimientos del tramo (F08).
+    expect(within(ocio).getByRole('link', { name: /Ocio/ })).toHaveAttribute('href', '/movimientos?categoria=ocio&desde=2026-10-01&hasta=2026-10-19');
     expect(within(lista).queryByText('Otros gastos')).not.toBeInTheDocument();
     const negativas = screen.getByRole('list', { name: 'Categorías en negativo' });
     expect(within(negativas).getByText('-30,00 €')).toBeInTheDocument();
