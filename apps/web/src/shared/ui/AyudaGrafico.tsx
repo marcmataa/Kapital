@@ -35,7 +35,7 @@ export function AyudaGrafico({ unidad, definicion, alinear = 'derecha', classNam
         onKeyDown={(e) => {
           if (e.key === 'Escape') setAbierta(false);
         }}
-        className="inline-flex size-7 items-center justify-center rounded-full text-apagado transition-colors hover:text-texto"
+        className="area-tactil inline-flex size-7 items-center justify-center rounded-full text-apagado transition-colors hover:text-texto"
       >
         <Info aria-hidden="true" className="size-4" />
       </button>

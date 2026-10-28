@@ -199,7 +199,8 @@ export default function PaginaConfiguracion() {
         <SeccionResumen cuentas={catalogos.cuentas} categorias={catalogos.categorias} objetivos={catalogos.objetivos} />
       </ConCatalogos>
       <SeccionAtajo />
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* items-start: Apariencia mide lo suyo, sin estirarse hasta la altura de Cuenta (F19). */}
+      <div className="grid items-start gap-4 md:grid-cols-2">
         <SeccionApariencia />
         <ConCatalogos catalogos={catalogos}>
           <SeccionCuenta cuentas={catalogos.cuentas} categorias={catalogos.categorias} />

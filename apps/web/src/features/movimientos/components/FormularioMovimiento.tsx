@@ -448,7 +448,7 @@ export function FormularioMovimiento({
               aria-pressed={fecha === o.valor}
               onClick={() => setValue('fecha', o.valor, { shouldValidate: true })}
               className={cx(
-                'rounded-full border px-3.5 py-1.5 text-sm transition-colors',
+                'area-tactil rounded-full border px-3.5 py-1.5 text-sm transition-colors',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento',
                 fecha === o.valor
                   ? 'border-acento bg-acento-suave font-semibold text-texto'

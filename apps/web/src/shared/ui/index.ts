@@ -5,6 +5,7 @@ export { BankLogo } from './BankLogo';
 export { Button, clasesBoton, type ButtonProps, type VarianteBoton, type TamanoBoton } from './Button';
 export { Card } from './Card';
 export { EmptyState } from './EmptyState';
+export { Esqueleto, EsqueletoPagina, EsqueletoTarjeta } from './Esqueleto';
 export { ErrorBoundary, FallbackError } from './ErrorBoundary';
 export { Field, clasesControl, type FieldProps, type PropsControl } from './Field';
 export { Input, type InputProps } from './Input';

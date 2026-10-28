@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import { useT } from '@/shared/i18n';
-import { ErrorBoundary, PantallaCarga } from '@/shared/ui';
+import { ErrorBoundary, EsqueletoPagina } from '@/shared/ui';
 import { BannerInstalar } from './BannerInstalar';
 import { BottomNav } from './BottomNav';
 import { MobileHeader } from './MobileHeader';
@@ -38,7 +38,8 @@ export function AppLayout() {
         <BannerInstalar className="lg:hidden" />
         {/* key: al cambiar de página se recupera de un error anterior. */}
         <ErrorBoundary key={pathname}>
-          <Suspense fallback={<PantallaCarga />}>
+          {/* La forma de la página mientras se descarga, no un spinner solo (F18). */}
+          <Suspense fallback={<EsqueletoPagina />}>
             <Outlet />
           </Suspense>
         </ErrorBoundary>

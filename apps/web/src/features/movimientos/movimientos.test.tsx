@@ -533,6 +533,9 @@ describe('Formulario', () => {
     renderRuta('/movimientos/nuevo');
 
     const importe = await screen.findByLabelText('Importe');
+    // Tablet: el formulario se centra y no pasa de 640 px (F24); Hoy/Ayer, 44 px pulsables con el dedo (F27).
+    expect(importe.closest('[data-testid="contenido-formulario"]')).toHaveClass('mx-auto', 'md:max-w-[40rem]');
+    expect(screen.getByRole('button', { name: 'Hoy' })).toHaveClass('area-tactil');
     await userEvent.type(importe, '38,5');
     await elegirCategoria('Restaurantes');
     expect(screen.getByLabelText('Sale de')).toHaveValue(ID.caixa); // principal por defecto

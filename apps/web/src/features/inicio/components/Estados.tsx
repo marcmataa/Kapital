@@ -1,11 +1,9 @@
 import { useT } from '@/shared/i18n';
-import { cx } from '@/shared/lib/cx';
 import { Button } from '@/shared/ui';
 
 /** Bloque gris animado mientras cargan los datos (oculto a lectores de pantalla). */
-export function Esqueleto({ className }: { className?: string }) {
-  return <div aria-hidden="true" className={cx('animate-pulse rounded-xl bg-superficie-2', className)} />;
-}
+// El de toda la app (shared/ui): mismo aspecto y respeta prefers-reduced-motion.
+export { Esqueleto } from '@/shared/ui';
 
 /** Error de carga de una tarjeta con botón «Reintentar». */
 export function ErrorCarga({ onReintentar }: { onReintentar: () => void }) {

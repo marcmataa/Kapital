@@ -178,6 +178,26 @@
   );
 }
 
+/*
+ * Área táctil mínima de 44 × 44 px con el dedo (pointer: coarse), sin cambiar el tamaño visual:
+ * un ::after transparente, centrado, que recibe el toque (auditoría F27; WCAG 2.5.8 pide 24 px,
+ * las guías táctiles 44 px). Con ratón no cambia nada.
+ */
+@utility area-tactil {
+  position: relative;
+  @media (pointer: coarse) {
+    &::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
 /* Capas (z-index). Todas definidas: nada de variables sin declarar. */
 :root {
   --z-nav: 40;
@@ -199,6 +219,9 @@
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
+    /* Hueco de la barra de scroll siempre reservado: al pasar de «cargando» (sin scroll) a la página
+       (con scroll) la cabecera no se desplaza unos píxeles (auditoría F18). */
+    scrollbar-gutter: stable;
   }
   img,
   svg,

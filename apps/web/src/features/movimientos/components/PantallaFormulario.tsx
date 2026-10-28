@@ -35,7 +35,11 @@ export function PantallaFormulario({ titulo, volverA, children }: Props) {
         <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight text-texto lg:text-3xl">{titulo}</h1>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pt-4 lg:overflow-visible lg:rounded-2xl lg:border lg:border-borde lg:bg-superficie lg:p-5">
-        {children}
+        {/* Tablet (md–lg): el formulario no pasa de 640 px y se centra; campos de 860 px para un
+            importe de 6 cifras se leen peor (auditoría F24). En escritorio ya lo limita max-w-xl. */}
+        <div data-testid="contenido-formulario" className="mx-auto w-full md:max-w-[40rem]">
+          {children}
+        </div>
       </div>
     </div>
   );

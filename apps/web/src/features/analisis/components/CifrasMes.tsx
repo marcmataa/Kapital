@@ -10,12 +10,26 @@ function tonoDe(valor: string): string {
   return c < 0n ? 'text-negativo' : c > 0n ? 'text-positivo' : 'text-texto';
 }
 
-function Cifra({ titulo, valor, clase, children }: { titulo: string; valor: string; clase: string; children: ReactNode }) {
+function Cifra({
+  titulo,
+  valor,
+  clase,
+  nota,
+  children,
+}: {
+  titulo: string;
+  valor: string;
+  clase: string;
+  /** Aclaración aparte, en su propio párrafo y más pequeña (auditoría F20). */
+  nota?: string | undefined;
+  children: ReactNode;
+}) {
   return (
     <article className="flex min-w-0 flex-col gap-1.5 rounded-2xl border border-borde bg-superficie p-4 shadow-tarjeta sm:p-5">
       <h3 className="text-sm text-apagado">{titulo}</h3>
       <p className={cx('cifras truncate text-2xl font-bold tracking-tight sm:text-[1.75rem]', clase)}>{valor}</p>
       <p className="text-xs text-apagado sm:text-sm">{children}</p>
+      {nota !== undefined && <p className="text-xs text-tenue">{nota}</p>}
     </article>
   );
 }
@@ -40,13 +54,17 @@ export function CifrasMes({ datos }: { datos: DatosAnalisis }) {
       <Cifra titulo={t('cifras.ahorro')} valor={formatearPorcentaje(resumen.ahorro_pct, locale)} clase="text-texto">
         {resumen.ahorro_pct === null ? t('cifras.ahorroSinIngresos') : t('cifras.ahorroDetalle')}
       </Cifra>
-      <Cifra titulo={t('cifras.variacion')} valor={conSigno(variacion.variacion)} clase={tonoDe(variacion.variacion)}>
+      <Cifra
+        titulo={t('cifras.variacion')}
+        valor={conSigno(variacion.variacion)}
+        clase={tonoDe(variacion.variacion)}
+        nota={saldos ? t('cifras.variacionSaldos', { saldos: euros(variacion.saldos_iniciales) }) : undefined}
+      >
         {t('cifras.variacionDetalle', {
           balance: euros(variacion.balance),
           revalorizacion: euros(variacion.revalorizacion),
           ajustes: euros(variacion.ajustes),
         })}
-        {saldos && ` ${t('cifras.variacionSaldos', { saldos: euros(variacion.saldos_iniciales) })}`}
       </Cifra>
     </section>
   );

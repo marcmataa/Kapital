@@ -213,7 +213,7 @@ describe('Detalle del análisis', () => {
     expect(within(cifras).getByText('1.508,00 € ingresos − 1.168,28 € gastos netos')).toBeInTheDocument();
     expect(within(cifras).getByText('22,5 %')).toBeInTheDocument();
     expect(within(cifras).getByText('+367,16 €')).toBeInTheDocument();
-    expect(within(cifras).getByText('Balance 339,72 € + revalorización 27,44 € + ajustes 0,00 €')).toBeInTheDocument();
+    expect(within(cifras).getByText('Balance 339,72 € + revalorización 27,44 € + ajustes 0,00 €.')).toBeInTheDocument();
 
     // Reparto de Inicio: la categoría negativa no entra en la barra (2 arcos), pero se lista.
     expect(screen.getAllByTestId('tramo-categoria')).toHaveLength(2);
@@ -384,7 +384,11 @@ describe('Detalle del análisis', () => {
     servir({ detalle: { ...FILA, datos: { ...DATOS, variacion }, contenido: CONTENIDO } });
     montarDetalle();
     const cifras = await screen.findByRole('region', { name: 'Cifras del mes' });
-    expect(within(cifras).getByText(/Patrimonio de partida con 1\.013,42 € de saldos iniciales/)).toBeInTheDocument();
+    const nota = within(cifras).getByText(/Patrimonio de partida con 1\.013,42 € de saldos iniciales/);
+    // La nota va en su propio párrafo, separada de la fórmula (F20).
+    expect(nota.tagName).toBe('P');
+    expect(nota).not.toHaveTextContent('revalorización');
+    expect(within(cifras).getByText(/^Balance .* \+ ajustes 0,00 €\.$/)).toBeInTheDocument();
     expect(within(cifras).queryByText('+1.353,14 €')).not.toBeInTheDocument();
   });
 
