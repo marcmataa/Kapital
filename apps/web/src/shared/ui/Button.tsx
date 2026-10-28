@@ -23,7 +23,8 @@ const VARIANTES: Record<VarianteBoton, string> = {
 };
 
 const TAMANOS: Record<TamanoBoton, string> = {
-  sm: 'h-8 px-3 text-sm gap-1.5 rounded-lg',
+  // 32 px a la vista; 44 px pulsables con el dedo (area-tactil, F27).
+  sm: 'h-8 px-3 text-sm gap-1.5 rounded-lg area-tactil',
   md: 'h-11 px-4 text-sm gap-2 rounded-xl',
   lg: 'h-12 px-5 text-base gap-2 rounded-xl',
 };

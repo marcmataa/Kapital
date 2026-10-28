@@ -27,7 +27,7 @@ export default {
   'cifras.ahorroDetalle': 'Balance / ingresos',
   'cifras.ahorroSinIngresos': 'Sin ingresos este mes',
   'cifras.variacion': 'Variación patrimonial',
-  'cifras.variacionDetalle': 'Balance {balance} + revalorización {revalorizacion} + ajustes {ajustes}',
+  'cifras.variacionDetalle': 'Balance {balance} + revalorización {revalorizacion} + ajustes {ajustes}.',
   'cifras.variacionSaldos': 'Patrimonio de partida con {saldos} de saldos iniciales de cuentas nuevas (no son ganancia).',
   'categorias.titulo': 'Gastos por categoría',
   'categorias.vacio': 'No hubo gastos este mes.',

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Button, Card, Spinner } from '@/shared/ui';
+import { Button, Card, EsqueletoTarjeta } from '@/shared/ui';
 import { useT } from '@/shared/i18n';
 import type { ErrorApi } from '@/app/api';
 
@@ -31,11 +31,6 @@ export function EstadoConsulta<T>({ datos, cargando, error, reintentar, children
       </Card>
     );
   }
-  return (
-    <Card>
-      <div className="flex justify-center py-8">
-        <Spinner />
-      </div>
-    </Card>
-  );
+  // Cargando: la forma de la tarjeta, no un spinner (F18).
+  return <EsqueletoTarjeta />;
 }

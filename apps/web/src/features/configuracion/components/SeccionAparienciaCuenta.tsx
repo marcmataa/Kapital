@@ -135,9 +135,11 @@ export function SeccionCuenta({ cuentas, categorias, conCerrarSesion = true }: P
       <div className="flex flex-col gap-2 border-t border-borde pt-3">
         <h3 className="text-sm font-semibold text-negativo">{t('eliminar.titulo')}</h3>
         <p className="text-sm text-apagado">{t('eliminar.descripcion')}</p>
+        {/* Contorno rojo: la acción destructiva rellena va en el diálogo, tras escribir el email (F19). */}
         <Button
-          variante="peligro"
-          className="self-start"
+          variante="secundario"
+          data-testid="boton-eliminar-cuenta"
+          className="self-start border-negativo text-negativo hover:bg-negativo-suave"
           icono={<Trash2 aria-hidden="true" className="size-4" />}
           onClick={() => setEliminando(true)}
         >

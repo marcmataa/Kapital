@@ -852,7 +852,11 @@ describe('Eliminar cuenta', () => {
   const sesionAna = () => sesionFalsa(USER, { email: 'ana@ejemplo.com' });
 
   async function abrirPaso2() {
-    await userEvent.click(await screen.findByRole('button', { name: 'Eliminar cuenta' }));
+    const boton = await screen.findByRole('button', { name: 'Eliminar cuenta' });
+    // De contorno: la acción rellena en rojo es la confirmación del diálogo, no la entrada (F19).
+    expect(boton).toHaveClass('border-negativo', 'text-negativo');
+    expect(boton).not.toHaveClass('bg-negativo');
+    await userEvent.click(boton);
     const hoja = screen.getByRole('dialog', { name: 'Eliminar cuenta' });
     expect(within(hoja).getByText(/No se puede deshacer/)).toBeInTheDocument();
     await userEvent.click(within(hoja).getByRole('button', { name: 'Continuar' }));

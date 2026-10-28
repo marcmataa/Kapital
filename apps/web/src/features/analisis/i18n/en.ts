@@ -28,7 +28,7 @@ export default {
   'cifras.ahorroDetalle': 'Balance / income',
   'cifras.ahorroSinIngresos': 'No income this month',
   'cifras.variacion': 'Net worth change',
-  'cifras.variacionDetalle': 'Balance {balance} + revaluation {revalorizacion} + adjustments {ajustes}',
+  'cifras.variacionDetalle': 'Balance {balance} + revaluation {revalorizacion} + adjustments {ajustes}.',
   'cifras.variacionSaldos': 'Starting net worth includes {saldos} of opening balances of new accounts (not a gain).',
   'categorias.titulo': 'Spending by category',
   'categorias.vacio': 'No spending this month.',

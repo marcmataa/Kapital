@@ -28,7 +28,7 @@ export default {
   'cifras.ahorroDetalle': 'Balanç / ingressos',
   'cifras.ahorroSinIngresos': 'Sense ingressos aquest mes',
   'cifras.variacion': 'Variació patrimonial',
-  'cifras.variacionDetalle': 'Balanç {balance} + revaloració {revalorizacion} + ajustos {ajustes}',
+  'cifras.variacionDetalle': 'Balanç {balance} + revaloració {revalorizacion} + ajustos {ajustes}.',
   'cifras.variacionSaldos': 'Patrimoni de partida amb {saldos} de saldos inicials de comptes nous (no són guany).',
   'categorias.titulo': 'Despeses per categoria',
   'categorias.vacio': 'No hi va haver despeses aquest mes.',
