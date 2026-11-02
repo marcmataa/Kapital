@@ -79,6 +79,7 @@ Gasto neto de una compra        = Importe del gasto − Σ sus devoluciones   (n
 - **Devoluciones antiguas que incumplen las reglas:** también se marcan para revisión, sin cambiar su fecha ni su categoría automáticamente. Son las vinculadas con fecha anterior a su compra y las vinculadas con una categoría distinta de la de su gasto.
 - **El gasto original no se borra:** un gasto con devoluciones vinculadas no se puede borrar. El aviso dice cuántas devoluciones tiene y cuánto suman. No se borran ni se desvinculan solas.
 - **Cambiar el gasto original:** se puede corregir a qué gasto pertenece una devolución, pero solo editando esa devolución. Hay que confirmar de forma explícita que el nuevo gasto es la compra que de verdad se devolvió. No se ofrece como atajo para desbloquear el borrado del gasto anterior.
+- **Una devolución que cubre varios gastos:** *(Cambio del 02/11/2026: una devolución que cubre varios gastos, por ejemplo un Bizum de 56 € por varias clases de pádel, se registra como una devolución por gasto. Todas se guardan a la vez, con la misma fecha, cuenta, concepto, método y notas; cada una va vinculada a su gasto, con su importe y la categoría de ese gasto, y quedan agrupadas en un mismo «grupo de devolución». El total se reparte llenando lo pendiente de cada gasto en el orden elegido y se puede ajustar a mano, pero la suma tiene que cuadrar con lo recibido. Si lo recibido supera lo pendiente de los gastos elegidos, cada gasto se devuelve entero y el sobrante se registra como un ingreso, en Otros ingresos por defecto (se puede elegir otra categoría de ingreso), con la misma fecha y cuenta y en el mismo grupo. El sobrante sí suma a los ingresos; las devoluciones, no. Ninguna devolución supera lo pendiente de su gasto. Al editar, cada devolución se edita sola, como una más.)*
 
 ## 4. Patrimonio
 
@@ -252,6 +253,8 @@ Estos son los casos que ya han aparecido en tus datos y cómo se registran para 
 | Un regalo de cumpleaños por Bizum | Ingreso, categoría Otros ingresos | Suma a ingresos |
 | El saldo de la app no coincide con el banco | Ajuste por la diferencia, con nota | Ninguno; se muestra aparte |
 | Pagas una cena de 80 € y te deben 60 € que aún no han pagado | Gasto de 80 €; cuando llegue el Bizum, Devolución de 60 € con su fecha real, vinculada a la cena | El mes de la cena cuenta 80 € hasta que llega el dinero y 20 € desde entonces, aunque el Bizum llegue el mes siguiente |
+| Un amigo te paga de una vez varias clases de pádel que pagaste tú | Una Devolución por clase, guardadas a la vez y agrupadas, cada una vinculada a su clase y con su parte del Bizum | Baja el gasto de cada clase en su mes |
+| Te devuelven más de lo que queda por devolver de la compra | Devolución por lo pendiente + Ingreso por el sobrante (Otros ingresos por defecto), en el mismo grupo | La compra queda a 0 €; el sobrante suma a ingresos |
 
 Regla de fechas: cada movimiento lleva la fecha en que ocurrió. Si apuntas el martes un gasto del sábado, su fecha es el sábado; la hora de registro se guarda aparte, solo como dato técnico. Una devolución lleva la fecha real del reembolso y se imputa a la fecha de su compra (sección 3).
 
@@ -262,7 +265,7 @@ Con cinco tablas se pueden calcular todas las medidas de este documento; la clav
 | Tabla | Campos clave | Para qué sirve |
 |---|---|---|
 | cuentas | nombre, tipo (banco, efectivo, inversión, pasivo, por cobrar), saldo inicial, fecha de partida, fecha de cierre, principal | Saber qué tienes y desde cuándo |
-| movimientos | fecha, hora, tipo, importe (positivo), categoría, método, cuenta origen, cuenta destino, concepto, comercio, devolución de, origen del registro | Balance, categorías, métodos y saldos de bancos y efectivo |
+| movimientos | fecha, hora, tipo, importe (positivo), categoría, método, cuenta origen, cuenta destino, concepto, comercio, devolución de, grupo de devolución, origen del registro | Balance, categorías, métodos y saldos de bancos y efectivo |
 | valoraciones | cuenta, fecha, valor, nota; una por cuenta y día | Valor real de las inversiones en cualquier fecha |
 | categorias | nombre, tipo (gasto o ingreso), color, icono, orden | Agrupar gastos e ingresos |
 | objetivos | tipo (ahorro mensual o límite de categoría), categoría, importe | Barras de objetivos del resumen |
@@ -278,6 +281,8 @@ Qué cuenta usa cada tipo de movimiento:
 | Ajuste | Una de las dos, según el signo | Una de las dos, según el signo |
 
 Cambios pendientes en el schema.sql que ya tienes: añadir el campo tipo a cuentas, la tabla valoraciones, la categoría de ingreso Rendimientos y la fecha de cierre de cuenta. Hoy cada movimiento guarda una única cuenta_id más cuenta_destino_id para traspasos; funciona igual, pero conviene documentarlo con esta tabla.
+
+*(Cambio del 02/11/2026: movimientos tiene además `grupo_devolucion`, opcional. Agrupa las filas que se guardaron juntas al registrar una devolución que cubre varios gastos: una devolución por gasto y, si sobró dinero, el ingreso del sobrante. Solo lo llevan devoluciones e ingresos; no cambia ningún cálculo, solo permite enseñar juntas las partes de la misma devolución.)*
 
 ## 11. Casos de prueba
 
@@ -305,5 +310,7 @@ Datos de partida para las pruebas de inversión: Trade Republic vale 1.472,56 �
 - [ ] Resumen del filtro *(cifras inventadas)*: con un ingreso de 100,00 €, un gasto de 30,00 €, una devolución de 10,00 € y un traspaso de 50,00 € en el filtro, da Entradas 110,00 € (de ellas 10,00 € de devoluciones), Salidas 30,00 € y Neto 80,00 €, con el traspaso aparte; los ingresos del periodo siguen siendo 100,00 €.
 - [ ] Devoluciones que superan el gasto *(cifras inventadas)*: con un gasto de 80,00 € y una devolución vinculada de 60,00 €, otra de 20,01 € se rechaza y otra de 20,00 € se acepta (gasto neto 0,00 €, nunca negativo).
 - [ ] Borrar el gasto original *(cifras inventadas)*: un gasto con una devolución vinculada no se puede borrar; al borrar antes la devolución, sí.
+- [ ] Devolución repartida entre varios gastos *(cifras inventadas, 02/11/2026)*: con tres clases de pádel de 20,00 € en Deporte, un Bizum de 56,00 € se guarda como tres devoluciones de 20,00 €, 20,00 € y 16,00 €, cada una vinculada a su clase, con la misma fecha, cuenta y concepto y el mismo grupo. Deporte queda en 4,00 € de gasto neto y los ingresos no cambian. Si una de las tres partes no se puede guardar, no se guarda ninguna.
+- [ ] Sobrante como ingreso *(cifras inventadas, 02/11/2026)*: con una cena de 50,00 € sin devoluciones, un Bizum de 60,00 € se guarda como una devolución de 50,00 € vinculada a la cena y un ingreso de 10,00 € en Otros ingresos, en el mismo grupo. La cena queda en 0,00 € de gasto neto, los ingresos suben 10,00 € y el balance, 60,00 €.
 - [ ] Porcentaje con base cero: si el mes anterior tuvo 0 € de ingresos, la tarjeta dice «Sin datos del mes anterior».
 - [ ] Importes positivos: la base rechaza un importe negativo o cero. Un importe que llega como «-24» se normaliza a 24,00 € (parser propio, sin depender del canal), y una devolución con ese importe, vinculada a su gasto, se guarda como 24,00 € con tipo Devolución.

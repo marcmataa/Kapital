@@ -4,11 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import { Info, TriangleAlert } from 'lucide-react';
 import type { Categoria, Cuenta } from '@/shared/api/catalogos';
+import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
-import { aCentimos, desdeCentimos, formatearEuros } from '@/shared/lib/dinero';
-import { sumarDias } from '@/shared/lib/fechas';
+import { aCentimos, desdeCentimos, formatearEuros, importePositivo } from '@/shared/lib/dinero';
+import { formatearFecha, sumarDias } from '@/shared/lib/fechas';
 import { Field, Input, MoneyInput, SegmentedControl, Select, clasesControl, importeParaEditar } from '@/shared/ui';
 import {
   useMovimientosActualizarMutation,
@@ -18,10 +19,12 @@ import {
 } from '../api/movimientosApi';
 import {
   useMovimientosCategoriasUsadasQuery,
+  useMovimientosRegistrarDevolucionesMutation,
   useMovimientosSugerirCategoriaQuery,
   type GastoDevolvible,
 } from '../api/sqlApi';
 import { claveErrorMovimiento } from '../api/errores';
+import { repartirDevolucion, repartoValido } from '../lib/reparto';
 import { METODOS, type MetodoPago, type Movimiento, type TipoMovimiento } from '../lib/tipos';
 import {
   CONCEPTO_MAXIMO,
@@ -38,6 +41,7 @@ import {
 } from '../schemas/movimiento';
 import { AjusteSaldoReal, PieFormulario } from './AjusteSaldoReal';
 import { SelectorCategoria, SelectorTipo } from './SelectoresFormulario';
+import { RepartoDevolucion } from './RepartoDevolucion';
 import { SelectorGastoOriginal } from './SelectorGastoOriginal';
 
 interface Props {
@@ -105,9 +109,11 @@ export function FormularioMovimiento({
 }: Props) {
   const t = useT('movimientos');
   const nombreCuenta = useNombreCuenta();
+  const nombreCategoria = useNombreCategoria();
   const { locale } = useIdioma();
   const [crear] = useMovimientosCrearMutation();
   const [actualizar] = useMovimientosActualizarMutation();
+  const [registrarDevoluciones] = useMovimientosRegistrarDevolucionesMutation();
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
   // Si el usuario elige la cuenta (o la categoría) a mano, nada la cambia por él.
   const [cuentaTocada, setCuentaTocada] = useState(original !== undefined);
@@ -161,8 +167,32 @@ export function FormularioMovimiento({
   );
   const gastoElegido = gastoEscogido ?? (gastoInicial?.id === devolucionDe ? gastoInicial : null);
   const vinculado = tipo === 'devolucion' && gastoElegido?.id === devolucionDe ? gastoElegido : null;
-  const pendiente = vinculado?.pendiente ?? null;
-  const fechaGasto = vinculado?.fecha ?? null;
+
+  // Devolución NUEVA: uno o varios gastos (una devolución por gasto) y, si sobra, un ingreso
+  // (reglas, sección 3, cambio del 02/11/2026). Al editar se edita solo esa fila, como siempre.
+  const varios = tipo === 'devolucion' && original === undefined;
+  const [seleccion, setSeleccion] = useState<GastoDevolvible[]>([]);
+  const [manuales, setManuales] = useState<Record<string, string>>({});
+  const [importeAuto, setImporteAuto] = useState(false);
+  // Se intentó guardar con un reparto que no cuadra: el aviso se queda hasta que cuadre.
+  const [repartoIntentado, setRepartoIntentado] = useState(false);
+  const categoriasIngreso = categorias.filter((c) => c.tipo === 'ingreso' && !c.archivada);
+  const otrosIngresos = categoriasIngreso.find((c) => c.clave === 'otros_ingresos')?.id ?? '';
+  const [categoriaSobranteElegida, setCategoriaSobrante] = useState<string | null>(null);
+  const categoriaSobrante = categoriaSobranteElegida ?? otrosIngresos;
+  const total = importePositivo(importeTexto, locale);
+  const reparto = varios
+    ? repartirDevolucion(
+        total,
+        seleccion,
+        Object.fromEntries(Object.entries(manuales).map(([id, texto]) => [id, importePositivo(texto, locale)])),
+      )
+    : null;
+
+  const pendiente = varios ? null : (vinculado?.pendiente ?? null);
+  const fechaGasto = varios
+    ? (seleccion.map((g) => g.fecha).sort().at(-1) ?? null)
+    : (vinculado?.fecha ?? null);
 
   const esquema = useMemo(
     () =>
@@ -236,6 +266,8 @@ export function FormularioMovimiento({
     if (nuevo !== 'devolucion') {
       setValue('devolucion_de', '');
       setGastoEscogido(null);
+      setSeleccion([]);
+      setManuales({});
     }
     if (nuevo === 'traspaso' && destinoId === cuentaId) setValue('cuenta_destino_id', '');
     // Método por defecto según el tipo (tarjeta en gastos; sin indicar en el resto), si no lo eligió el usuario.
@@ -258,8 +290,56 @@ export function FormularioMovimiento({
     if (getValues('importe').trim() === '') setValue('importe', importeParaEditar(g.pendiente, locale));
   };
 
+  /**
+   * Devolución nueva: marca o desmarca un gasto (en el orden en que se marcan). Nunca se marca
+   * solo. El primero rellena la cuenta (editable). Si el importe está vacío (o lo rellenamos
+   * nosotros), pasa a ser lo pendiente de todos los marcados; si lo escribió el usuario, se reparte.
+   */
+  const alternarGasto = (g: GastoDevolvible) => {
+    const marcado = seleccion.some((x) => x.id === g.id);
+    const nueva = marcado ? seleccion.filter((x) => x.id !== g.id) : [...seleccion, g];
+    setSeleccion(nueva);
+    if (marcado) {
+      setManuales((m) => Object.fromEntries(Object.entries(m).filter(([id]) => id !== g.id)));
+    }
+    setValue('devolucion_de', nueva[0]?.id ?? '', { shouldValidate: nueva.length > 0 });
+    const primero = nueva[0];
+    if (!marcado && nueva.length === 1 && primero && cuentaUsable(cuentas.find((c) => c.id === primero.cuenta_id))) {
+      setValue('cuenta_id', primero.cuenta_id);
+      setCuentaTocada(true);
+    }
+    if (getValues('importe').trim() === '' || importeAuto) {
+      const suma = nueva.reduce((s, x) => s + aCentimos(x.pendiente), 0n);
+      setValue('importe', suma > 0n ? importeParaEditar(desdeCentimos(suma), locale) : '');
+      setImporteAuto(suma > 0n);
+    }
+  };
+
   const enviar = handleSubmit(async (payload) => {
     setErrorEnvio(null);
+    if (varios) {
+      if (!repartoValido(reparto)) {
+        setRepartoIntentado(true);
+        return;
+      }
+      const r = await registrarDevoluciones({
+        fecha: payload.fecha,
+        cuenta: payload.cuenta_id,
+        concepto: payload.concepto,
+        metodo: payload.metodo,
+        notas: payload.notas,
+        repartos: reparto.lineas.map((l) => ({ gasto: l.id, importe: l.importe ?? '' })),
+        sobrante: reparto.sobrante,
+        categoriaSobrante: reparto.sobrante === null || categoriaSobrante === '' ? null : categoriaSobrante,
+      });
+      if ('error' in r) {
+        setErrorEnvio(t(claveErrorMovimiento(r.error)));
+        return;
+      }
+      toast.success(t('form.creado'));
+      onGuardado();
+      return;
+    }
     const r = original === undefined ? await crear(payload) : await actualizar({ id: original.id, payload });
     if ('error' in r) {
       setErrorEnvio(t(claveErrorMovimiento(r.error)));
@@ -301,6 +381,46 @@ export function FormularioMovimiento({
     ajuste: t('form.cuentaAjuste'),
   }[tipo];
   const aviso = MENSAJE_TIPO[tipo];
+
+  // Lo que queda por devolver del gasto: al editar, el vinculado; en una nueva, si hay uno solo.
+  const ayudaPendiente = varios ? (seleccion.length === 1 ? (seleccion[0]?.pendiente ?? null) : null) : pendiente;
+  const nombreCategoriaDe = (id: string) => {
+    const c = categorias.find((x) => x.id === id);
+    return c ? nombreCategoria(c) : t('meta.sinCategoria');
+  };
+  const textoGasto = (g: GastoDevolvible) =>
+    g.comercio !== null && g.comercio !== '' && g.comercio !== g.concepto ? `${g.concepto} · ${g.comercio}` : g.concepto;
+  const datosGasto = (g: GastoDevolvible) =>
+    [
+      formatearFecha(g.fecha, locale, 'corta'),
+      t('form.candidatoImporte', { importe: formatearEuros(g.importe, locale) }),
+      t('form.candidatoQueda', { pendiente: formatearEuros(g.pendiente, locale) }),
+    ].join(' · ');
+  const resumenSeleccion =
+    seleccion.length === 1 && seleccion[0] ? (
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs text-apagado">{t('form.gastoElegido')}</span>
+        <span className="font-medium text-texto">{textoGasto(seleccion[0])}</span>
+        <span className="text-xs text-apagado tabular-nums">{datosGasto(seleccion[0])}</span>
+        <span className="text-xs text-apagado">
+          {t('form.categoriaHeredada', { categoria: nombreCategoriaDe(seleccion[0].categoria_id) })}
+        </span>
+      </div>
+    ) : (
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-apagado">{t('form.gastosElegidos', { n: seleccion.length })}</span>
+        <ul className="flex flex-col gap-1">
+          {seleccion.map((g) => (
+            <li key={g.id} className="flex flex-col">
+              <span className="font-medium text-texto">{textoGasto(g)}</span>
+              <span className="text-xs text-apagado tabular-nums">
+                {datosGasto(g)} · {nombreCategoriaDe(g.categoria_id)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   // En un traspaso se ve el saldo de cada cuenta («BBVA · 98,32 €», de v_saldos).
   const opcionCuenta = (c: Cuenta) =>
     tipo === 'traspaso' && c.valor !== null ? `${nombreCuenta(c)} · ${formatearEuros(c.valor, locale)}` : nombreCuenta(c);
@@ -343,13 +463,19 @@ export function FormularioMovimiento({
           <MoneyInput
             label={t('form.importe')}
             value={field.value}
-            onChange={field.onChange}
+            onChange={(texto) => {
+              // Normalizar al salir no cuenta como escribirlo el usuario.
+              if (importePositivo(texto, locale) !== importePositivo(field.value, locale)) setImporteAuto(false);
+              field.onChange(texto);
+            }}
             onBlur={field.onBlur}
             name={field.name}
             ref={field.ref}
             error={fieldState.error?.message}
             ayuda={
-              pendiente !== null ? t('form.gastoOriginalQueda', { pendiente: formatearEuros(pendiente, locale) }) : undefined
+              ayudaPendiente !== null
+                ? t('form.gastoOriginalQueda', { pendiente: formatearEuros(ayudaPendiente, locale) })
+                : undefined
             }
             className="[&_input]:h-14 [&_input]:text-2xl [&_input]:font-semibold [&_input]:tabular-nums"
           />
@@ -383,7 +509,38 @@ export function FormularioMovimiento({
         {...register('concepto')}
       />
 
-      {tipo === 'devolucion' && (
+      {varios && (
+        <>
+          <SelectorGastoOriginal
+            multiple
+            seleccion={seleccion}
+            onAlternar={alternarGasto}
+            resumen={resumenSeleccion}
+            concepto={concepto}
+            importe={importeTexto}
+            fecha={fecha}
+            excluir={null}
+            categorias={categorias}
+            error={errors.devolucion_de?.message}
+          />
+          {seleccion.length > 0 && (
+            <RepartoDevolucion
+              seleccion={seleccion}
+              reparto={reparto}
+              total={total}
+              manuales={manuales}
+              onImporte={(id, texto) => setManuales((m) => ({ ...m, [id]: texto }))}
+              onRepartir={() => setManuales({})}
+              onQuitar={alternarGasto}
+              categoriasIngreso={categoriasIngreso}
+              categoriaSobrante={categoriaSobrante}
+              onCategoriaSobrante={setCategoriaSobrante}
+            />
+          )}
+        </>
+      )}
+
+      {tipo === 'devolucion' && !varios && (
         <SelectorGastoOriginal
           valor={devolucionDe}
           elegido={vinculado}
@@ -521,6 +678,12 @@ export function FormularioMovimiento({
           />
         )}
       </Field>
+
+      {varios && repartoIntentado && !repartoValido(reparto) && (
+        <p role="alert" className="rounded-xl bg-negativo-suave px-3 py-2.5 text-sm font-medium text-negativo">
+          {t('form.repartoRevisa')}
+        </p>
+      )}
 
       {errorEnvio !== null && (
         <p role="alert" className="rounded-xl bg-negativo-suave px-3 py-2.5 text-sm font-medium text-negativo">

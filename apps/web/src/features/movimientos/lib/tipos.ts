@@ -55,10 +55,12 @@ export interface Movimiento {
   cuenta_id: string;
   cuenta_destino_id: string | null;
   devolucion_de: string | null;
+  /** Filas guardadas juntas por registrar_devoluciones (una devolución por gasto + el ingreso del sobrante). */
+  grupo_devolucion: string | null;
   notas: string | null;
   origen: OrigenMovimiento;
   created_at: string;
 }
 
 export const COLUMNAS_MOVIMIENTO =
-  'id, fecha, hora, concepto, comercio, tipo, importe::text, sentido, categoria_id, metodo, cuenta_id, cuenta_destino_id, devolucion_de, notas, origen, created_at';
+  'id, fecha, hora, concepto, comercio, tipo, importe::text, sentido, categoria_id, metodo, cuenta_id, cuenta_destino_id, devolucion_de, grupo_devolucion, notas, origen, created_at';

@@ -814,6 +814,7 @@ describe('Formulario', () => {
 describe('Devolución: gasto original obligatorio', () => {
   const ID_AMAZON = 'eeeeeeee-0000-4000-8000-000000000001';
   const ID_IKEA = 'eeeeeeee-0000-4000-8000-000000000002';
+  const ID_OTROS = 'cccccccc-cccc-4ccc-8ccc-ccccccccccc2';
 
   function candidato(c: Partial<GastoDevolvible> & Pick<GastoDevolvible, 'id' | 'concepto'>): GastoDevolvible {
     return {
@@ -852,8 +853,14 @@ describe('Devolución: gasto original obligatorio', () => {
   function responderDevolucion(
     movs: Movimiento[],
     o: { sugerencias?: GastoDevolvible[] | 'error'; recientes?: GastoDevolvible[]; busqueda?: GastoDevolvible[] } = {},
+    categorias?: typeof CATEGORIAS,
+    errorRpc?: { code: string; message: string },
   ) {
     responderCon(movs, (l) => {
+      if (categorias && l.tabla === 'categorias') return { data: categorias, error: null };
+      if (l.tabla === 'rpc:registrar_devoluciones') {
+        return errorRpc ? { data: null, error: errorRpc } : { data: [{ id: 'nuevo' }], error: null };
+      }
       if (l.tabla === 'movimientos' && operacion(l) === 'insert') return { data: { id: 'nuevo' }, error: null };
       if (l.tabla === 'movimientos' && operacion(l) === 'update') return { data: [{ id: ID.mov1 }], error: null };
       if (l.tabla !== 'rpc:buscar_gastos_devolvibles') return undefined;
@@ -867,36 +874,54 @@ describe('Devolución: gasto original obligatorio', () => {
     });
   }
 
-  const insertado = () => paso(llamadasMovimientos('insert')[0], 'insert')?.[1];
-
   async function abrirDevolucion() {
     renderRuta('/movimientos/nuevo');
     await userEvent.click(await screen.findByRole('radio', { name: 'Devolución' }));
   }
 
-  it('orden: Importe → Concepto → Gasto original → Cuenta…; sin selector de categoría ni «Sin vincular»', async () => {
+  /** Despliega la lista plegada de gastos recientes y la devuelve. */
+  async function verRecientes() {
+    const boton = await screen.findByRole('button', { name: 'Ver gastos recientes' });
+    expect(boton).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(boton);
+    expect(screen.getByRole('button', { name: 'Ocultar gastos recientes' })).toHaveAttribute('aria-expanded', 'true');
+    return screen.findByRole('group', { name: 'Gastos recientes' });
+  }
+
+  const llamadasRegistrar = () =>
+    db().llamadas.filter((l) => l.tabla === 'rpc:registrar_devoluciones').map((l) => paso(l, 'rpc')?.[1]);
+
+  it('orden: Importe → Concepto → Gasto original → Cuenta…; recientes plegados; sin selector de categoría ni «Sin vincular»', async () => {
     responderDevolucion([]);
     await abrirDevolucion();
+    // Plegados: no se piden ni se pintan hasta pulsar el botón (Guardar queda cerca).
+    expect(screen.queryByRole('group', { name: 'Gastos recientes' })).not.toBeInTheDocument();
+    expect(llamadasBuscar().filter((a) => a.p_concepto === null && a.p_importe === null)).toHaveLength(0);
     const campos = [
       screen.getByLabelText('Importe'),
       screen.getByLabelText('Concepto'),
       screen.getByRole('heading', { name: 'Gasto original' }),
-      await screen.findByRole('radiogroup', { name: 'Gastos recientes' }),
+      screen.getByRole('button', { name: 'Ver gastos recientes' }),
       screen.getByLabelText('Entra en'),
       screen.getByLabelText(/Método de pago/),
       screen.getByLabelText('Fecha en que ocurrió'),
+      screen.getByRole('button', { name: 'Guardar' }),
     ];
     for (let i = 1; i < campos.length; i++) {
       const anterior = campos[i - 1] as HTMLElement;
       expect(anterior.compareDocumentPosition(campos[i] as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
+    const recientes = await verRecientes();
+    expect(within(recientes).getByRole('checkbox', { name: /Entradas/ })).toHaveAttribute('aria-checked', 'false');
     expect(screen.queryByRole('radiogroup', { name: 'Categoría' })).not.toBeInTheDocument();
     expect(screen.queryByText('Sin vincular')).not.toBeInTheDocument();
     expect(screen.queryByText(/opcional/i, { selector: 'h2 *, h2' })).not.toBeInTheDocument();
     expect(screen.getByText('Todavía no has elegido el gasto original.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ocultar gastos recientes' }));
+    expect(screen.queryByRole('group', { name: 'Gastos recientes' })).not.toBeInTheDocument();
   });
 
-  it('las sugerencias llegan con su motivo y no se eligen solas; al tocar una se vincula y se guarda sin categoría', async () => {
+  it('las sugerencias llegan con su motivo y no se eligen solas; al marcar una se vincula y se guarda con la RPC', async () => {
     responderDevolucion([], { sugerencias: [AMAZON], recientes: [ENTRADAS, AMAZON] });
     await abrirDevolucion();
     await userEvent.type(screen.getByLabelText('Importe'), '24,5');
@@ -912,15 +937,15 @@ describe('Devolución: gasto original obligatorio', () => {
         p_limite: 10,
       }),
     );
-    const sugerencias = await screen.findByRole('radiogroup', { name: 'Sugerencias' });
-    const sugerida = within(sugerencias).getByRole('radio', { name: /Pedido auriculares · Amazon/ });
+    const sugerencias = await screen.findByRole('group', { name: 'Sugerencias' });
+    const sugerida = within(sugerencias).getByRole('checkbox', { name: /Pedido auriculares · Amazon/ });
     expect(sugerida).toHaveTextContent('Mismo importe');
     expect(sugerida.textContent?.replace(/\s/g, ' ')).toContain('15/10/2026 · Importe 24,50 € · Quedan 24,50 €');
     expect(sugerida).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByText('Todavía no has elegido el gasto original.')).toBeInTheDocument();
     // Las sugeridas no se repiten en la lista de recientes.
-    const recientes = screen.getByRole('radiogroup', { name: 'Gastos recientes' });
-    expect(within(recientes).queryByRole('radio', { name: /Pedido auriculares/ })).not.toBeInTheDocument();
+    const recientes = await verRecientes();
+    expect(within(recientes).queryByRole('checkbox', { name: /Pedido auriculares/ })).not.toBeInTheDocument();
 
     await userEvent.click(sugerida);
     expect(sugerida).toHaveAttribute('aria-checked', 'true');
@@ -931,63 +956,133 @@ describe('Devolución: gasto original obligatorio', () => {
     await userEvent.selectOptions(screen.getByLabelText('Entra en'), ID.caixa);
 
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
-    await waitFor(() => expect(insertado()).toBeDefined());
-    expect(insertado()).toMatchObject({
-      tipo: 'devolucion',
-      importe: '24.50',
-      devolucion_de: ID_AMAZON,
-      categoria_id: null,
-      cuenta_id: ID.caixa,
+    await waitFor(() => expect(llamadasRegistrar()).toHaveLength(1));
+    expect(llamadasRegistrar()[0]).toEqual({
+      p_fecha: '2026-10-20',
+      p_cuenta: ID.caixa,
+      p_concepto: 'Devolución Amazon',
+      p_metodo: null,
+      p_notas: null,
+      p_repartos: [{ gasto: ID_AMAZON, importe: '24.50' }],
+      p_sobrante: null,
+      p_categoria_sobrante: null,
     });
+    // Una devolución nueva no se inserta a mano: todo va por la RPC (atómica).
+    expect(llamadasMovimientos('insert')).toHaveLength(0);
   });
 
-  it('no se guarda sin gasto original ni por encima de lo pendiente', async () => {
-    responderDevolucion([]);
+  it('las sugerencias con palabras en común se proponen aunque la puntuación sea baja', async () => {
+    const RAZZ = candidato({ id: ID_IKEA, concepto: 'Razzmatazz', puntuacion: 25, motivo: 'palabras_en_comun' });
+    const FLOJA = candidato({ id: ID_AMAZON, concepto: 'Cena', puntuacion: 20, motivo: 'fecha_cercana' });
+    responderDevolucion([], { sugerencias: [RAZZ, FLOJA] });
+    await abrirDevolucion();
+    await userEvent.type(screen.getByLabelText('Concepto'), 'entrada razz');
+    const sugerencias = await screen.findByRole('group', { name: 'Sugerencias' });
+    expect(within(sugerencias).getByRole('checkbox', { name: /Razzmatazz/ })).toHaveTextContent('Palabras en común');
+    expect(within(sugerencias).queryByRole('checkbox', { name: /Cena/ })).not.toBeInTheDocument();
+  });
+
+  it('no se guarda sin gasto original; si el importe supera lo pendiente, avisa del sobrante y su categoría antes de guardar', async () => {
+    const OTROS = { ...(CATEGORIAS[2] as (typeof CATEGORIAS)[number]), id: ID_OTROS, nombre: 'Otros ingresos', clave: 'otros_ingresos' };
+    responderDevolucion([], {}, [...CATEGORIAS, OTROS]);
     await abrirDevolucion();
     await userEvent.type(screen.getByLabelText('Importe'), '90');
     await userEvent.type(screen.getByLabelText('Concepto'), 'Bizum entradas');
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
     expect(await screen.findByText('Elige el gasto original que te devuelven.')).toBeInTheDocument();
 
-    const recientes = await screen.findByRole('radiogroup', { name: 'Gastos recientes' });
-    await userEvent.click(within(recientes).getByRole('radio', { name: /Entradas/ }));
+    const recientes = await verRecientes();
+    await userEvent.click(within(recientes).getByRole('checkbox', { name: /Entradas/ }));
     expect(screen.queryByText('Elige el gasto original que te devuelven.')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    // 90,00 € sobre 85,00 € pendientes: 85,00 € de devolución y 5,00 € de ingreso en Otros ingresos.
     expect(
-      await screen.findByText(conTexto('De ese gasto solo quedan 85,00 € por devolver: el importe no puede ser mayor.')),
+      screen.getByText(
+        conTexto('De los 90,00 €, 85,00 € son devolución de «Entradas» y 5,00 € se guardarán como ingreso en Otros ingresos.'),
+      ),
     ).toBeInTheDocument();
-    expect(llamadasMovimientos('insert')).toHaveLength(0);
+    const categoria = screen.getByLabelText('Categoría del ingreso sobrante');
+    expect(categoria).toHaveValue(ID_OTROS);
+    await userEvent.selectOptions(categoria, ID.nomina);
+    expect(screen.getByText(/se guardarán como ingreso en Nómina\.$/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(llamadasRegistrar()).toHaveLength(1));
+    expect(llamadasRegistrar()[0]).toMatchObject({
+      p_repartos: [{ gasto: ID.mov2, importe: '85.00' }],
+      p_sobrante: '5.00',
+      p_categoria_sobrante: ID.nomina,
+    });
   });
 
-  it('al elegir un gasto con el importe vacío se propone lo pendiente', async () => {
+  it('al marcar un gasto con el importe vacío se propone lo pendiente', async () => {
     responderDevolucion([]);
     await abrirDevolucion();
-    const recientes = await screen.findByRole('radiogroup', { name: 'Gastos recientes' });
-    await userEvent.click(within(recientes).getByRole('radio', { name: /Entradas/ }));
+    const recientes = await verRecientes();
+    await userEvent.click(within(recientes).getByRole('checkbox', { name: /Entradas/ }));
     expect(screen.getByLabelText('Importe')).toHaveValue('85,00');
     expect(screen.getByText(conTexto('Quedan 85,00 € por devolver de ese gasto.'))).toBeInTheDocument();
   });
 
-  it('el buscador encuentra gastos antiguos y la lista se maneja con el teclado', async () => {
+  it('varios gastos: el total se reparte en el orden elegido, se puede ajustar y la suma tiene que cuadrar', async () => {
+    const clase = (n: number) =>
+      candidato({ id: `eeeeeeee-0000-4000-8000-00000000001${n}`, concepto: 'Clase pádel', fecha: `2026-10-0${n}`, importe: '20.00', pendiente: '20.00' });
+    const [c1, c2, c3] = [clase(1), clase(2), clase(3)];
+    responderDevolucion([], { recientes: [c1, c2, c3] });
+    await abrirDevolucion();
+    await userEvent.type(screen.getByLabelText('Importe'), '56');
+    await userEvent.type(screen.getByLabelText('Concepto'), 'Bizum pádel');
+    const recientes = await verRecientes();
+    for (const fecha of ['01/10/2026', '03/10/2026', '02/10/2026']) {
+      const casilla = within(recientes).getAllByRole('checkbox').find((b) => b.textContent?.includes(fecha));
+      await userEvent.click(casilla as HTMLElement);
+    }
+    expect(screen.getByText('Repartida entre 3 gastos')).toBeInTheDocument();
+    // En el orden elegido: 01/10, 03/10 y 02/10.
+    expect(screen.getByLabelText('Clase pádel (01/10/2026)')).toHaveValue('20,00');
+    expect(screen.getByLabelText('Clase pádel (03/10/2026)')).toHaveValue('20,00');
+    expect(screen.getByLabelText('Clase pádel (02/10/2026)')).toHaveValue('16,00');
+
+    // Ajuste a mano: los demás se llenan con lo que queda y, si no cuadra, se explica.
+    await userEvent.clear(screen.getByLabelText('Clase pádel (03/10/2026)'));
+    await userEvent.type(screen.getByLabelText('Clase pádel (03/10/2026)'), '10');
+    expect(screen.getByLabelText('Clase pádel (02/10/2026)')).toHaveValue('20,00');
+    expect(
+      screen.getByText(conTexto('Los importes repartidos suman 50,00 € y el total es 56,00 €: tienen que cuadrar.')),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(
+      await screen.findByText('Revisa el reparto entre los gastos: los importes tienen que cuadrar con el total.'),
+    ).toBeInTheDocument();
+    expect(llamadasRegistrar()).toHaveLength(0);
+
+    await userEvent.clear(screen.getByLabelText('Clase pádel (03/10/2026)'));
+    await userEvent.type(screen.getByLabelText('Clase pádel (03/10/2026)'), '16');
+    expect(screen.queryByText(/tienen que cuadrar/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(llamadasRegistrar()).toHaveLength(1));
+    expect(llamadasRegistrar()[0]).toMatchObject({
+      p_concepto: 'Bizum pádel',
+      p_repartos: [
+        { gasto: c1?.id, importe: '20.00' },
+        { gasto: c3?.id, importe: '16.00' },
+        { gasto: c2?.id, importe: '20.00' },
+      ],
+      p_sobrante: null,
+    });
+  });
+
+  it('el buscador encuentra gastos antiguos; Enter no envía el formulario', async () => {
     responderDevolucion([], { recientes: [ENTRADAS, AMAZON], busqueda: [IKEA] });
     await abrirDevolucion();
-    const recientes = await screen.findByRole('radiogroup', { name: 'Gastos recientes' });
-    const [primero, segundo] = within(recientes).getAllByRole('radio');
-    expect(primero).toHaveAttribute('tabindex', '0');
-    expect(segundo).toHaveAttribute('tabindex', '-1');
-    (primero as HTMLElement).focus();
-    await userEvent.keyboard('{ArrowDown}');
-    expect(segundo).toHaveAttribute('aria-checked', 'true');
-    expect(segundo).toHaveFocus();
-
     await userEvent.type(screen.getByLabelText('Buscar el gasto'), 'ikea{Enter}');
-    const resultados = await screen.findByRole('radiogroup', { name: 'Resultados de la búsqueda' });
-    expect(within(resultados).getByRole('radio', { name: /Estantería · IKEA/ }).textContent?.replace(/\s/g, ' ')).toContain(
+    const resultados = await screen.findByRole('group', { name: 'Resultados de la búsqueda' });
+    // Al buscar, los resultados se ven aunque los recientes estén plegados.
+    expect(within(resultados).getByRole('checkbox', { name: /Estantería · IKEA/ }).textContent?.replace(/\s/g, ' ')).toContain(
       '05/01/2024 · Importe 149,00 € · Quedan 149,00 €',
     );
     expect(llamadasBuscar()).toContainEqual(expect.objectContaining({ p_busqueda: 'ikea', p_concepto: null }));
-    // Enter en el buscador no envía el formulario.
     expect(llamadasMovimientos('insert')).toHaveLength(0);
+    expect(llamadasRegistrar()).toHaveLength(0);
   });
 
   it('si las sugerencias fallan, el formulario sigue funcionando con la lista', async () => {
@@ -996,9 +1091,44 @@ describe('Devolución: gasto original obligatorio', () => {
     await userEvent.type(screen.getByLabelText('Importe'), '10');
     await userEvent.type(screen.getByLabelText('Concepto'), 'Bizum');
     expect(await screen.findByText('No se han podido cargar las sugerencias. Puedes buscar el gasto en la lista.')).toBeInTheDocument();
-    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Gastos recientes' })).getByRole('radio', { name: /Entradas/ }));
+    await userEvent.click(within(await verRecientes()).getByRole('checkbox', { name: /Entradas/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
-    await waitFor(() => expect(insertado()).toMatchObject({ devolucion_de: ID.mov2, importe: '10.00' }));
+    await waitFor(() =>
+      expect(llamadasRegistrar()[0]).toMatchObject({ p_repartos: [{ gasto: ID.mov2, importe: '10.00' }], p_sobrante: null }),
+    );
+  });
+
+  it('un error de la RPC se traduce y no se guarda nada', async () => {
+    responderDevolucion([], {}, undefined, { code: '23514', message: 'El reparto no cuadra: solo puede sobrar dinero si cada gasto se devuelve entero' });
+    await abrirDevolucion();
+    await userEvent.type(screen.getByLabelText('Concepto'), 'Bizum');
+    await userEvent.click(within(await verRecientes()).getByRole('checkbox', { name: /Entradas/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(
+      await screen.findByText('El reparto no cuadra: solo puede sobrar dinero si cada gasto se devuelve entero.'),
+    ).toBeInTheDocument();
+  });
+
+  it('el detalle de una parte enseña la devolución entera y enlaza las otras partes', async () => {
+    const GRUPO = 'ffffffff-0000-4000-8000-000000000001';
+    const parte = movimiento({ id: ID.mov1, tipo: 'devolucion', importe: '20.00', concepto: 'Bizum pádel', devolucion_de: ID.mov2, grupo_devolucion: GRUPO });
+    const partes = [
+      { id: ID.mov1, tipo: 'devolucion', importe: '20.00', devolucion_de: ID.mov2 },
+      { id: ID.mov3, tipo: 'devolucion', importe: '20.00', devolucion_de: ID.mov4 },
+      { id: ID.mov5, tipo: 'ingreso', importe: '16.00', devolucion_de: null },
+    ];
+    responderCon([parte], (l) =>
+      l.tabla === 'movimientos' && paso(l, 'eq')?.[1] === 'grupo_devolucion' ? { data: partes, error: null } : undefined,
+    );
+    renderRuta(`/movimientos/${ID.mov1}`);
+    expect(
+      await screen.findByText(conTexto('Parte de una devolución de 56,00 € repartida entre 2 gastos.')),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: conTexto('Devolución de 20,00 €') })).toHaveAttribute('href', `/movimientos/${ID.mov3}`);
+    expect(screen.getByRole('link', { name: conTexto('Ingreso del sobrante de 16,00 €') })).toHaveAttribute(
+      'href',
+      `/movimientos/${ID.mov5}`,
+    );
   });
 
   it('editar una devolución antigua sin vincular avisa de que hay que vincularla antes de guardar', async () => {
