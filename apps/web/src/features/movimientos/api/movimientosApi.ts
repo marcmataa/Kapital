@@ -4,7 +4,7 @@ import { aCentimos, desdeCentimos } from '@/shared/lib/dinero';
 import { supabase } from '@/shared/lib/supabase';
 import { filtroBusqueda } from '../lib/busqueda';
 import type { Filtros } from '../lib/filtros';
-import { COLUMNAS_MOVIMIENTO, esUuid, type Movimiento } from '../lib/tipos';
+import { COLUMNAS_MOVIMIENTO, esUuid, type Movimiento, type TipoMovimiento } from '../lib/tipos';
 import type { PayloadMovimiento } from '../schemas/movimiento';
 import { clasificarErrorMovimiento } from './errores';
 
@@ -87,6 +87,22 @@ async function devolucionesDe(id: string): Promise<Resultado<DevolucionesDe>> {
   return { data: { n: filas.length, total: desdeCentimos(filas.reduce((s, f) => s + aCentimos(f.importe), 0n)) } };
 }
 
+export interface ParteGrupo {
+  id: string;
+  tipo: TipoMovimiento;
+  /** 'd.dd' */
+  importe: string;
+  devolucion_de: string | null;
+}
+
+export interface GrupoDevolucion {
+  partes: ParteGrupo[];
+  /** Lo recibido en total (devoluciones + sobrante), 'd.dd'. */
+  total: string;
+  /** Número de gastos devueltos (una devolución por gasto). */
+  gastos: number;
+}
+
 /** Fila de PostgREST → Movimiento. `importe` ya llega como texto por el `::text`. */
 function aMovimiento(fila: unknown): Movimiento {
   return fila as Movimiento;
@@ -143,6 +159,33 @@ export const movimientosApi = api.injectEndpoints({
       providesTags: ['Movimientos'],
     }),
 
+    /**
+     * Partes de una devolución guardada junto a otras (grupo_devolucion, migración 20261103000001):
+     * una devolución por gasto y el ingreso del sobrante. El total se suma en céntimos enteros.
+     */
+    movimientosGrupoDevolucion: b.query<GrupoDevolucion | null, string>({
+      queryFn: (grupo) =>
+        capturar(async () => {
+          if (!esUuid(grupo)) return { data: null };
+          const { data, error } = await supabase
+            .from('movimientos')
+            .select('id, tipo, importe::text, devolucion_de')
+            .eq('grupo_devolucion', grupo)
+            .order('created_at', { ascending: true })
+            .order('id', { ascending: true });
+          if (error) return { error: aErrorApi(error) };
+          const partes = data as unknown as ParteGrupo[];
+          return {
+            data: {
+              partes,
+              total: desdeCentimos(partes.reduce((s, p) => s + aCentimos(p.importe), 0n)),
+              gastos: partes.filter((p) => p.tipo === 'devolucion').length,
+            },
+          };
+        }),
+      providesTags: ['Movimientos'],
+    }),
+
     movimientosCrear: b.mutation<string, PayloadMovimiento>({
       queryFn: (payload) =>
         capturar(async () => {
@@ -190,6 +233,7 @@ export const {
   useMovimientosObtenerQuery,
   useMovimientosDevueltoQuery,
   useMovimientosDevolucionesDeQuery,
+  useMovimientosGrupoDevolucionQuery,
   useMovimientosCrearMutation,
   useMovimientosActualizarMutation,
   useMovimientosBorrarMutation,

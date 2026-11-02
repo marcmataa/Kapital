@@ -9,7 +9,7 @@ import { cx } from '@/shared/lib/cx';
 import { formatearEuros } from '@/shared/lib/dinero';
 import { ZONA_POR_DEFECTO, fechaEnZona, formatearFecha } from '@/shared/lib/fechas';
 import { Button, clasesBoton } from '@/shared/ui';
-import { useMovimientosObtenerQuery } from '../api/movimientosApi';
+import { useMovimientosGrupoDevolucionQuery, useMovimientosObtenerQuery } from '../api/movimientosApi';
 import type { Catalogos } from '../hooks/useCatalogos';
 import { CLASE_TONO, importeConSigno, tonoImporte } from '../lib/presentacion';
 import type { Movimiento } from '../lib/tipos';
@@ -48,6 +48,7 @@ export function DetalleMovimiento({ movimiento: m, catalogos, onBorrado, nivelTi
   const { zona } = useHoyUsuario();
   const [confirmando, setConfirmando] = useState(false);
   const original = useMovimientosObtenerQuery(m.devolucion_de ?? '', { skip: m.devolucion_de === null });
+  const grupo = useMovimientosGrupoDevolucionQuery(m.grupo_devolucion ?? '', { skip: m.grupo_devolucion === null });
 
   const cuenta = (id: string | null) => (id === null ? undefined : catalogos.cuentaPorId.get(id));
   const nombreCuenta = (id: string | null) => {
@@ -130,6 +131,31 @@ export function DetalleMovimiento({ movimiento: m, catalogos, onBorrado, nivelTi
           ) : original.isSuccess ? (
             <p className="text-apagado">{t('detalle.devolucionDeBorrado')}</p>
           ) : null}
+        </div>
+      )}
+
+      {grupo.data != null && grupo.data.partes.length > 1 && (
+        <div className="rounded-xl border border-borde px-3 py-2.5 text-sm">
+          <p className="text-xs text-apagado">{t('detalle.grupo')}</p>
+          <p className="text-texto">
+            {t(m.tipo === 'ingreso' ? 'detalle.grupoSobrante' : grupo.data.gastos > 1 ? 'detalle.grupoParte' : 'detalle.grupoParteUno', {
+              total: formatearEuros(grupo.data.total, locale),
+              n: grupo.data.gastos,
+            })}
+          </p>
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {grupo.data.partes
+              .filter((p) => p.id !== m.id)
+              .map((p) => (
+                <li key={p.id}>
+                  <Link to={`/movimientos/${p.id}`} className="font-medium text-enlace hover:underline">
+                    {t(p.tipo === 'ingreso' ? 'detalle.grupoEnlaceIngreso' : 'detalle.grupoEnlaceDevolucion', {
+                      importe: formatearEuros(p.importe, locale),
+                    })}
+                  </Link>
+                </li>
+              ))}
+          </ul>
         </div>
       )}
 

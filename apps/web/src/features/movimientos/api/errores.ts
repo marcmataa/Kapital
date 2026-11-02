@@ -17,6 +17,8 @@ import type { ClaveDe } from '@/shared/i18n';
  * - validar_devolucion: devolución sin vínculo, anterior a su gasto, gasto ya devuelto del todo,
  *   gasto con devoluciones que pasa a una fecha posterior a ellas.
  * - proteger_gasto_con_devoluciones: un gasto con devoluciones no se borra.
+ * Migración 20261103000001_devoluciones_varios_gastos.sql (registrar_devoluciones, 23514):
+ * - reparto vacío, gasto repetido, reparto que no cuadra con el sobrante, categoría del sobrante.
  */
 export type CodigoErrorMovimiento =
   | 'cuenta_cerrada'
@@ -28,6 +30,9 @@ export type CodigoErrorMovimiento =
   | 'gasto_devuelto'
   | 'gasto_fecha_devoluciones'
   | 'gasto_no_se_borra'
+  | 'reparto_repetido'
+  | 'reparto_no_cuadra'
+  | 'categoria_sobrante'
   | 'devolucion_supera'
   | 'gasto_con_devoluciones'
   | 'traspaso_cuentas'
@@ -41,11 +46,15 @@ interface ErrorBruto {
 }
 
 const REGLAS: readonly [RegExp, CodigoErrorMovimiento][] = [
+  // Antes que «necesita una categoría» (categoria_tipo).
+  [/categor[ií]a de ingreso tuya|categor[ií]a del sobrante/i, 'categoria_sobrante'],
+  [/repetido en el reparto/i, 'reparto_repetido'],
+  [/reparto no cuadra/i, 'reparto_no_cuadra'],
   [/est[aá] cerrada/i, 'cuenta_cerrada'],
   [/empieza el/i, 'fecha_antes_de_cuenta'],
   [/necesita una categor[ií]a|categoria_segun_tipo/i, 'categoria_tipo'],
   [/solo se puede devolver un gasto|devolucion_de_solo_en_devolucion/i, 'solo_gasto'],
-  [/gasto original que devuelve|vincula esta devoluci[oó]n/i, 'devolucion_sin_vinculo'],
+  [/gasto original que devuelve|vincula esta devoluci[oó]n|al menos un gasto/i, 'devolucion_sin_vinculo'],
   [/anterior a su gasto/i, 'devolucion_antes_del_gasto'],
   [/devuelto del todo/i, 'gasto_devuelto'],
   [/devoluciones desde el/i, 'gasto_fecha_devoluciones'],
@@ -81,6 +90,9 @@ const CLAVES: Record<CodigoErrorMovimiento, ClaveError> = {
   gasto_devuelto: 'error.gastoDevuelto',
   gasto_fecha_devoluciones: 'error.gastoFechaDevoluciones',
   gasto_no_se_borra: 'error.gastoNoSeBorra',
+  reparto_repetido: 'error.repartoRepetido',
+  reparto_no_cuadra: 'error.repartoNoCuadra',
+  categoria_sobrante: 'error.categoriaSobrante',
   devolucion_supera: 'error.devolucionSupera',
   gasto_con_devoluciones: 'error.gastoConDevoluciones',
   traspaso_cuentas: 'error.traspasoCuentas',
