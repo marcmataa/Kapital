@@ -111,8 +111,9 @@ export const catalogosApi = api.injectEndpoints({
       invalidatesTags: ['Objetivos'],
     }),
 
-    desactivarObjetivo: b.mutation<null, string>({
-      queryFn: (id) => ejecutar(supabase.from('objetivos').update({ activo: false }).eq('id', id)),
+    /** Borra el objetivo de verdad (decisión del 02/11/2026); RLS solo deja borrar los propios. */
+    eliminarObjetivo: b.mutation<null, string>({
+      queryFn: (id) => ejecutar(supabase.from('objetivos').delete().eq('id', id)),
       invalidatesTags: ['Objetivos'],
     }),
   }),
@@ -124,5 +125,5 @@ export const {
   useListarObjetivosQuery,
   useCrearObjetivoMutation,
   useActualizarImporteObjetivoMutation,
-  useDesactivarObjetivoMutation,
+  useEliminarObjetivoMutation,
 } = catalogosApi;

@@ -2,10 +2,10 @@ import type { ReactNode } from 'react';
 import { Undo2 } from 'lucide-react';
 import { Card } from '@/shared/ui';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
-import { aCentimos, formatearEuros, type OpcionesEuros } from '@/shared/lib/dinero';
-import { partesDe, sumarMeses } from '@/shared/lib/fechas';
+import { aCentimos, formatearEuros } from '@/shared/lib/dinero';
+import { partesDe } from '@/shared/lib/fechas';
 import type { Comparativa, RitmoGasto } from '../api/estadisticasApi';
-import { mesDesde, nombreMes } from '../lib/formato';
+import { formatearTramo, mesDesde, nombreMes } from '../lib/formato';
 import type { PeriodosComparacion } from '../lib/periodos';
 import { LineaVariacion } from './LineaVariacion';
 
@@ -22,33 +22,36 @@ interface Props {
 }
 
 /**
- * Título de una comparativa (sección 8, misma longitud): mes en curso → «… al día D»; mes cerrado
- * → «… septiembre completo». Sin mes anterior con datos no hay comparación: «Categorías de
- * septiembre» (nunca «vs agosto» sin datos de agosto).
+ * Título de una tarjeta del mes: «Resumen de octubre», «Categorías de octubre»… El periodo con el
+ * que se compara se dice una sola vez por pantalla (`LineaPeriodo`), no en cada título.
  */
 export function useTituloComparativa(periodos: PeriodosComparacion, clave: 'comparativa.titulo' | 'desglose.titulo' | 'categorias.titulo') {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
-  const locale = LOCALE_DE[idioma];
-  if (periodos.anterior === null) return t(`${clave}.sinAnterior`, { mes: mesDesde(periodos.actual.desde, locale) });
-  return periodos.enCurso
-    ? t(`${clave}.alDia`, { dia: String(partesDe(periodos.actual.hasta).dia) })
-    : t(`${clave}.completo`, { mes: nombreMes(sumarMeses(periodos.actual.desde, -1), locale) });
+  return t(clave, { mes: mesDesde(periodos.actual.desde, LOCALE_DE[idioma]) });
 }
 
 /**
- * «vs +382,00 € el mes pasado»: solo el importe anterior (el actual ya es la cifra grande de
- * encima) y sin porcentaje (el % va aparte, en `LineaVariacion`). null si no hay periodo
- * anterior (sección 8).
+ * Con qué se compara toda la pantalla, dicho una sola vez (sección 7): mes en curso → «Comparado
+ * con el mismo punto del mes pasado (1–19 sept)»; mes cerrado → «… el mes pasado completo
+ * (septiembre)»; sin mes anterior con datos → «Sin datos del mes anterior para comparar».
  */
-export function useLineaVs() {
+export function LineaPeriodo({ periodos }: { periodos: PeriodosComparacion }) {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
-  return (anterior: string | null, opciones: OpcionesEuros = {}) =>
+  const { anterior } = periodos;
+  const texto =
     anterior === null
-      ? null
-      : t('comparativa.vs', { anterior: formatearEuros(anterior, locale, opciones) });
+      ? t('periodo.sinAnterior')
+      : periodos.enCurso
+        ? t('periodo.alDia', { anterior: formatearTramo(anterior, locale) })
+        : t('periodo.completo', { mes: nombreMes(anterior.desde, locale) });
+  return (
+    <p data-testid="periodo-comparado" className="text-[13px] text-apagado sm:text-sm">
+      {texto}
+    </p>
+  );
 }
 
 function Tarjeta({ etiqueta, valor, children, testId }: { etiqueta: string; valor: string; children: ReactNode; testId?: string }) {
@@ -71,7 +74,6 @@ export function ComparativaMes({ periodos, datos, modo, ritmo }: Props) {
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   const titulo = useTituloComparativa(periodos, 'comparativa.titulo');
-  const lineaVs = useLineaVs();
   const euros = (v: string) => formatearEuros(v, locale);
   const gastos = modo === 'gastos';
   const actual = gastos ? datos.gastos_netos : datos.ingresos;
@@ -81,34 +83,36 @@ export function ComparativaMes({ periodos, datos, modo, ritmo }: Props) {
     datos.mayor_concepto !== null && datos.mayor_importe !== null
       ? t('comparativa.mayor', { concepto: datos.mayor_concepto, importe: euros(datos.mayor_importe) })
       : t('comparativa.sinMayor');
-  const vs = lineaVs(anterior);
   const devoluciones = ritmo !== undefined && aCentimos(ritmo.devoluciones) > 0n ? ritmo.devoluciones : null;
   const medioAnterior = ritmo?.gasto_medio_diario_anterior ?? null;
   const proyeccion = ritmo?.proyeccion_fin_mes ?? null;
-  // Con tramos de la misma longitud, (a/d − b/d) / (b/d) = (a − b) / b: el % del gasto medio diario
-  // repetiría el de Gastos. Solo se muestra si los días difieren (31 de octubre contra 30 de septiembre).
+  // Con tramos de la misma longitud, (a/d − b/d) / (b/d) = (a − b) / b: comparar el gasto medio
+  // diario repetiría lo que ya dice Gastos. Solo se compara si los días difieren (31 de octubre
+  // contra 30 de septiembre).
   const mismosDias = periodos.anterior !== null && partesDe(periodos.anterior.hasta).dia === datos.dias;
 
   return (
     <Card titulo={titulo}>
       <div className={gastos ? 'grid grid-cols-2 gap-2.5 sm:gap-3' : 'grid grid-cols-1'} data-testid={`comparativa-${modo}`}>
         <Tarjeta etiqueta={t(gastos ? 'comparativa.gastos' : 'comparativa.ingresos')} valor={euros(actual)}>
-          {vs !== null && <p className="cifras text-[13px] text-apagado sm:text-sm">{vs}</p>}
-          <LineaVariacion actual={actual} anterior={anterior} porcentaje={variacion} subirEsBueno={!gastos} />
+          {/* Una sola comparación: «↑ +12,5 % frente a 1.038,47 €» (el periodo, una vez en la pantalla). */}
+          <LineaVariacion
+            actual={actual}
+            anterior={anterior}
+            porcentaje={variacion}
+            subirEsBueno={!gastos}
+            {...(anterior !== null && { contexto: t('comparativa.frente', { importe: euros(anterior) }) })}
+          />
         </Tarjeta>
         {gastos && (
           <Tarjeta etiqueta={t('comparativa.medioDiario')} valor={euros(datos.gasto_medio_diario)}>
-            {medioAnterior !== null && (
-              <p data-testid="medio-diario-anterior" className="cifras text-[13px] text-apagado sm:text-sm">
-                {t('comparativa.medioDiarioVs', { importe: euros(medioAnterior) })}
-              </p>
-            )}
             {ritmo !== undefined && medioAnterior !== null && !mismosDias && (
               <LineaVariacion
                 actual={ritmo.gasto_medio_diario}
                 anterior={medioAnterior}
                 porcentaje={ritmo.variacion_medio_diario}
                 subirEsBueno={false}
+                contexto={t('comparativa.frenteDia', { importe: euros(medioAnterior) })}
               />
             )}
             <p className="text-[13px] text-apagado sm:text-sm">{t('comparativa.dias', { dias: String(datos.dias) })}</p>

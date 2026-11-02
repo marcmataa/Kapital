@@ -25,11 +25,12 @@ describe('TarjetasKpi', () => {
     expect(within(patrimonio).getByText(/2\.458,32/)).toBeInTheDocument();
     // Sección 7: la diferencia en euros siempre y el % porque la base es > 0.
     expect(within(patrimonio).getByText(/^\+483,32\s€ \(\+24,5\s%\)$/)).toBeInTheDocument();
-    expect(within(patrimonio).getByText('vs 19/09/2026')).toBeInTheDocument();
+    // Sin «vs 19/09/2026»: con qué se compara lo dice una vez la cabecera de Inicio.
+    expect(patrimonio.textContent).not.toMatch(/vs/);
 
-    const ingresos = tarjeta('Ingresos · 1–19 oct');
-    expect(within(ingresos).getByText('vs 1–19 sept')).toBeInTheDocument();
-    expect(tarjeta('Gastos netos · 1–19 oct')).toBeInTheDocument();
+    const ingresos = tarjeta('Ingresos');
+    expect(ingresos.textContent).not.toMatch(/vs|1–19/);
+    expect(tarjeta('Gastos netos')).toBeInTheDocument();
   });
 
   it('si el mes anterior tuvo 0 € de ingresos dice «Sin datos del mes anterior» (sección 11)', () => {
@@ -42,7 +43,7 @@ describe('TarjetasKpi', () => {
         resumenAnterior={{ ingresos: '0.00', gastos_netos: '900.00', balance: '-900.00', ahorro_pct: null }}
       />,
     );
-    const ingresos = tarjeta('Ingresos · 1–19 oct');
+    const ingresos = tarjeta('Ingresos');
     expect(within(ingresos).getByText('Sin datos del mes anterior')).toBeInTheDocument();
     expect(within(ingresos).queryByText(/%/)).not.toBeInTheDocument();
   });
@@ -58,10 +59,10 @@ describe('TarjetasKpi', () => {
       />,
     );
     // Gastos: +6,9 % → rojo.
-    const gastos = within(tarjeta('Gastos netos · 1–19 oct')).getByText('+6,9 %');
+    const gastos = within(tarjeta('Gastos netos')).getByText('+6,9 %');
     expect(gastos.parentElement).toHaveClass('text-negativo');
     // Ingresos: +10,0 % → verde.
-    const ingresos = within(tarjeta('Ingresos · 1–19 oct')).getByText('+10,0 %');
+    const ingresos = within(tarjeta('Ingresos')).getByText('+10,0 %');
     expect(ingresos.parentElement).toHaveClass('text-positivo');
     // Patrimonio baja: −200,00 € (−16,7 %) → rojo.
     const patrimonio = within(tarjeta('Patrimonio a 19/10/2026')).getByText(/^-200,00\s€ \(-16,7\s%\)$/);
@@ -78,7 +79,7 @@ describe('TarjetasKpi', () => {
         resumenAnterior={{ ingresos: '1000.00', gastos_netos: '1000.00', balance: '0.00', ahorro_pct: null }}
       />,
     );
-    const gastos = within(tarjeta('Gastos netos · 1–19 oct')).getByText('-20,0 %');
+    const gastos = within(tarjeta('Gastos netos')).getByText('-20,0 %');
     expect(gastos.parentElement).toHaveClass('text-positivo');
   });
 
@@ -94,13 +95,13 @@ describe('TarjetasKpi', () => {
       />,
     );
     const patrimonio = tarjeta('Patrimonio a 30/09/2026');
-    expect(within(patrimonio).getByText('vs 30/08/2026')).toBeInTheDocument();
+    expect(patrimonio.textContent).not.toMatch(/vs/);
     expect(within(patrimonio).getByText(/^\+327,44\s€ \(\+16,4\s%\)$/)).toBeInTheDocument();
     // El (i) explica por qué esta cifra no es el balance del mes (auditoría F10).
     expect(within(patrimonio).getByRole('tooltip')).toHaveTextContent('Compara tu patrimonio del 30/09/2026 con el del 30/08/2026.');
     expect(within(patrimonio).getByRole('button', { name: 'Qué significa esta cifra' })).toBeInTheDocument();
-    expect(within(tarjeta('Ingresos · 1–30 sept')).getByText('vs 1–31 ago')).toBeInTheDocument();
-    expect(within(tarjeta('Gastos netos · 1–30 sept')).getByText('+16,8 %')).toBeInTheDocument();
+    expect(within(tarjeta('Ingresos')).getByText('+7,7 %')).toBeInTheDocument();
+    expect(within(tarjeta('Gastos netos')).getByText('+16,8 %')).toBeInTheDocument();
   });
 
   it('mes cerrado de 31 días: d′ es el último día del mes anterior (sección 11)', () => {
@@ -114,8 +115,8 @@ describe('TarjetasKpi', () => {
         resumenAnterior={null}
       />,
     );
-    expect(within(tarjeta('Patrimonio a 31/10/2026')).getByText('vs 30/09/2026')).toBeInTheDocument();
-    expect(within(tarjeta('Ingresos · 1–31 oct')).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+    expect(within(tarjeta('Patrimonio a 31/10/2026')).getByRole('tooltip')).toHaveTextContent('con el del 30/09/2026');
+    expect(within(tarjeta('Ingresos')).getByText('Sin datos del mes anterior')).toBeInTheDocument();
   });
 
   it('sin patrimonio del día equivalente: «Sin datos del mes anterior»', () => {
@@ -185,12 +186,12 @@ describe('TarjetasKpi · desglose por cuenta', () => {
     expect(within(lista).getByRole('link', { name: /Banco Uno/ })).toHaveAttribute('href', '/movimientos?cuenta=a');
     // Ingresos: con tipo, su suma es la cifra. Gastos netos y balance: el tramo (el resumen de
     // Movimientos da el gasto neto, devoluciones incluidas, y el balance, calculados en SQL).
-    expect(screen.getByRole('link', { name: /^Ingresos · 1–19 oct/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /^Ingresos/ })).toHaveAttribute(
       'href',
       '/movimientos?tipo=ingreso&desde=2026-10-01&hasta=2026-10-19',
     );
-    expect(screen.getByRole('link', { name: /^Gastos netos · 1–19 oct/ })).toHaveAttribute('href', '/movimientos?desde=2026-10-01&hasta=2026-10-19');
-    expect(screen.getByRole('link', { name: /^Balance · 1–19 oct/ })).toHaveAttribute('href', '/movimientos?desde=2026-10-01&hasta=2026-10-19');
+    expect(screen.getByRole('link', { name: /^Gastos netos/ })).toHaveAttribute('href', '/movimientos?desde=2026-10-01&hasta=2026-10-19');
+    expect(screen.getByRole('link', { name: /^Balance/ })).toHaveAttribute('href', '/movimientos?desde=2026-10-01&hasta=2026-10-19');
   });
 
   it('negativos con signo y en rojo; emoji para las cuentas que no son banco', () => {
@@ -236,10 +237,25 @@ describe('TarjetasKpi · balance del mes (sección 3)', () => {
         resumenAnterior={null}
       />,
     );
-    const balance = tarjeta('Balance · 1–19 oct');
+    const balance = tarjeta('Balance');
     expect(within(balance).getByText(/^-900,00\s€$/)).toHaveClass('text-negativo');
-    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro —');
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro: — · Sin ingresos este mes');
     expect(within(balance).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+  });
+
+  it('ahorro fuera de −100 %…100 % (cambio del 02/11/2026): texto en vez de porcentaje', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-11-02"
+        patrimonioHoy="1000.00"
+        patrimonioAnterior={null}
+        resumenActual={{ ingresos: '2.71', gastos_netos: '61.94', balance: '-59.23', ahorro_pct: '-2185.6088560885608856' }}
+        resumenAnterior={null}
+      />,
+    );
+    const ahorro = within(tarjeta('Balance')).getByTestId('kpi-ahorro');
+    expect(ahorro).toHaveTextContent('Aún no hay ingresos suficientes este mes para calcular el ahorro.');
+    expect(ahorro).not.toHaveTextContent('%');
   });
 
   it('balance negativo: el ahorro también sale negativo (−15,0 %)', () => {
@@ -252,11 +268,11 @@ describe('TarjetasKpi · balance del mes (sección 3)', () => {
         resumenAnterior={{ ingresos: '1000.00', gastos_netos: '900.00', balance: '100.00', ahorro_pct: '10.0' }}
       />,
     );
-    const balance = tarjeta('Balance · 1–19 oct');
+    const balance = tarjeta('Balance');
     expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro -15,0 %');
     // 100 → −150 cambia de signo: la diferencia en euros y ningún % (sección 8); que baje es rojo.
     expect(within(balance).getByText(/^-250,00\s€$/).parentElement).toHaveClass('text-negativo');
-    expect(within(balance).getByText(/^vs \+100,00\s€ \(1–19 sept\)$/)).toBeInTheDocument();
+    expect(balance.textContent).not.toMatch(/vs/);
     expect(balance.textContent).not.toMatch(/250,0\s%/);
   });
 
@@ -270,7 +286,7 @@ describe('TarjetasKpi · balance del mes (sección 3)', () => {
         resumenAnterior={{ ingresos: '1000.00', gastos_netos: '900.00', balance: '100.00', ahorro_pct: '10.0' }}
       />,
     );
-    const balance = tarjeta('Balance · 1–19 oct');
+    const balance = tarjeta('Balance');
     expect(within(balance).getByText(/^\+50,00\s€ \(\+50,0\s%\)$/).parentElement).toHaveClass('text-positivo');
   });
 

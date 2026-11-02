@@ -10,7 +10,7 @@ interface Props {
   anterior: string | null;
   /** ¿Subir es bueno? Ingresos y balance sí; gastos no (sección 8: color por significado). */
   subirEsBueno: boolean;
-  /** Contexto ya formateado: «vs 1.037,40 € (1–19 sept)». */
+  /** Contexto ya formateado: «frente a 1.037,40 €». */
   contexto?: string;
   /** Variación ya calculada en SQL (4+ decimales); si se pasa, no se calcula aquí. null = sin base. */
   porcentaje?: string | null;
@@ -25,13 +25,16 @@ const FLECHA = { 1: ArrowUp, [-1]: ArrowDown, 0: Minus } as const;
 
 /**
  * «↓ −7,3 % vs …»; con `diferencia`, «↓ −447,45 € vs …» (y «(+48,0 %)» si ambas bases son > 0).
- * «Sin datos del mes anterior» si no hay periodo anterior o, en modo %, si la base es 0.
+ * «Sin datos del mes anterior» si, en modo %, la base es 0 (sección 8). Sin periodo anterior no se
+ * pinta nada: la pantalla ya lo dice una vez (`LineaPeriodo`).
  */
 export function LineaVariacion({ actual, anterior, subirEsBueno, contexto, porcentaje, diferencia = false }: Props) {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
-  const variacion = diferencia && anterior !== null ? variacionImporte(actual, anterior) : null;
+  // Sin periodo anterior no hay nada que comparar: lo dice una sola vez la pantalla (LineaPeriodo).
+  if (anterior === null) return null;
+  const variacion = diferencia ? variacionImporte(actual, anterior) : null;
   const pct = variacion !== null ? variacion.porcentaje : porcentaje !== undefined ? porcentaje : variacionPorcentual(actual, anterior);
   if (variacion === null && pct === null) {
     return <p className="text-xs text-apagado sm:text-sm">{t('comparativa.sinDatosAnterior')}</p>;

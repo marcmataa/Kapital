@@ -72,6 +72,21 @@ async function capturar<T>(fn: () => Promise<Resultado<T>>): Promise<Resultado<T
   }
 }
 
+export interface DevolucionesDe {
+  n: number;
+  /** Suma exacta, 'd.dd' ('0.00' si no hay). */
+  total: string;
+}
+
+/** Devoluciones vinculadas a un gasto. La suma se hace en céntimos enteros (nunca parseFloat). */
+async function devolucionesDe(id: string): Promise<Resultado<DevolucionesDe>> {
+  if (!esUuid(id)) return { data: { n: 0, total: '0.00' } };
+  const { data, error } = await supabase.from('movimientos').select('importe::text').eq('devolucion_de', id);
+  if (error) return { error: aErrorApi(error) };
+  const filas = data as unknown as { importe: string }[];
+  return { data: { n: filas.length, total: desdeCentimos(filas.reduce((s, f) => s + aCentimos(f.importe), 0n)) } };
+}
+
 /** Fila de PostgREST → Movimiento. `importe` ya llega como texto por el `::text`. */
 function aMovimiento(fila: unknown): Movimiento {
   return fila as Movimiento;
@@ -116,14 +131,15 @@ export const movimientosApi = api.injectEndpoints({
     movimientosDevuelto: b.query<string, string>({
       queryFn: (id) =>
         capturar(async () => {
-          const { data, error } = await supabase
-            .from('movimientos')
-            .select('importe::text')
-            .eq('devolucion_de', id);
-          if (error) return { error: aErrorApi(error) };
-          const filas = data as unknown as { importe: string }[];
-          return { data: desdeCentimos(filas.reduce((s, f) => s + aCentimos(f.importe), 0n)) };
+          const r = await devolucionesDe(id);
+          return 'error' in r ? r : { data: r.data.total };
         }),
+      providesTags: ['Movimientos'],
+    }),
+
+    /** Número y suma de las devoluciones vinculadas a un gasto (aviso de «no se puede borrar»). */
+    movimientosDevolucionesDe: b.query<DevolucionesDe, string>({
+      queryFn: (id) => capturar(() => devolucionesDe(id)),
       providesTags: ['Movimientos'],
     }),
 
@@ -173,6 +189,7 @@ export const {
   useMovimientosListarInfiniteQuery,
   useMovimientosObtenerQuery,
   useMovimientosDevueltoQuery,
+  useMovimientosDevolucionesDeQuery,
   useMovimientosCrearMutation,
   useMovimientosActualizarMutation,
   useMovimientosBorrarMutation,

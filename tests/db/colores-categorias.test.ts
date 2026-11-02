@@ -6,12 +6,14 @@ import type { PGlite } from '@electric-sql/pglite';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  MIGRACIONES, MIGRACION_COLORES_CATEGORIAS, ROLLBACK_COLORES_CATEGORIAS, actuarComo, conRol, crearDb, todas,
+  MIGRACIONES, MIGRACION_COLORES_CATEGORIAS, MIGRACION_ELIMINAR_CATEGORIAS, ROLLBACK_COLORES_CATEGORIAS, actuarComo, conRol,
+  crearDb, todas,
 } from './helpers.js';
 
 let db: PGlite;
 
-beforeAll(async () => { db = await crearDb(); });
+// Hasta esta migración (incluida): 20261102000000_eliminar_categorias.sql quita Regalos y Salud.
+beforeAll(async () => { db = await crearDb({ hasta: MIGRACIONES.indexOf(MIGRACION_ELIMINAR_CATEGORIAS) }); });
 afterAll(async () => { await db.close(); });
 
 const ANTERIORES = MIGRACIONES.indexOf(MIGRACION_COLORES_CATEGORIAS);

@@ -176,10 +176,10 @@ describe('categorias_mas_usadas', () => {
   });
 });
 
-describe('gastos_devolvibles', () => {
+describe('gastos devolvibles (buscar_gastos_devolvibles, que sustituye a gastos_devolvibles en 20261102000001)', () => {
   it('lo que queda por devolver, con categoría y cuenta para rellenar el formulario', async () => {
     const filas = await comoUsuario<{ id: string; importe: string; pendiente: string; categoria_id: string; cuenta_id: string }>(
-      `select id, importe::text, pendiente::text, categoria_id, cuenta_id from gastos_devolvibles()`,
+      `select id, importe::text, pendiente::text, categoria_id, cuenta_id from buscar_gastos_devolvibles()`,
     );
     expect(filas.find((f) => f.id === cine)).toEqual({
       id: cine, importe: '30.00', pendiente: '20.00', categoria_id: ocio, cuenta_id: bbva,
@@ -189,9 +189,9 @@ describe('gastos_devolvibles', () => {
 
   it('un gasto devuelto del todo no se ofrece, salvo al editar la devolución que lo completa', async () => {
     const dev = await mov(db, u, { tipo: 'devolucion', importe: '20.00', fecha: '2026-10-22', cuenta: bbva, categoria: ocio, devolucionDe: cine });
-    expect((await comoUsuario<{ id: string }>(`select id from gastos_devolvibles()`)).map((f) => f.id)).not.toContain(cine);
+    expect((await comoUsuario<{ id: string }>(`select id from buscar_gastos_devolvibles()`)).map((f) => f.id)).not.toContain(cine);
     const editando = await comoUsuario<{ id: string; pendiente: string }>(
-      `select id, pendiente::text from gastos_devolvibles($1)`, [dev],
+      `select id, pendiente::text from buscar_gastos_devolvibles(p_excluir => $1)`, [dev],
     );
     expect(editando.find((f) => f.id === cine)?.pendiente).toBe('20.00');
   });

@@ -75,10 +75,29 @@ describe('esquema por tipo (reglas, sección 10)', () => {
     expect(p).toMatchObject({ tipo: 'ingreso', importe: '1258.00', cuenta_id: ID.ing, cuenta_destino_id: null, metodo: null });
   });
 
-  it('devolución usa categoría de gasto y la cuenta en la que entra', () => {
-    expect(errores({ tipo: 'devolucion', categoria_id: ID.nomina })).toHaveProperty('categoria_id');
-    const p = valido({ tipo: 'devolucion', categoria_id: ID.ocio, metodo: 'bizum', devolucion_de: ID.mov1 });
-    expect(p).toMatchObject({ tipo: 'devolucion', cuenta_id: ID.caixa, cuenta_destino_id: null, devolucion_de: ID.mov1 });
+  it('devolución: gasto original obligatorio; la categoría no se elige (la hereda en la base)', () => {
+    expect(errores({ tipo: 'devolucion', devolucion_de: '' })).toEqual({
+      devolucion_de: 'Elige el gasto original que te devuelven.',
+    });
+    // Aunque el formulario tenga otra categoría (o ninguna), no se valida ni se envía.
+    const p = valido({ tipo: 'devolucion', categoria_id: ID.nomina, metodo: 'bizum', devolucion_de: ID.mov1 });
+    expect(p).toMatchObject({
+      tipo: 'devolucion',
+      cuenta_id: ID.caixa,
+      cuenta_destino_id: null,
+      devolucion_de: ID.mov1,
+      categoria_id: null,
+      metodo: 'bizum',
+    });
+    expect(valido({ tipo: 'devolucion', categoria_id: '', devolucion_de: ID.mov1 }).categoria_id).toBeNull();
+  });
+
+  it('devolución: no puede ser anterior a la compra', () => {
+    const extra = { fechaGastoOriginal: '2026-10-10' };
+    expect(errores({ tipo: 'devolucion', devolucion_de: ID.mov1, fecha: '2026-10-09' }, extra)).toEqual({
+      fecha: 'La devolución no puede ser anterior a la compra (10/10/2026).',
+    });
+    expect(valido({ tipo: 'devolucion', devolucion_de: ID.mov1, fecha: '2026-10-10' }, extra).fecha).toBe('2026-10-10');
   });
 
   it('traspaso: origen y destino distintos, sin categoría ni método', () => {
@@ -108,7 +127,7 @@ describe('esquema por tipo (reglas, sección 10)', () => {
     expect(errores({ importe: '0' })).toEqual({ importe: 'Introduce un importe mayor que 0.' });
     expect(errores({ importe: '0,00' })).toHaveProperty('importe');
     expect(errores({ importe: 'abc' })).toHaveProperty('importe');
-    expect(valido({ tipo: 'devolucion', categoria_id: ID.ocio, importe: '-24' }).importe).toBe('24.00');
+    expect(valido({ tipo: 'devolucion', devolucion_de: ID.mov1, importe: '-24' }).importe).toBe('24.00');
   });
 
   it('cuentas cerradas no se pueden usar (proteger_cuenta_cerrada)', () => {
@@ -138,7 +157,7 @@ describe('esquema por tipo (reglas, sección 10)', () => {
     const extra = { pendienteGastoOriginal: '20.00' };
     expect(
       errores({ tipo: 'devolucion', categoria_id: ID.ocio, devolucion_de: ID.mov1, importe: '20,01' }, extra),
-    ).toEqual({ importe: 'Supera lo que queda por devolver de ese gasto (20,00 €).' });
+    ).toEqual({ importe: 'De ese gasto solo quedan 20,00 € por devolver: el importe no puede ser mayor.' });
     expect(valido({ tipo: 'devolucion', categoria_id: ID.ocio, devolucion_de: ID.mov1, importe: '20' }, extra).importe).toBe(
       '20.00',
     );
@@ -368,5 +387,19 @@ describe('errores de la base → texto amable', () => {
     expect(clave({ code: '23503', message: 'insert or update violates foreign key constraint' })).toBe('error.referencia');
     expect(clave({ code: '42501', message: 'permission denied' })).toBe('error.generico');
     expect(clave(new TypeError('Failed to fetch'))).toBe('error.red');
+  });
+
+  it('clasifica los mensajes de las devoluciones vinculadas (20261102000001)', () => {
+    const casos: [string, string][] = [
+      ['Una devolución necesita el gasto original que devuelve', 'error.devolucionSinVinculo'],
+      ['Vincula esta devolución a su gasto original antes de guardarla', 'error.devolucionSinVinculo'],
+      ['La devolución (2026-10-09) no puede ser anterior a su gasto (2026-10-10)', 'error.devolucionAntesDelGasto'],
+      ['Este gasto ya está devuelto del todo (80.00 €)', 'error.gastoDevuelto'],
+      ['Las devoluciones (80.01 €) superan el gasto original (80.00 €): quedan 20.00 € por devolver', 'error.devolucionSupera'],
+      ['Este gasto tiene devoluciones desde el 2026-10-12: su fecha no puede ser posterior', 'error.gastoFechaDevoluciones'],
+      ['Este gasto tiene 4 devoluciones vinculadas que suman 60.00 €: no se puede borrar', 'error.gastoNoSeBorra'],
+      ['Solo se puede devolver un gasto tuyo que exista', 'error.soloGasto'],
+    ];
+    for (const [message, esperada] of casos) expect(clave({ code: '23514', message }), message).toBe(esperada);
   });
 });

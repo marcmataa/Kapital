@@ -198,7 +198,7 @@ describe('Sección 11 · casos de prueba', () => {
     }
   });
 
-  it('importes positivos: la base rechaza negativos y cero; «-24» llega al atajo como devolución de 24,00 €', async () => {
+  it('importes positivos: la base rechaza negativos y cero; «-24» se lee como 24,00 € y la devolución vinculada se guarda así', async () => {
     const bbva = await crearCuenta(db, u, { nombre: 'BBVA', principal: true });
     const ocio = await crearCategoria(db, u, 'Ocio', 'gasto');
     for (const importe of ['-24.00', '0', '0.00']) {
@@ -206,12 +206,16 @@ describe('Sección 11 · casos de prueba', () => {
         .rejects.toThrow(/importe_check/);
     }
 
-    const { token } = await una<{ token: string }>(db, `select crear_token('test') as token`);
-    const { r } = await una<{ r: { ok: boolean; id: string } }>(
-      db, `select registrar_movimiento($1, 'Devolución', '-24', 'Regalo', 'Ocio', 'bizum', '2026-10-02') as r`, [token],
-    );
-    expect(r.ok).toBe(true);
-    const fila = await una(db, `select tipo::text, importe::text from movimientos where id = $1`, [r.id]);
+    // El parser propio normaliza el texto, sin depender del canal (el atajo ya no admite devoluciones).
+    expect((await una(db, `select leer_importe('-24')::text as v`)).v).toBe('24.00');
+    const regalo = await mov(db, u, { tipo: 'gasto', importe: '30.00', fecha: '2026-10-01', cuenta: bbva, categoria: ocio });
+    const id = (await una<{ id: string }>(
+      db,
+      `insert into movimientos (user_id, tipo, importe, fecha, cuenta_id, categoria_id, devolucion_de, concepto)
+       values ($1, 'devolucion', leer_importe('-24'), '2026-10-02', $2, $3, $4, 'Regalo') returning id`,
+      [u, bbva, ocio, regalo],
+    )).id;
+    const fila = await una(db, `select tipo::text, importe::text from movimientos where id = $1`, [id]);
     expect(fila).toEqual({ tipo: 'devolucion', importe: '24.00' });
   });
 });

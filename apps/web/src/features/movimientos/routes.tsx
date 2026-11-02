@@ -5,6 +5,7 @@ const PaginaMovimientos = lazy(() => import('./pages/PaginaMovimientos'));
 const PaginaNuevoMovimiento = lazy(() => import('./pages/PaginaNuevoMovimiento'));
 const PaginaDetalleMovimiento = lazy(() => import('./pages/PaginaDetalleMovimiento'));
 const PaginaEditarMovimiento = lazy(() => import('./pages/PaginaEditarMovimiento'));
+const PaginaRevision = lazy(() => import('./pages/PaginaRevision'));
 
 /** Rutas de la feature «movimientos». Solo esta feature edita este fichero. */
 const rutas: RutasFeature = {
@@ -14,6 +15,7 @@ const rutas: RutasFeature = {
       children: [
         { index: true, element: <PaginaMovimientos /> },
         { path: 'nuevo', element: <PaginaNuevoMovimiento /> },
+        { path: 'revision', element: <PaginaRevision /> },
         { path: ':id', element: <PaginaDetalleMovimiento /> },
         { path: ':id/editar', element: <PaginaEditarMovimiento /> },
       ],

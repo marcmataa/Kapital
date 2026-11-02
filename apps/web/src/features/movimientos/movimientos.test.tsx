@@ -6,6 +6,7 @@ import { renderConApp, sesionFalsa } from '@/test/render';
 import { CATEGORIAS, CUENTAS, ID, movimiento } from './test/datos';
 import { operacion, paso, pasos, type Llamada, type Respuesta, type crearSupabaseFalso } from './test/supabaseFalso';
 import type { Movimiento } from './lib/tipos';
+import type { GastoDevolvible } from './api/sqlApi';
 
 const falso = vi.hoisted(() => ({ mod: null as null | ReturnType<typeof crearSupabaseFalso> }));
 
@@ -19,6 +20,7 @@ const { default: PaginaMovimientos } = await import('./pages/PaginaMovimientos')
 const { default: PaginaNuevoMovimiento } = await import('./pages/PaginaNuevoMovimiento');
 const { default: PaginaDetalleMovimiento } = await import('./pages/PaginaDetalleMovimiento');
 const { default: PaginaEditarMovimiento } = await import('./pages/PaginaEditarMovimiento');
+const { default: PaginaRevision } = await import('./pages/PaginaRevision');
 
 function db() {
   if (!falso.mod) throw new Error('supabase falso sin iniciar');
@@ -38,6 +40,8 @@ function responderCon(movs: Movimiento[], extra?: (l: Llamada) => Respuesta | un
       if (paso(l, 'maybeSingle') && porId?.[1] === 'id') {
         return { data: movs.find((m) => m.id === porId[2]) ?? null, error: null };
       }
+      // Devoluciones vinculadas a un gasto.
+      if (porId?.[1] === 'devolucion_de') return { data: movs.filter((m) => m.devolucion_de === porId[2]), error: null };
       return { data: movs, error: null };
     }
     return { data: [], error: null };
@@ -58,6 +62,7 @@ function renderRuta(ruta: string) {
       <Routes>
         <Route path="/movimientos" element={<PaginaMovimientos />} />
         <Route path="/movimientos/nuevo" element={<PaginaNuevoMovimiento />} />
+        <Route path="/movimientos/revision" element={<PaginaRevision />} />
         <Route path="/movimientos/:id" element={<PaginaDetalleMovimiento />} />
         <Route path="/movimientos/:id/editar" element={<PaginaEditarMovimiento />} />
       </Routes>
@@ -679,55 +684,6 @@ describe('Formulario', () => {
     expect(paso(calculo, 'rpc')?.[1]).toEqual({ p_cuenta: ID.caixa, p_saldo_real: '-20.00' });
   });
 
-  it('devolución: «Gasto original» primero (de SQL); al elegirlo rellena categoría, cuenta y lo pendiente; «-24» se guarda como 24.00', async () => {
-    responderCon([], (l) => {
-      if (l.tabla === 'rpc:gastos_devolvibles') {
-        return {
-          data: [
-            {
-              id: ID.mov2,
-              fecha: '2026-10-12',
-              concepto: 'Entradas',
-              importe: '100.00',
-              pendiente: '85.00',
-              categoria_id: ID.ocio,
-              cuenta_id: ID.ing,
-            },
-          ],
-          error: null,
-        };
-      }
-      if (l.tabla === 'movimientos' && operacion(l) === 'insert') return { data: { id: 'nuevo' }, error: null };
-      return undefined;
-    });
-    renderRuta('/movimientos/nuevo');
-    await userEvent.click(await screen.findByRole('radio', { name: 'Devolución' }));
-    const original = screen.getByLabelText(/Gasto original/);
-    // El gasto original va antes que el importe
-    expect(original.compareDocumentPosition(screen.getByLabelText('Importe')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    await waitFor(() => expect(within(original).getByRole('option', { name: /Entradas/ })).toBeInTheDocument());
-    expect(within(original).getByRole('option', { name: /Entradas/ }).textContent?.replace(/\s/g, ' ')).toBe(
-      '12 oct · Entradas · 100,00 € (quedan 85,00 €)',
-    );
-    await userEvent.selectOptions(original, ID.mov2);
-    expect(screen.getByLabelText('Importe')).toHaveValue('85,00');
-    expect(screen.getByRole('radio', { name: /^Ocio/ })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByLabelText('Entra en')).toHaveValue(ID.ing);
-
-    await userEvent.clear(screen.getByLabelText('Importe'));
-    await userEvent.type(screen.getByLabelText('Importe'), '-24');
-    await userEvent.type(screen.getByLabelText('Concepto'), 'Bizum entrada');
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
-
-    await waitFor(() => expect(insertado()).toBeDefined());
-    expect(insertado()).toMatchObject({
-      tipo: 'devolucion',
-      importe: '24.00',
-      categoria_id: ID.ocio,
-      devolucion_de: ID.mov2,
-      cuenta_id: ID.ing,
-    });
-  });
 
   it('orden: Importe → Concepto → Categoría → Cuenta → Método → Fecha → Notas; el importe recibe el foco', async () => {
     responderCon([]);
@@ -852,5 +808,334 @@ describe('Formulario', () => {
     expect(paso(update, 'update')?.[1]).toMatchObject({ importe: '40.00', fecha: '2026-10-12', tipo: 'gasto' });
     expect(paso(update, 'update')?.[1]).not.toHaveProperty('origen');
     expect(pasos(update, 'eq')).toEqual([['eq', 'id', ID.mov2]]);
+  });
+});
+
+describe('Devolución: gasto original obligatorio', () => {
+  const ID_AMAZON = 'eeeeeeee-0000-4000-8000-000000000001';
+  const ID_IKEA = 'eeeeeeee-0000-4000-8000-000000000002';
+
+  function candidato(c: Partial<GastoDevolvible> & Pick<GastoDevolvible, 'id' | 'concepto'>): GastoDevolvible {
+    return {
+      fecha: '2026-10-12',
+      comercio: null,
+      importe: '100.00',
+      pendiente: '85.00',
+      categoria_id: ID.ocio,
+      cuenta_id: ID.ing,
+      puntuacion: 0,
+      motivo: 'reciente',
+      ...c,
+    };
+  }
+
+  const ENTRADAS = candidato({ id: ID.mov2, concepto: 'Entradas' });
+  const AMAZON = candidato({
+    id: ID_AMAZON,
+    fecha: '2026-10-15',
+    concepto: 'Pedido auriculares',
+    comercio: 'Amazon',
+    importe: '24.50',
+    pendiente: '24.50',
+    categoria_id: ID.restaurantes,
+    cuenta_id: ID.ing,
+    puntuacion: 94,
+    motivo: 'importe_exacto',
+  });
+  const IKEA = candidato({ id: ID_IKEA, fecha: '2024-01-05', concepto: 'Estantería', comercio: 'IKEA', importe: '149.00', pendiente: '149.00' });
+
+  type ArgsRpc = { p_concepto: string | null; p_importe: string | null; p_busqueda: string | null };
+  const rpcArgs = (l: Llamada) => paso(l, 'rpc')?.[1] as ArgsRpc;
+  const llamadasBuscar = () => db().llamadas.filter((l) => l.tabla === 'rpc:buscar_gastos_devolvibles').map(rpcArgs);
+
+  /** Sugerencias (con concepto o importe), resultados del buscador o recientes. */
+  function responderDevolucion(
+    movs: Movimiento[],
+    o: { sugerencias?: GastoDevolvible[] | 'error'; recientes?: GastoDevolvible[]; busqueda?: GastoDevolvible[] } = {},
+  ) {
+    responderCon(movs, (l) => {
+      if (l.tabla === 'movimientos' && operacion(l) === 'insert') return { data: { id: 'nuevo' }, error: null };
+      if (l.tabla === 'movimientos' && operacion(l) === 'update') return { data: [{ id: ID.mov1 }], error: null };
+      if (l.tabla !== 'rpc:buscar_gastos_devolvibles') return undefined;
+      const a = rpcArgs(l);
+      if (a.p_concepto !== null || a.p_importe !== null) {
+        if (o.sugerencias === 'error') return { data: null, error: { code: '57014', message: 'timeout' } };
+        return { data: o.sugerencias ?? [], error: null };
+      }
+      if (a.p_busqueda !== null) return { data: o.busqueda ?? [], error: null };
+      return { data: o.recientes ?? [ENTRADAS], error: null };
+    });
+  }
+
+  const insertado = () => paso(llamadasMovimientos('insert')[0], 'insert')?.[1];
+
+  async function abrirDevolucion() {
+    renderRuta('/movimientos/nuevo');
+    await userEvent.click(await screen.findByRole('radio', { name: 'Devolución' }));
+  }
+
+  it('orden: Importe → Concepto → Gasto original → Cuenta…; sin selector de categoría ni «Sin vincular»', async () => {
+    responderDevolucion([]);
+    await abrirDevolucion();
+    const campos = [
+      screen.getByLabelText('Importe'),
+      screen.getByLabelText('Concepto'),
+      screen.getByRole('heading', { name: 'Gasto original' }),
+      await screen.findByRole('radiogroup', { name: 'Gastos recientes' }),
+      screen.getByLabelText('Entra en'),
+      screen.getByLabelText(/Método de pago/),
+      screen.getByLabelText('Fecha en que ocurrió'),
+    ];
+    for (let i = 1; i < campos.length; i++) {
+      const anterior = campos[i - 1] as HTMLElement;
+      expect(anterior.compareDocumentPosition(campos[i] as HTMLElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+    expect(screen.queryByRole('radiogroup', { name: 'Categoría' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin vincular')).not.toBeInTheDocument();
+    expect(screen.queryByText(/opcional/i, { selector: 'h2 *, h2' })).not.toBeInTheDocument();
+    expect(screen.getByText('Todavía no has elegido el gasto original.')).toBeInTheDocument();
+  });
+
+  it('las sugerencias llegan con su motivo y no se eligen solas; al tocar una se vincula y se guarda sin categoría', async () => {
+    responderDevolucion([], { sugerencias: [AMAZON], recientes: [ENTRADAS, AMAZON] });
+    await abrirDevolucion();
+    await userEvent.type(screen.getByLabelText('Importe'), '24,5');
+    await userEvent.type(screen.getByLabelText('Concepto'), 'Devolución Amazon');
+
+    await waitFor(() =>
+      expect(llamadasBuscar()).toContainEqual({
+        p_concepto: 'Devolución Amazon',
+        p_importe: '24.50',
+        p_fecha: '2026-10-20',
+        p_busqueda: null,
+        p_excluir: null,
+        p_limite: 10,
+      }),
+    );
+    const sugerencias = await screen.findByRole('radiogroup', { name: 'Sugerencias' });
+    const sugerida = within(sugerencias).getByRole('radio', { name: /Pedido auriculares · Amazon/ });
+    expect(sugerida).toHaveTextContent('Mismo importe');
+    expect(sugerida.textContent?.replace(/\s/g, ' ')).toContain('15/10/2026 · Importe 24,50 € · Quedan 24,50 €');
+    expect(sugerida).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByText('Todavía no has elegido el gasto original.')).toBeInTheDocument();
+    // Las sugeridas no se repiten en la lista de recientes.
+    const recientes = screen.getByRole('radiogroup', { name: 'Gastos recientes' });
+    expect(within(recientes).queryByRole('radio', { name: /Pedido auriculares/ })).not.toBeInTheDocument();
+
+    await userEvent.click(sugerida);
+    expect(sugerida).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByText('Categoría: Restaurantes (la del gasto original)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Entra en')).toHaveValue(ID.ing);
+    expect(screen.getByLabelText('Importe')).toHaveValue('24,50'); // lo escrito (formateado al salir), no lo pendiente
+    // La cuenta sigue siendo editable.
+    await userEvent.selectOptions(screen.getByLabelText('Entra en'), ID.caixa);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(insertado()).toBeDefined());
+    expect(insertado()).toMatchObject({
+      tipo: 'devolucion',
+      importe: '24.50',
+      devolucion_de: ID_AMAZON,
+      categoria_id: null,
+      cuenta_id: ID.caixa,
+    });
+  });
+
+  it('no se guarda sin gasto original ni por encima de lo pendiente', async () => {
+    responderDevolucion([]);
+    await abrirDevolucion();
+    await userEvent.type(screen.getByLabelText('Importe'), '90');
+    await userEvent.type(screen.getByLabelText('Concepto'), 'Bizum entradas');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(await screen.findByText('Elige el gasto original que te devuelven.')).toBeInTheDocument();
+
+    const recientes = await screen.findByRole('radiogroup', { name: 'Gastos recientes' });
+    await userEvent.click(within(recientes).getByRole('radio', { name: /Entradas/ }));
+    expect(screen.queryByText('Elige el gasto original que te devuelven.')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(
+      await screen.findByText(conTexto('De ese gasto solo quedan 85,00 € por devolver: el importe no puede ser mayor.')),
+    ).toBeInTheDocument();
+    expect(llamadasMovimientos('insert')).toHaveLength(0);
+  });
+
+  it('al elegir un gasto con el importe vacío se propone lo pendiente', async () => {
+    responderDevolucion([]);
+    await abrirDevolucion();
+    const recientes = await screen.findByRole('radiogroup', { name: 'Gastos recientes' });
+    await userEvent.click(within(recientes).getByRole('radio', { name: /Entradas/ }));
+    expect(screen.getByLabelText('Importe')).toHaveValue('85,00');
+    expect(screen.getByText(conTexto('Quedan 85,00 € por devolver de ese gasto.'))).toBeInTheDocument();
+  });
+
+  it('el buscador encuentra gastos antiguos y la lista se maneja con el teclado', async () => {
+    responderDevolucion([], { recientes: [ENTRADAS, AMAZON], busqueda: [IKEA] });
+    await abrirDevolucion();
+    const recientes = await screen.findByRole('radiogroup', { name: 'Gastos recientes' });
+    const [primero, segundo] = within(recientes).getAllByRole('radio');
+    expect(primero).toHaveAttribute('tabindex', '0');
+    expect(segundo).toHaveAttribute('tabindex', '-1');
+    (primero as HTMLElement).focus();
+    await userEvent.keyboard('{ArrowDown}');
+    expect(segundo).toHaveAttribute('aria-checked', 'true');
+    expect(segundo).toHaveFocus();
+
+    await userEvent.type(screen.getByLabelText('Buscar el gasto'), 'ikea{Enter}');
+    const resultados = await screen.findByRole('radiogroup', { name: 'Resultados de la búsqueda' });
+    expect(within(resultados).getByRole('radio', { name: /Estantería · IKEA/ }).textContent?.replace(/\s/g, ' ')).toContain(
+      '05/01/2024 · Importe 149,00 € · Quedan 149,00 €',
+    );
+    expect(llamadasBuscar()).toContainEqual(expect.objectContaining({ p_busqueda: 'ikea', p_concepto: null }));
+    // Enter en el buscador no envía el formulario.
+    expect(llamadasMovimientos('insert')).toHaveLength(0);
+  });
+
+  it('si las sugerencias fallan, el formulario sigue funcionando con la lista', async () => {
+    responderDevolucion([], { sugerencias: 'error' });
+    await abrirDevolucion();
+    await userEvent.type(screen.getByLabelText('Importe'), '10');
+    await userEvent.type(screen.getByLabelText('Concepto'), 'Bizum');
+    expect(await screen.findByText('No se han podido cargar las sugerencias. Puedes buscar el gasto en la lista.')).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'Gastos recientes' })).getByRole('radio', { name: /Entradas/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(insertado()).toMatchObject({ devolucion_de: ID.mov2, importe: '10.00' }));
+  });
+
+  it('editar una devolución antigua sin vincular avisa de que hay que vincularla antes de guardar', async () => {
+    const antigua = movimiento({ id: ID.mov1, tipo: 'devolucion', importe: '24.00', concepto: 'Bizum', devolucion_de: null });
+    responderDevolucion([antigua]);
+    renderRuta(`/movimientos/${ID.mov1}/editar`);
+    expect(
+      await screen.findByText(
+        'Esta devolución es antigua y no está vinculada a ningún gasto. Para guardar cambios, elige antes el gasto original que devuelve.',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(await screen.findByText('Elige el gasto original que te devuelven.')).toBeInTheDocument();
+    expect(llamadasMovimientos('update')).toHaveLength(0);
+  });
+
+  it('editar una devolución vinculada: lo pendiente incluye su propio importe', async () => {
+    const entradas = movimiento({ id: ID.mov2, tipo: 'gasto', importe: '100.00', concepto: 'Entradas', fecha: '2026-10-12' });
+    const propia = movimiento({ id: ID.mov1, tipo: 'devolucion', importe: '24.00', concepto: 'Bizum', devolucion_de: ID.mov2, fecha: '2026-10-14' });
+    const otra = movimiento({ id: ID.mov3, tipo: 'devolucion', importe: '15.00', concepto: 'Bizum', devolucion_de: ID.mov2, fecha: '2026-10-14' });
+    responderDevolucion([entradas, propia, otra], { recientes: [] });
+    renderRuta(`/movimientos/${ID.mov1}/editar`);
+
+    // 100,00 − (24,00 + 15,00) + 24,00 = 85,00
+    expect(await screen.findByText(conTexto('Quedan 85,00 € por devolver de ese gasto.'))).toBeInTheDocument();
+    expect(screen.getByText('Vinculada a')).toBeInTheDocument();
+    expect(screen.getByText('Entradas')).toBeInTheDocument();
+    const excluye = llamadasBuscar()[0] as unknown as { p_excluir: string };
+    expect(excluye.p_excluir).toBe(ID.mov1);
+
+    await userEvent.clear(screen.getByLabelText('Importe'));
+    await userEvent.type(screen.getByLabelText('Importe'), '85,01');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(
+      await screen.findByText(conTexto('De ese gasto solo quedan 85,00 € por devolver: el importe no puede ser mayor.')),
+    ).toBeInTheDocument();
+    // Antes de la compra, tampoco.
+    fireEvent.change(screen.getByLabelText('Fecha en que ocurrió'), { target: { value: '2026-10-11' } });
+    await userEvent.clear(screen.getByLabelText('Importe'));
+    await userEvent.type(screen.getByLabelText('Importe'), '85');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(await screen.findByText('La devolución no puede ser anterior a la compra (12/10/2026).')).toBeInTheDocument();
+    expect(llamadasMovimientos('update')).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText('Fecha en que ocurrió'), { target: { value: '2026-10-12' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(llamadasMovimientos('update')).toHaveLength(1));
+    expect(paso(llamadasMovimientos('update')[0], 'update')?.[1]).toMatchObject({
+      importe: '85.00',
+      devolucion_de: ID.mov2,
+      categoria_id: null,
+    });
+  });
+
+  it('un gasto con devoluciones no se puede borrar: el aviso dice cuántas tiene y cuánto suman', async () => {
+    const entradas = movimiento({ id: ID.mov2, tipo: 'gasto', importe: '100.00', concepto: 'Entradas' });
+    const a = movimiento({ id: ID.mov1, tipo: 'devolucion', importe: '24.00', devolucion_de: ID.mov2 });
+    const b = movimiento({ id: ID.mov3, tipo: 'devolucion', importe: '15.00', devolucion_de: ID.mov2 });
+    responderDevolucion([entradas, a, b]);
+    renderRuta(`/movimientos/${ID.mov2}`);
+    await screen.findByRole('heading', { name: 'Entradas' });
+    await userEvent.click(screen.getByRole('button', { name: 'Borrar' }));
+    const dialogo = await screen.findByRole('dialog', { name: '¿Borrar este movimiento?' });
+    expect(
+      await within(dialogo).findByText(
+        conTexto(
+          'Este gasto tiene 2 devoluciones vinculadas que suman 39,00 €. No se puede borrar: borra antes las devoluciones o corrige a qué gasto pertenecen.',
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialogo).queryByRole('button', { name: 'Borrar' })).not.toBeInTheDocument();
+    expect(llamadasMovimientos('delete')).toHaveLength(0);
+  });
+});
+
+describe('Devoluciones pendientes de revisión (sección 3)', () => {
+  const PENDIENTES = [
+    {
+      id: ID.mov1,
+      fecha: '2026-09-25',
+      concepto: 'Devolución Amazon',
+      importe: '9.91',
+      categoria_id: ID.ocio,
+      cuenta_id: CUENTAS[0]?.id,
+      motivo: 'sin_vincular',
+      gasto_id: null,
+      gasto_fecha: null,
+      gasto_concepto: null,
+    },
+    {
+      id: ID.mov2,
+      fecha: '2026-10-09',
+      concepto: 'Bizum cena',
+      importe: '10.00',
+      categoria_id: ID.ocio,
+      cuenta_id: CUENTAS[0]?.id,
+      motivo: 'fecha_anterior',
+      gasto_id: ID.mov3,
+      gasto_fecha: '2026-10-10',
+      gasto_concepto: 'Cena',
+    },
+  ];
+  const conPendientes = (filas: unknown[]) =>
+    responderCon(LISTA, (l) => (l.tabla === 'rpc:devoluciones_pendientes_revision' ? { data: filas, error: null } : undefined));
+
+  it('la lista avisa de cuántas hay y lleva a revisarlas', async () => {
+    conPendientes(PENDIENTES);
+    renderRuta('/movimientos');
+    expect(await screen.findByText('Tienes 2 devoluciones por revisar: elige el gasto original de cada una.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: 'Revisar' }));
+    await waitFor(() => expect(ubicacion()).toBe('/movimientos/revision'));
+  });
+
+  it('sin pendientes no hay aviso', async () => {
+    conPendientes([]);
+    renderRuta('/movimientos');
+    expect(await screen.findByText('Cena con amigos')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Revisar' })).not.toBeInTheDocument();
+  });
+
+  it('cada devolución dice por qué está pendiente y se corrige en su formulario, sin vincular nada sola', async () => {
+    conPendientes(PENDIENTES);
+    renderRuta('/movimientos/revision');
+    const lista = await screen.findByRole('list', { name: 'Devoluciones por revisar' });
+    const filas = within(lista).getAllByRole('listitem');
+    expect(filas).toHaveLength(2);
+    expect(filas[0]).toHaveTextContent('Sin gasto original');
+    expect(filas[1]).toHaveTextContent('vinculada a «Cena»');
+    expect(filas[1]).toHaveTextContent('Su fecha es anterior a la compra');
+    expect(llamadasMovimientos('update')).toHaveLength(0);
+    await userEvent.click(within(filas[0] as HTMLElement).getByRole('link', { name: 'Corregir la devolución «Devolución Amazon»' }));
+    await waitFor(() => expect(ubicacion()).toBe(`/movimientos/${ID.mov1}/editar`));
+  });
+
+  it('sin pendientes lo dice', async () => {
+    conPendientes([]);
+    renderRuta('/movimientos/revision');
+    expect(await screen.findByText('No hay devoluciones por revisar')).toBeInTheDocument();
   });
 });

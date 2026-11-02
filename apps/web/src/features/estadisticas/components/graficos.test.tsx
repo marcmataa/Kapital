@@ -236,6 +236,13 @@ describe('GraficoBalanceMeses', () => {
     expect(lectura()).toContain('Agosto de 2026');
   });
 
+  it('ahorro fuera de ±100 %: un texto en lugar del porcentaje (cambio del 02/11/2026)', () => {
+    renderConApp(<GraficoBalanceMeses hoy="2026-10-19" meses={[mesResumen('2026-10-01', '100.00', '350.00', '-250.00', '-250.0000')]} />);
+    const lectura = normal(screen.getByTestId('lectura-balance').textContent);
+    expect(lectura).toContain('Tasa de ahorro: no se calcula (ingresos insuficientes)');
+    expect(lectura).not.toContain('-250,0 %');
+  });
+
   it('título por contenido y, en el mes en curso, la marca del mes anterior al mismo día', () => {
     renderConApp(
       <GraficoBalanceMeses hoy="2026-10-19" meses={meses} referencia={{ mes: '2026-09-01', dia: 19, importe: '120.00' }} />,
@@ -243,7 +250,8 @@ describe('GraficoBalanceMeses', () => {
     expect(screen.getByRole('heading', { name: 'Balance mensual · desde agosto' })).toBeInTheDocument();
     const marca = screen.getByTestId('marca-referencia');
     expect(marca).toHaveAttribute('data-balance', '120.00');
-    expect(normal(screen.getByTestId('lectura-balance').textContent)).toContain('Septiembre al día 19: +120,00 €');
+    // La comparación ya está en la cabecera: la lectura solo lleva la marca, sin repetir el importe.
+    expect(normal(screen.getByTestId('lectura-balance').textContent)).not.toContain('al día 19');
     expect(screen.getByText('Rayado: mes en curso, provisional')).toBeInTheDocument();
   });
 
@@ -293,9 +301,9 @@ describe('DesgloseBalance', () => {
       />,
     );
 
-  it('mes cerrado: «vs agosto completo», Δ por fila con color por significado y lo que no cuenta, aparte', () => {
+  it('mes cerrado: título del mes (sin «vs»), Δ por fila con color por significado y lo que no cuenta, aparte', () => {
     pintar(false);
-    expect(screen.getByText('Este mes vs agosto completo')).toBeInTheDocument();
+    expect(screen.getByText('Desglose de septiembre')).toBeInTheDocument();
     const ingresos = screen.getByRole('list', { name: 'Ingresos' });
     const gastos = screen.getByRole('list', { name: 'Gastos netos' });
     const fila = (lista: HTMLElement, nombre: string) => within(lista).getByText(nombre).closest('li') as HTMLElement;
@@ -350,9 +358,10 @@ describe('DesgloseBalance', () => {
     expect(nombres()).toEqual(['Gastos netos', 'Ocio', 'Alquiler']);
   });
 
-  it('mes en curso: «vs mes anterior al día 23»', () => {
+  it('mes en curso: el título nombra el mes, no el periodo comparado (que la pantalla dice una vez)', () => {
     pintar(true);
-    expect(screen.getByText('Este mes vs mes anterior al día 23')).toBeInTheDocument();
+    expect(screen.getByText('Desglose de octubre')).toBeInTheDocument();
+    expect(screen.queryByText(/al día/)).not.toBeInTheDocument();
   });
 });
 
@@ -407,10 +416,10 @@ describe('ComparativaMes · gasto medio diario (auditoría F14)', () => {
 
   it('distinta longitud (31 contra 30 días): el % del gasto medio diario sí aporta y se muestra', () => {
     pintar('2026-09-30');
-    expect(within(tarjetaMedio()).queryByTestId('linea-variacion')).toBeInTheDocument();
+    expect(within(tarjetaMedio()).getByTestId('linea-variacion')).toHaveTextContent('frente a 10,00 €/día');
   });
 
-  it('misma longitud (19 contra 19): sin % propio, que repetiría el de Gastos; queda el importe anterior', () => {
+  it('misma longitud (19 contra 19): el gasto diario no se compara, repetiría lo que dice Gastos', () => {
     renderConApp(
       <ComparativaMes
         periodos={{ actual: { desde: '2026-10-01', hasta: '2026-10-19' }, anterior: { desde: '2026-09-01', hasta: '2026-09-19' }, enCurso: true }}
@@ -420,6 +429,6 @@ describe('ComparativaMes · gasto medio diario (auditoría F14)', () => {
       />,
     );
     expect(within(tarjetaMedio()).queryByTestId('linea-variacion')).not.toBeInTheDocument();
-    expect(within(tarjetaMedio()).getByTestId('medio-diario-anterior')).toHaveTextContent('vs 10,00 €/día el mes pasado');
+    expect(within(tarjetaMedio()).queryByText(/frente a|mes pasado/)).not.toBeInTheDocument();
   });
 });

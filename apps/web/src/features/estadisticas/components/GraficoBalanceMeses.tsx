@@ -1,6 +1,7 @@
 import { AyudaGrafico, Card, EmptyState, EtiquetasEje, LecturaGrafico, LineasEje } from '@/shared/ui';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { useSeleccionGrafico } from '@/shared/hooks/useSeleccionGrafico';
+import { lecturaAhorro } from '@/shared/lib/ahorro';
 import { aCentimos, formatearEuros, formatearPorcentaje } from '@/shared/lib/dinero';
 import { escalaDeImportes, formatearEurosEje, posicionEnEje, tramoBarra } from '@/shared/lib/ejes';
 import { inicioDeMes } from '@/shared/lib/fechas';
@@ -43,7 +44,7 @@ function etiquetaBarra(balance: string, locale: string): string {
  * hacia arriba si ahorraste y roja hacia abajo si gastaste más de lo que entró, con la cifra en la
  * barra. Al elegir un mes se leen sus ingresos, gastos netos y ahorro. Todo calculado en SQL
  * (resumen_mensual, sección 3); aquí solo se dibuja. El mes en curso es provisional (rayado).
- * Ahorro «—» si no hay ingresos. Se recorre mes a mes con ratón, dedo o teclado.
+ * Ahorro «—» si no hay ingresos y un texto si queda fuera de ±100 % (lecturaAhorro). Se recorre mes a mes con ratón, dedo o teclado.
  */
 export function GraficoBalanceMeses({ meses, hoy, referencia }: Props) {
   const t = useT('estadisticas');
@@ -60,27 +61,24 @@ export function GraficoBalanceMeses({ meses, hoy, referencia }: Props) {
   const elegido = meses[indice];
   const hayEnCurso = meses.some((m) => m.mes === mesActual);
   const ref = hayEnCurso ? referencia : undefined;
-  const textoRef =
-    ref === undefined
-      ? null
-      : t('balanceMeses.referencia', {
-          mes: capitalizar(nombreMes(ref.mes, locale)),
-          dia: String(ref.dia),
-          importe: formatearEuros(ref.importe, locale, { signo: 'siempre' }),
-        });
 
   // Con el cero siempre dentro: los meses en negativo quedan por debajo. La referencia, también dentro.
   const escala = escalaDeImportes([...meses.map((m) => m.balance), ...(ref ? [ref.importe] : [])]);
   const n = meses.length;
 
+  // La tasa de ahorro solo entre −100 % y 100 % (sección 3, cambio del 02/11/2026).
+  const textoAhorro = (m: ResumenMes) => {
+    const ahorro = lecturaAhorro(m.ingresos, m.ahorro_pct);
+    if (ahorro.tipo === 'fueraDeRango') return t('balanceMeses.ahorroNoCalculable');
+    return t('balanceMeses.ahorro', { porcentaje: formatearPorcentaje(ahorro.tipo === 'porcentaje' ? ahorro.porcentaje : null, locale) });
+  };
   const lectura = (m: ResumenMes) => {
     const titulo = m.mes === mesActual ? t('meses.lectura.enCurso', { mes: etiquetaMes(m.mes, locale) }) : etiquetaMes(m.mes, locale);
     const valor = formatearEuros(m.balance, locale, { signo: 'siempre' });
     const detalle = [
       t('balanceMeses.ingresos', { importe: formatearEuros(m.ingresos, locale) }),
       t('balanceMeses.gastos', { importe: formatearEuros(m.gastos_netos, locale) }),
-      t('balanceMeses.ahorro', { porcentaje: formatearPorcentaje(m.ahorro_pct, locale) }),
-      ...(m.mes === mesActual && textoRef !== null ? [textoRef] : []),
+      textoAhorro(m),
     ];
     return { titulo, valor, detalle };
   };

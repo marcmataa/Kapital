@@ -24,7 +24,7 @@ const ANCHO_POR_DEFECTO = 640;
 const MARCAS_X = [1, 5, 10, 15, 20, 25, 30];
 /** Arriba hay sitio para la etiqueta «23 oct (hoy)», fuera del área de la línea. Abajo, los días. */
 const MARGEN = { arriba: 30, derecha: 16, abajo: 26 } as const;
-/** Alto fijo: a la altura del reparto por categoría de al lado, sin estirarse con la tarjeta. */
+/** Alto fijo: el gráfico ocupa todo el ancho bajo el patrimonio y no se estira con la tarjeta. */
 const ALTO = { movil: 240, escritorio: 280 } as const;
 /** Marcas del eje Y: más líneas de referencia que en las barras, para leer el patrimonio. */
 const MARCAS_Y = 6;
@@ -102,6 +102,8 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
   const valoresAnterior = porDia(anterior, inicioAnterior);
 
   const [diaSel, setDiaSel] = useState(refP.dia);
+  const nombreActual = capitalizar(mesLargo(inicioActual, locale), locale);
+  const nombreAnterior = capitalizar(mesLargo(inicioAnterior, locale), locale);
 
   // ---------------------------------------------------------------- Lectura del día elegido
   const fechaDe = (dia: number) => componerFecha({ ...refP, dia });
@@ -114,7 +116,6 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
     const valor = esFuturo ? undefined : valoresActual.get(dia);
     const fechaAnt = mismoDiaMesAnterior(fecha);
     const valorAnt = valoresAnterior.get(partesDe(fechaAnt).dia);
-    const fechaAntTexto = formatearDiaMes(fechaAnt, locale);
     const titulo = esHoy ? t('grafico.lectura.hoy', { fecha: fechaTexto }) : fechaTexto;
 
     if (esFuturo) {
@@ -124,16 +125,19 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
         comparacion:
           valorAnt === undefined
             ? ''
-            : t('grafico.lectura.futuroAnterior', { fecha: fechaAntTexto, valor: formatearEuros(valorAnt, locale) }),
+            : t('grafico.lectura.futuroAnterior', { mes: nombreAnterior, valor: formatearEuros(valorAnt, locale) }),
       };
     }
     if (valor === undefined) return { titulo, valor: t('grafico.lectura.sinDatos'), comparacion: '' };
     if (valorAnt === undefined) {
       return { titulo, valor: formatearEuros(valor, locale), comparacion: t('grafico.lectura.sinAnterior') };
     }
+    // El día de referencia ya lleva su comparación en la tarjeta de patrimonio: no se repite.
+    if (fecha === referencia) return { titulo, valor: formatearEuros(valor, locale), comparacion: '' };
     const diferencia = formatearEuros(restarImportes(valor, valorAnt), locale, { signo: 'siempre' });
-    const base = { fecha: fechaAntTexto, valor: formatearEuros(valorAnt, locale), diferencia };
-    // % solo si patrimonio(d') > 0 (sección 7).
+    // Una sola comparación, en palabras: la diferencia frente al mismo día del mes anterior (d',
+    // sección 7), que ya se ve en la línea discontinua. % solo si patrimonio(d') > 0.
+    const base = { mes: mesLargo(inicioAnterior, locale), diferencia };
     const comparacion =
       aCentimos(valorAnt) > 0n
         ? t('grafico.lectura.comparacion', {
@@ -215,8 +219,6 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
     setDiaSel(Math.min(diasActual, Math.max(1, siguiente)));
   };
 
-  const nombreActual = capitalizar(mesLargo(inicioActual, locale), locale);
-  const nombreAnterior = capitalizar(mesLargo(inicioAnterior, locale), locale);
 
   return (
     <div className={cx('flex flex-col gap-3', className)}>

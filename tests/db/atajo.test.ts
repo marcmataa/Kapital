@@ -116,7 +116,7 @@ describe('registrar_movimiento', () => {
     expect((await atajo({ tipo: 'gasto', importe: '0,00', categoria: 'Ocio' })).error).toBe('Importe no válido: 0,00');
     expect((await atajo({ tipo: 'gasto', importe: '1', categoria: 'Viajes' })).error)
       .toBe('Categoría no encontrada: Viajes. Válidas: Restaurantes, Ocio, Transporte, Suscripciones, ' +
-        'Supermercado, Hogar, Salud, Deporte, Cuidado personal, Ropa, Regalos, Otros gastos');
+        'Supermercado, Deporte, Ropa, Otros gastos');
 
     await db.query(`update cuentas set fecha_inicial = '2026-01-01' where user_id = $1 and nombre = 'BBVA'`, [u]);
     expect((await atajo({ tipo: 'gasto', importe: '1', categoria: 'Ocio', fecha: '2025-12-31' })).error)

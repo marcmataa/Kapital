@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { useListarCuentasQuery } from '@/shared/api/catalogos';
 import { useHoyUsuario } from '@/shared/hooks/useHoyUsuario';
+import { useNombreCategoriaCatalogo } from '@/shared/hooks/useNombreCategoria';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
 import { CabeceraPagina } from '@/shared/layout';
-import { cx } from '@/shared/lib/cx';
+import { enlaceMovimientos } from '@/shared/lib/enlaces';
 import { finDeMes, partesDe } from '@/shared/lib/fechas';
 import { SegmentedControl } from '@/shared/ui';
+import { ResultadoMes } from '@/shared/ui/graficos/ResultadoMes';
 import { SelectorMes } from '@/features/inicio/components/SelectorMes';
 import { useMesSeleccionado } from '@/features/inicio/hooks/useMesSeleccionado';
 import {
@@ -21,8 +23,7 @@ import {
   useEstadisticasRitmoQuery,
 } from '../api/estadisticasApi';
 import { CabeceraBalance } from '../components/CabeceraBalance';
-import { CascadaVariacion } from '../components/CascadaVariacion';
-import { ComparativaMes, useTituloComparativa } from '../components/ComparativaMes';
+import { ComparativaMes, LineaPeriodo, useTituloComparativa } from '../components/ComparativaMes';
 import { DesgloseBalance } from '../components/DesgloseBalance';
 import { EstadoConsulta } from '../components/EstadoConsulta';
 import { GastoPorCategoria } from '../components/GastoPorCategoria';
@@ -65,7 +66,7 @@ export default function PaginaEstadisticas() {
   // Mes en curso: 1..D contra 1..d' del mes anterior; mes cerrado: completo contra completo.
   const periodos = periodosComparacion(mes, hoy, inicioDatos);
   const anterior = periodos.anterior;
-  const periodosConAnterior = anterior === null ? null : { ...periodos, anterior };
+  const nombreCategoria = useNombreCategoriaCatalogo();
   const tituloCategorias = useTituloComparativa(periodos, 'categorias.titulo');
 
   const verGastos = pestana === 'gastos';
@@ -167,7 +168,8 @@ export default function PaginaEstadisticas() {
           anchoCompleto
           className="sm:w-auto sm:self-start"
         />
-
+        {/* Con qué se compara la pantalla, una sola vez (las tarjetas ya no lo repiten). */}
+        <LineaPeriodo periodos={periodos} />
         {verGastos && (
           <>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -248,34 +250,38 @@ export default function PaginaEstadisticas() {
 
         {verBalance && (
           <>
-            {/* 1. Cabecera: balance del tramo, diferencia con el mismo tramo del mes anterior y tasa de ahorro. */}
+            {/* 1. Cabecera: balance del tramo, diferencia con el periodo comparado y tasa de ahorro. */}
             <EstadoConsulta datos={todas(comparativa.data, comparativa, resumen)} {...estado(comparativa, resumen)}>
               {(c) => (
                 <CabeceraBalance
                   periodos={periodos}
                   balance={c.balance}
                   balanceAnterior={c.balance_anterior}
+                  ingresos={resumen.data?.ingresos ?? c.ingresos}
                   ahorroPct={resumen.data?.ahorro_pct ?? null}
                 />
               )}
             </EstadoConsulta>
-            {/* 2. Por qué cambia (solo con mes anterior) y su evolución mes a mes. */}
-            <div className={cx('grid grid-cols-1 items-start gap-4', periodosConAnterior !== null && 'lg:grid-cols-2')}>
-              {periodosConAnterior !== null && (
-                <EstadoConsulta
-                  datos={todas(comparativa.data, comparativa, categorias, categoriasAnt)}
-                  {...estado(comparativa, categorias, categoriasAnt)}
-                >
-                  {(c) => (
-                    <CascadaVariacion
-                      periodos={periodosConAnterior}
-                      comparativa={c}
-                      gastos={categorias.data ?? []}
-                      gastosAnterior={categoriasAnt.data ?? []}
-                    />
-                  )}
-                </EstadoConsulta>
-              )}
+            {/* 2. De dónde sale el balance (ingresos, gastos, lo que queda y las categorías) y su evolución mes a mes. */}
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+              <EstadoConsulta datos={todas(comparativa.data, comparativa, categorias)} {...estado(comparativa, categorias)}>
+                {(c) => (
+                  <ResultadoMes
+                    ingresos={c.ingresos}
+                    gastosNetos={c.gastos_netos}
+                    balance={c.balance}
+                    mes={mes}
+                    enCurso={periodos.enCurso}
+                    categorias={(categorias.data ?? []).map((g) => ({
+                      id: g.categoria_id,
+                      nombre: nombreCategoria({ id: g.categoria_id, nombre: g.nombre }),
+                      color: g.color,
+                      gasto: g.gasto,
+                      href: enlaceMovimientos({ categoria: g.categoria_id, ...periodos.actual }),
+                    }))}
+                  />
+                )}
+              </EstadoConsulta>
               <EstadoConsulta datos={primerMes === undefined ? [] : datosMeses} {...estado(resumenMensual)}>
                 {() => (
                   <GraficoBalanceMeses

@@ -65,15 +65,64 @@ export interface ResumenFiltro {
   categoria_gasto: string | null;
 }
 
+/** Por qué se propone un gasto (código de buscar_gastos_devolvibles; la UI lo traduce). */
+export const MOTIVOS_CANDIDATO = ['importe_exacto', 'concepto_parecido', 'importe_parecido', 'fecha_cercana', 'reciente'] as const;
+export type MotivoCandidato = (typeof MOTIVOS_CANDIDATO)[number];
+
 export interface GastoDevolvible {
   id: string;
   fecha: string;
   concepto: string;
+  comercio: string | null;
+  /** Importe original del gasto, 'd.dd'. */
   importe: string;
-  /** Lo que queda por devolver (importe − devoluciones ya vinculadas), 'd.dd'. */
+  /** Lo que queda por devolver (importe − devoluciones ya vinculadas, sin la que se edita), 'd.dd'. */
   pendiente: string;
   categoria_id: string;
   cuenta_id: string;
+  /** 0..100: parecido del concepto, cercanía del importe y de la fecha. */
+  puntuacion: number;
+  motivo: MotivoCandidato;
+}
+
+/** Argumentos de buscar_gastos_devolvibles (null = sin ese dato). */
+export interface ConsultaGastosDevolvibles {
+  concepto: string | null;
+  /** Importe tal como lo escribe el usuario; la base lo lee con leer_importe. */
+  importe: string | null;
+  /** Fecha de la devolución: no se ofrecen gastos posteriores. */
+  fecha: string | null;
+  /** Texto del buscador: concepto o comercio, importe o fecha. */
+  busqueda: string | null;
+  /** Devolución que se edita (no cuenta contra su propio gasto). */
+  excluir: string | null;
+  limite: number;
+}
+
+/** Por qué hay que revisar una devolución (código de devoluciones_pendientes_revision). */
+export const MOTIVOS_REVISION = ['sin_vincular', 'fecha_anterior', 'otra_categoria'] as const;
+export type MotivoRevision = (typeof MOTIVOS_REVISION)[number];
+
+export interface DevolucionPendiente {
+  id: string;
+  fecha: string;
+  concepto: string;
+  /** 'd.dd' */
+  importe: string;
+  categoria_id: string;
+  cuenta_id: string;
+  motivo: MotivoRevision;
+  /** Gasto vinculado (null si está sin vincular). */
+  gasto_id: string | null;
+  gasto_fecha: string | null;
+  gasto_concepto: string | null;
+}
+
+function aGastoDevolvible(fila: GastoDevolvible): GastoDevolvible {
+  return {
+    ...fila,
+    motivo: (MOTIVOS_CANDIDATO as readonly string[]).includes(fila.motivo) ? fila.motivo : 'reciente',
+  };
 }
 
 export interface CalculoAjuste {
@@ -153,18 +202,52 @@ export const sqlApi = api.injectEndpoints({
     }),
 
     /**
-     * Gastos con algo por devolver, para el «Gasto original» de una devolución.
-     * `excluir`: la devolución que se está editando (no cuenta contra sí misma).
+     * Gastos con algo por devolver, para el «Gasto original» de una devolución
+     * (buscar_gastos_devolvibles, migración 20261102000001): sugerencias, recientes y buscador.
+     * La puntuación y el motivo los calcula la base; aquí no se ordena ni se opera con importes.
      */
-    movimientosGastosDevolvibles: b.query<GastoDevolvible[], { excluir: string | null }>({
-      queryFn: ({ excluir }) =>
-        capturar(() =>
-          filas<GastoDevolvible>(
+    movimientosGastosDevolvibles: b.query<GastoDevolvible[], ConsultaGastosDevolvibles>({
+      queryFn: (c) =>
+        capturar(async () => {
+          const r = await filas<GastoDevolvible>(
             supabase
-              .rpc('gastos_devolvibles', { p_excluir: excluir, p_limite: 50 })
-              .select('id, fecha, concepto, importe::text, pendiente::text, categoria_id, cuenta_id'),
-          ),
-        ),
+              .rpc('buscar_gastos_devolvibles', {
+                p_concepto: c.concepto,
+                p_importe: c.importe,
+                p_fecha: c.fecha,
+                p_busqueda: c.busqueda,
+                p_excluir: c.excluir,
+                p_limite: c.limite,
+              })
+              .select(
+                'id, fecha, concepto, comercio, importe::text, pendiente::text, categoria_id, cuenta_id, puntuacion, motivo',
+              ),
+          );
+          return 'error' in r ? r : { data: r.data.map(aGastoDevolvible) };
+        }),
+      providesTags: ['Movimientos'],
+    }),
+
+    /**
+     * Devoluciones pendientes de revisión (devoluciones_pendientes_revision, migración
+     * 20261102000002; reglas, sección 3). Solo lectura: se corrigen editando cada una.
+     */
+    movimientosPendientesRevision: b.query<DevolucionPendiente[], void>({
+      queryFn: () =>
+        capturar(async () => {
+          const r = await filas<DevolucionPendiente>(
+            supabase
+              .rpc('devoluciones_pendientes_revision')
+              .select('id, fecha, concepto, importe::text, categoria_id, cuenta_id, motivo, gasto_id, gasto_fecha, gasto_concepto'),
+          );
+          if ('error' in r) return r;
+          return {
+            data: r.data.map((f) => ({
+              ...f,
+              motivo: (MOTIVOS_REVISION as readonly string[]).includes(f.motivo) ? f.motivo : 'sin_vincular',
+            })),
+          };
+        }),
       providesTags: ['Movimientos'],
     }),
 
@@ -206,6 +289,7 @@ export const {
   useMovimientosSugerirCategoriaQuery,
   useMovimientosCategoriasUsadasQuery,
   useMovimientosGastosDevolviblesQuery,
+  useMovimientosPendientesRevisionQuery,
   useMovimientosCalcularAjusteQuery,
   useMovimientosCrearAjusteMutation,
 } = sqlApi;

@@ -26,16 +26,18 @@ describe('nombreCategoria', () => {
   it('las categorías por defecto nuevas (20261024000000) también se traducen', () => {
     const nuevas = [
       ['supermercado', 'Groceries', 'Supermercat'],
-      ['hogar', 'Home', 'Llar'],
-      ['salud', 'Health', 'Salut'],
       ['deporte', 'Sport', 'Esport'],
-      ['cuidado_personal', 'Personal care', 'Cura personal'],
       ['ropa', 'Clothing', 'Roba'],
-      ['regalos', 'Gifts', 'Regals'],
     ] as const;
     for (const [clave, en, ca] of nuevas) {
       expect(nombreCategoria({ nombre: 'x', clave }, tDe('en'))).toBe(en);
       expect(nombreCategoria({ nombre: 'x', clave }, tDe('ca'))).toBe(ca);
+    }
+  });
+
+  it('las claves eliminadas (20261102000000) ya no se traducen: se muestra el nombre guardado', () => {
+    for (const clave of ['hogar', 'salud', 'cuidado_personal', 'regalos']) {
+      expect(nombreCategoria({ nombre: 'Guardado', clave }, tDe('en'))).toBe('Guardado');
     }
   });
 
@@ -53,7 +55,7 @@ describe('nombreCategoria', () => {
   it('cada clave tiene texto en es / en / ca, y en español coincide con el nombre de la base', () => {
     const nombresBase = [
       'Restaurantes', 'Ocio', 'Transporte', 'Suscripciones', 'Otros gastos', 'Nómina', 'Otros ingresos', 'Rendimientos',
-      'Supermercado', 'Hogar', 'Salud', 'Deporte', 'Cuidado personal', 'Ropa', 'Regalos',
+      'Supermercado', 'Deporte', 'Ropa',
     ];
     expect(CLAVES_CATEGORIA).toHaveLength(nombresBase.length);
     CLAVES_CATEGORIA.forEach((clave, i) => {
