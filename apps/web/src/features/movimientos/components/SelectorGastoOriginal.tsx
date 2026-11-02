@@ -159,38 +159,6 @@ export function SelectorGastoOriginal(props: Props) {
         </p>
       </div>
 
-      <div
-        role="status"
-        className={cx(
-          'rounded-xl border px-3 py-2.5 text-sm',
-          error ? 'border-negativo bg-negativo-suave' : 'border-borde bg-superficie-2',
-        )}
-      >
-        {multiple ? (
-          props.seleccion.length > 0 ? (
-            props.resumen
-          ) : (
-            <span className="text-apagado">{t('form.gastoElegidoNinguno')}</span>
-          )
-        ) : elegidoUno !== null ? (
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-apagado">{t('form.gastoElegido')}</span>
-            <span className="font-medium text-texto">{textoConcepto(elegidoUno)}</span>
-            <span className="text-xs text-apagado tabular-nums">{datosCandidato(elegidoUno)}</span>
-            {categoriaUno !== undefined && (
-              <span className="text-xs text-apagado">{t('form.categoriaHeredada', { categoria: nombreCategoria(categoriaUno) })}</span>
-            )}
-          </div>
-        ) : (
-          <span className="text-apagado">{t('form.gastoElegidoNinguno')}</span>
-        )}
-      </div>
-      {error && (
-        <p id={idError} className="text-xs font-medium text-negativo">
-          {error}
-        </p>
-      )}
-
       {sugerencias.length > 0 && (
         <ListaCandidatos titulo={t('form.sugerencias')} ayuda={t('form.sugerenciasAyuda')} gastos={sugerencias} conMotivo {...comunesLista} />
       )}
@@ -247,6 +215,39 @@ export function SelectorGastoOriginal(props: Props) {
           <ListaCandidatos titulo={buscando ? t('form.gastosResultados') : t('form.gastosRecientes')} gastos={lista} {...comunesLista} />
         )}
       </div>
+
+      {/* Debajo de las listas: al elegir, lo de arriba no cambia de tamaño ni se mueve. */}
+      <div
+        role="status"
+        className={cx(
+          'rounded-xl border px-3 py-2.5 text-sm',
+          error ? 'border-negativo bg-negativo-suave' : 'border-borde bg-superficie-2',
+        )}
+      >
+        {multiple ? (
+          props.seleccion.length > 0 ? (
+            props.resumen
+          ) : (
+            <span className="text-apagado">{t('form.gastoElegidoNinguno')}</span>
+          )
+        ) : elegidoUno !== null ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs text-apagado">{t('form.gastoElegido')}</span>
+            <span className="font-medium text-texto">{textoConcepto(elegidoUno)}</span>
+            <span className="text-xs text-apagado tabular-nums">{datosCandidato(elegidoUno)}</span>
+            {categoriaUno !== undefined && (
+              <span className="text-xs text-apagado">{t('form.categoriaHeredada', { categoria: nombreCategoria(categoriaUno) })}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-apagado">{t('form.gastoElegidoNinguno')}</span>
+        )}
+      </div>
+      {error && (
+        <p id={idError} className="text-xs font-medium text-negativo">
+          {error}
+        </p>
+      )}
     </section>
   );
 
@@ -328,6 +329,7 @@ function ListaCandidatos({
               role={multiple ? 'checkbox' : 'radio'}
               aria-checked={activo}
               tabIndex={multiple || g.id === tabulable ? 0 : -1}
+              aria-label={`${concepto(g)}, ${datos(g)}`}
               onClick={() => onElegir(g)}
               onKeyDown={multiple ? undefined : (e) => mover(e, i)}
               className={cx(

@@ -407,19 +407,8 @@ export function FormularioMovimiento({
         </span>
       </div>
     ) : (
-      <div className="flex flex-col gap-1">
-        <span className="text-xs text-apagado">{t('form.gastosElegidos', { n: seleccion.length })}</span>
-        <ul className="flex flex-col gap-1">
-          {seleccion.map((g) => (
-            <li key={g.id} className="flex flex-col">
-              <span className="font-medium text-texto">{textoGasto(g)}</span>
-              <span className="text-xs text-apagado tabular-nums">
-                {datosGasto(g)} · {nombreCategoriaDe(g.categoria_id)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </div>
+      // Una sola línea: el detalle de cada gasto ya está en «Reparto entre los gastos».
+      <span className="text-texto">{t('form.gastosElegidos', { n: seleccion.length })}</span>
     );
   // En un traspaso se ve el saldo de cada cuenta («BBVA · 98,32 €», de v_saldos).
   const opcionCuenta = (c: Cuenta) =>
