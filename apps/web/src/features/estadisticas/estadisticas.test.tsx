@@ -167,7 +167,7 @@ describe('Estadísticas: gastos', () => {
     expect(proyeccion).toHaveTextContent('1.906,14 €');
     expect(proyeccion).toHaveTextContent('los 31 días del mes');
     // Devoluciones: ahora en Gastos (decisión del usuario).
-    expect(screen.getByTestId('devoluciones-mes')).toHaveTextContent('Te devolvieron 60,00 € este mes');
+    expect(screen.getByTestId('devoluciones-mes')).toHaveTextContent('Devoluciones de compras de este mes: 60,00 €');
     expect(llamadas('ritmo_gasto')).toContainEqual(
       expect.objectContaining({
         args: { p_desde: '2026-10-01', p_hasta: '2026-10-19', p_desde_ant: '2026-09-01', p_hasta_ant: '2026-09-19' },
@@ -199,7 +199,7 @@ describe('Estadísticas: gastos', () => {
     const tarjetas = screen.getByTestId('comparativa-gastos');
     expect(within(tarjetas).getByText('-1,9 %').parentElement).toHaveClass('text-positivo');
     expect(within(tarjetas).queryByTestId('proyeccion-fin-mes')).not.toBeInTheDocument();
-    expect(await screen.findByTestId('devoluciones-mes')).toHaveTextContent('Te devolvieron 60,00 € en septiembre');
+    expect(await screen.findByTestId('devoluciones-mes')).toHaveTextContent('Devoluciones de compras de septiembre: 60,00 €');
     expect(llamadas('comparativa_estadisticas')).toContainEqual(
       expect.objectContaining({
         args: { p_desde: '2026-09-01', p_hasta: '2026-09-30', p_desde_ant: '2026-08-01', p_hasta_ant: '2026-08-31' },
@@ -221,7 +221,7 @@ describe('Estadísticas: gastos', () => {
     // Sin tramo anterior: lo dice una vez la pantalla; las tarjetas no lo repiten.
     expect(screen.getByTestId('periodo-comparado')).toHaveTextContent('Sin datos del mes anterior para comparar.');
     expect(within(tarjetas).queryByText(/Sin datos del mes anterior|frente a|%/)).not.toBeInTheDocument();
-    // Sin devoluciones no hay línea «Te devolvieron…».
+    // Sin devoluciones no hay línea «Devoluciones de compras…».
     expect(screen.queryByTestId('devoluciones-mes')).not.toBeInTheDocument();
     expect(llamadas('comparativa_estadisticas').every((l) => !('p_desde_ant' in (l.args ?? {})))).toBe(true);
   });
@@ -326,7 +326,7 @@ describe('Estadísticas: gastos', () => {
     });
     montar();
     await elegirMes('Septiembre de 2026');
-    expect(await screen.findByText('Gasto neto de cada día: gastos menos devoluciones.')).toBeInTheDocument();
+    expect(await screen.findByText('Gasto neto de cada día: gastos menos devoluciones. Cada devolución resta el día de su compra, aunque el dinero llegue más tarde.')).toBeInTheDocument();
     expect(await screen.findByText('Gasto neto de cada mes.')).toBeInTheDocument();
     expect(screen.queryByText(/provisional|futuros/)).not.toBeInTheDocument();
     expect(screen.queryByTestId('marca-referencia')).not.toBeInTheDocument();

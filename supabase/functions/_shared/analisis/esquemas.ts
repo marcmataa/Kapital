@@ -70,6 +70,11 @@ const variacion = z.object({
   patrimonio_inicial: importe,
   patrimonio_final: importe,
   balance: importe,
+  /**
+   * Conciliación de las devoluciones que cruzan de mes (sección 5; 20261103000000). Los
+   * snapshots anteriores no la tienen: se calcularon por la fecha real, así que vale 0.
+   */
+  devoluciones_desplazadas: importe.default('0.00'),
   revalorizacion: importe,
   ajustes: importe,
   saldos_iniciales: importe,

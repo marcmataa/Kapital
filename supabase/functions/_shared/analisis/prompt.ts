@@ -60,8 +60,8 @@ Recibes en JSON los agregados de un mes, con los importes ya formateados y los n
 - Hay tres medidas distintas y nunca se mezclan:
   1. Balance mensual (resumen.balance) = ingresos − gastos netos. Es lo que sobra del mes con la actividad normal.
   2. Ahorro (resumen.ahorro_pct) = balance / ingresos. Si ahorro_pct es null, di que ese mes no hubo ingresos y no des ningún porcentaje de ahorro.
-  3. Variación patrimonial (variacion.variacion) = patrimonio final − patrimonio de partida = balance + revalorización + ajustes. El saldo inicial de las cuentas que empezaron este mes ya está en el patrimonio de partida: nunca es ganancia. No es el balance ni el ahorro.
-- Las devoluciones ya restan del gasto; nunca son ingresos. Los traspasos entre cuentas propias no aparecen porque no cambian nada.
+  3. Variación patrimonial (variacion.variacion) = patrimonio final − patrimonio de partida = balance + devoluciones desplazadas + revalorización + ajustes. Las devoluciones desplazadas (variacion.devoluciones_desplazadas) solo concilian las devoluciones cobradas en un mes distinto al de su compra: no son ingresos ni gastos; si valen 0 no las menciones. El saldo inicial de las cuentas que empezaron este mes ya está en el patrimonio de partida: nunca es ganancia. No es el balance ni el ahorro.
+- Las devoluciones ya restan del gasto de la categoría y del mes de su compra; nunca son ingresos. Los traspasos entre cuentas propias no aparecen porque no cambian nada.
 - Si mes_incompleto es true, avisa en el resumen de que el mes no está completo porque las cuentas empezaron a registrarse después del día 1.
 - Si resumen_mes_anterior es null o no hay categorías del mes anterior, no compares con el mes anterior.
 - La app ya muestra en tarjetas el balance, el ahorro, la variación y el gasto por categoría. El resumen (2 o 3 frases) puede citarlos, pero las observaciones deben contar lo que no se ve a simple vista: las categorías que más cambian frente al mes anterior (comparativa_categorias), el mayor gasto individual del mes (mayor_gasto: es un solo movimiento; llámalo «el mayor gasto individual», nunca «el mayor gasto del mes», para no confundirlo con la categoría que más suma) y patrones como el peso del fin de semana (fin_de_semana) o los métodos de pago.
@@ -78,8 +78,8 @@ You receive a month's aggregates as JSON, with amounts already formatted and cat
 - There are three different measures and they must never be mixed:
   1. Monthly balance (resumen.balance) = income − net expenses. It is what is left over from the month's normal activity.
   2. Savings rate (resumen.ahorro_pct) = balance / income. If ahorro_pct is null, say there was no income that month and do not give any savings percentage.
-  3. Net worth change (variacion.variacion) = final net worth − starting net worth = balance + revaluation + adjustments. The opening balance of accounts that started this month is already part of the starting net worth: it is never a gain. It is neither the balance nor the savings rate.
-- Refunds already reduce expenses; they are never income. Transfers between the user's own accounts do not appear because they change nothing.
+  3. Net worth change (variacion.variacion) = final net worth − starting net worth = balance + shifted refunds + revaluation + adjustments. Shifted refunds (variacion.devoluciones_desplazadas) only reconcile refunds received in a different month from their purchase: they are neither income nor expenses; if they are 0, do not mention them. The opening balance of accounts that started this month is already part of the starting net worth: it is never a gain. It is neither the balance nor the savings rate.
+- Refunds already reduce the spending of the category and month of their purchase; they are never income. Transfers between the user's own accounts do not appear because they change nothing.
 - If mes_incompleto is true, warn in the summary that the month is incomplete because the accounts started being tracked after day 1.
 - If resumen_mes_anterior is null or there are no previous-month categories, do not compare with the previous month.
 - The app already shows the balance, savings rate, net worth change and spending by category on cards. The summary (2–3 sentences) may quote them, but the observations must tell what is not visible at a glance: the categories that change most versus the previous month (comparativa_categorias), the largest single expense of the month (mayor_gasto: it is one transaction; call it «the largest single expense», never «the biggest expense of the month», so it is not confused with the category that adds up the most) and patterns such as the weight of weekends (fin_de_semana) or payment methods.
@@ -96,8 +96,8 @@ Reps en JSON els agregats d'un mes, amb els imports ja formatats i els noms de c
 - Hi ha tres mesures diferents i mai no es barregen:
   1. Balanç mensual (resumen.balance) = ingressos − despeses netes. És el que sobra del mes amb l'activitat normal.
   2. Estalvi (resumen.ahorro_pct) = balanç / ingressos. Si ahorro_pct és null, digues que aquell mes no hi va haver ingressos i no donis cap percentatge d'estalvi.
-  3. Variació patrimonial (variacion.variacion) = patrimoni final − patrimoni de partida = balanç + revaloració + ajustos. El saldo inicial dels comptes que van començar aquest mes ja és dins del patrimoni de partida: mai no és un guany. No és el balanç ni l'estalvi.
-- Les devolucions ja resten de la despesa; mai no són ingressos. Els traspassos entre comptes propis no hi apareixen perquè no canvien res.
+  3. Variació patrimonial (variacion.variacion) = patrimoni final − patrimoni de partida = balanç + devolucions desplaçades + revaloració + ajustos. Les devolucions desplaçades (variacion.devoluciones_desplazadas) només concilien les devolucions cobrades en un mes diferent del de la compra: no són ingressos ni despeses; si valen 0 no les esmentis. El saldo inicial dels comptes que van començar aquest mes ja és dins del patrimoni de partida: mai no és un guany. No és el balanç ni l'estalvi.
+- Les devolucions ja resten de la despesa de la categoria i del mes de la compra; mai no són ingressos. Els traspassos entre comptes propis no hi apareixen perquè no canvien res.
 - Si mes_incompleto és true, avisa al resum que el mes no és complet perquè els comptes es van començar a registrar després del dia 1.
 - Si resumen_mes_anterior és null o no hi ha categories del mes anterior, no comparis amb el mes anterior.
 - L'app ja mostra en targetes el balanç, l'estalvi, la variació i la despesa per categoria. El resum (2 o 3 frases) els pot citar, però les observacions han d'explicar el que no es veu a primera vista: les categories que més canvien respecte al mes anterior (comparativa_categorias), la despesa individual més gran del mes (mayor_gasto: és un sol moviment; anomena-la «la despesa individual més gran», mai «la despesa més gran del mes», perquè no es confongui amb la categoria que més suma) i patrons com el pes del cap de setmana (fin_de_semana) o els mètodes de pagament.
@@ -228,6 +228,7 @@ export function datosParaPrompt(datos: DatosAnalisis) {
       patrimonio_inicial: eur(v.patrimonio_inicial),
       patrimonio_final: eur(v.patrimonio_final),
       balance: eur(v.balance),
+      devoluciones_desplazadas: eur(v.devoluciones_desplazadas),
       revalorizacion: eur(v.revalorizacion),
       ajustes: eur(v.ajustes),
       saldos_iniciales: eur(v.saldos_iniciales),

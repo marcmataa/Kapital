@@ -73,6 +73,7 @@ export function movimiento(m: Partial<Movimiento> & Pick<Movimiento, 'id'>): Mov
     cuenta_id: ID.caixa,
     cuenta_destino_id: null,
     devolucion_de: null,
+    grupo_devolucion: null,
     notas: null,
     origen: 'app',
     created_at: '2026-10-14T18:00:00.000000+00:00',

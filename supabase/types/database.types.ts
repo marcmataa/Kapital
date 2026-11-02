@@ -64,13 +64,13 @@ export type Database = {
                   ]
                 },"movimientos": {
                   Row: {
-                    "categoria_id": string | null,"clave_idempotencia": string | null,"comercio": string | null,"concepto": string,"created_at": string,"cuenta_destino_id": string | null,"cuenta_id": string,"devolucion_de": string | null,"fecha": string,"hora": string | null,"id": string,"importe": number,"metodo": Database["public"]['Enums']["metodo_pago"] | null,"notas": string | null,"notion_id": string | null,"origen": Database["public"]['Enums']["origen_movimiento"],"sentido": Database["public"]['Enums']["sentido_ajuste"] | null,"tipo": Database["public"]['Enums']["tipo_movimiento"],"updated_at": string,"user_id": string
+                    "categoria_id": string | null,"clave_idempotencia": string | null,"comercio": string | null,"concepto": string,"created_at": string,"cuenta_destino_id": string | null,"cuenta_id": string,"devolucion_de": string | null,"fecha": string,"grupo_devolucion": string | null,"hora": string | null,"id": string,"importe": number,"metodo": Database["public"]['Enums']["metodo_pago"] | null,"notas": string | null,"notion_id": string | null,"origen": Database["public"]['Enums']["origen_movimiento"],"sentido": Database["public"]['Enums']["sentido_ajuste"] | null,"tipo": Database["public"]['Enums']["tipo_movimiento"],"updated_at": string,"user_id": string
                   }
                   Insert: {
-                    "categoria_id"?: string | null,"clave_idempotencia"?: string | null,"comercio"?: string | null,"concepto": string,"created_at"?: string,"cuenta_destino_id"?: string | null,"cuenta_id": string,"devolucion_de"?: string | null,"fecha"?: string,"hora"?: string | null,"id"?: string,"importe": number,"metodo"?: Database["public"]['Enums']["metodo_pago"] | null,"notas"?: string | null,"notion_id"?: string | null,"origen"?: Database["public"]['Enums']["origen_movimiento"],"sentido"?: Database["public"]['Enums']["sentido_ajuste"] | null,"tipo": Database["public"]['Enums']["tipo_movimiento"],"updated_at"?: string,"user_id"?: string
+                    "categoria_id"?: string | null,"clave_idempotencia"?: string | null,"comercio"?: string | null,"concepto": string,"created_at"?: string,"cuenta_destino_id"?: string | null,"cuenta_id": string,"devolucion_de"?: string | null,"fecha"?: string,"grupo_devolucion"?: string | null,"hora"?: string | null,"id"?: string,"importe": number,"metodo"?: Database["public"]['Enums']["metodo_pago"] | null,"notas"?: string | null,"notion_id"?: string | null,"origen"?: Database["public"]['Enums']["origen_movimiento"],"sentido"?: Database["public"]['Enums']["sentido_ajuste"] | null,"tipo": Database["public"]['Enums']["tipo_movimiento"],"updated_at"?: string,"user_id"?: string
                   }
                   Update: {
-                    "categoria_id"?: string | null,"clave_idempotencia"?: string | null,"comercio"?: string | null,"concepto"?: string,"created_at"?: string,"cuenta_destino_id"?: string | null,"cuenta_id"?: string,"devolucion_de"?: string | null,"fecha"?: string,"hora"?: string | null,"id"?: string,"importe"?: number,"metodo"?: Database["public"]['Enums']["metodo_pago"] | null,"notas"?: string | null,"notion_id"?: string | null,"origen"?: Database["public"]['Enums']["origen_movimiento"],"sentido"?: Database["public"]['Enums']["sentido_ajuste"] | null,"tipo"?: Database["public"]['Enums']["tipo_movimiento"],"updated_at"?: string,"user_id"?: string
+                    "categoria_id"?: string | null,"clave_idempotencia"?: string | null,"comercio"?: string | null,"concepto"?: string,"created_at"?: string,"cuenta_destino_id"?: string | null,"cuenta_id"?: string,"devolucion_de"?: string | null,"fecha"?: string,"grupo_devolucion"?: string | null,"hora"?: string | null,"id"?: string,"importe"?: number,"metodo"?: Database["public"]['Enums']["metodo_pago"] | null,"notas"?: string | null,"notion_id"?: string | null,"origen"?: Database["public"]['Enums']["origen_movimiento"],"sentido"?: Database["public"]['Enums']["sentido_ajuste"] | null,"tipo"?: Database["public"]['Enums']["tipo_movimiento"],"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -354,6 +354,11 @@ isOneToOne: false
 "progreso_objetivos":
 { Args: { "p_hoy"?: string }; Returns: {
               "actual": number,"ahorro_diario_necesario": number,"categoria_id": string,"dias_restantes": number,"exceso": number,"importe": number,"objetivo_id": string,"restante": number,"tipo": Database["public"]['Enums']["tipo_objetivo"]
+            }[]
+                           },
+"registrar_devoluciones":
+{ Args: { "p_categoria_sobrante"?: string | null,"p_concepto": string,"p_cuenta": string,"p_fecha": string,"p_metodo": string | null,"p_notas": string | null,"p_repartos": Json,"p_sobrante"?: string | null }; Returns: {
+              "categoria_id": string,"devolucion_de": string | null,"grupo_devolucion": string | null,"id": string,"importe": number,"tipo": Database["public"]['Enums']["tipo_movimiento"]
             }[]
                            },
 "registrar_movimiento":

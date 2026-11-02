@@ -7,6 +7,7 @@ import { filtroBusqueda, limpiarBusqueda } from './lib/busqueda';
 import { FILTROS_VACIOS, filtrosAParams, filtrosDesdeParams, type Filtros } from './lib/filtros';
 import { claveErrorAjuste, leerSaldoReal } from './lib/ajuste';
 import { agruparPorDia, eurosRedondos, importeConSigno, signoTotalTipo, tituloDia, tonoImporte } from './lib/presentacion';
+import { repartirDevolucion, repartoValido } from './lib/reparto';
 import { aPayload, crearEsquemaMovimiento, cuentaPorDefecto, ordenarPorUso, type ValoresMovimiento } from './schemas/movimiento';
 import { CATEGORIAS, CUENTAS, ID, movimiento } from './test/datos';
 
@@ -399,7 +400,63 @@ describe('errores de la base → texto amable', () => {
       ['Este gasto tiene devoluciones desde el 2026-10-12: su fecha no puede ser posterior', 'error.gastoFechaDevoluciones'],
       ['Este gasto tiene 4 devoluciones vinculadas que suman 60.00 €: no se puede borrar', 'error.gastoNoSeBorra'],
       ['Solo se puede devolver un gasto tuyo que exista', 'error.soloGasto'],
+      // registrar_devoluciones (20261103000001_devoluciones_varios_gastos)
+      ['Elige al menos un gasto que te devuelven', 'error.devolucionSinVinculo'],
+      ['El mismo gasto está repetido en el reparto', 'error.repartoRepetido'],
+      ['El reparto no cuadra: solo puede sobrar dinero si cada gasto se devuelve entero', 'error.repartoNoCuadra'],
+      ['El sobrante necesita una categoría de ingreso tuya', 'error.categoriaSobrante'],
+      ['No tienes la categoría Otros ingresos: elige la categoría del sobrante', 'error.categoriaSobrante'],
+      ['El importe de cada gasto del reparto debe ser mayor que 0', 'error.importe'],
     ];
     for (const [message, esperada] of casos) expect(clave({ code: '23514', message }), message).toBe(esperada);
+  });
+});
+
+describe('reparto de una devolución entre varios gastos (sección 3, cambio del 02/11/2026)', () => {
+  const clases = [
+    { id: 'a', pendiente: '20.00' },
+    { id: 'b', pendiente: '20.00' },
+    { id: 'c', pendiente: '20.00' },
+  ];
+
+  it('56,00 € entre tres clases de 20,00 €: llena lo pendiente en el orden elegido', () => {
+    expect(repartirDevolucion('56.00', clases)).toEqual({
+      lineas: [
+        { id: 'a', importe: '20.00', pendiente: '20.00', manual: false, error: null },
+        { id: 'b', importe: '20.00', pendiente: '20.00', manual: false, error: null },
+        { id: 'c', importe: '16.00', pendiente: '20.00', manual: false, error: null },
+      ],
+      repartido: '56.00',
+      sobrante: null,
+      error: null,
+    });
+  });
+
+  it('60,00 € sobre una cena de 50,00 €: 50,00 € de devolución y 10,00 € de sobrante', () => {
+    const r = repartirDevolucion('60.00', [{ id: 'cena', pendiente: '50.00' }]);
+    expect(r).toMatchObject({ repartido: '50.00', sobrante: '10.00', error: null });
+    expect(repartoValido(r)).toBe(true);
+  });
+
+  it('un importe a mano se respeta y el resto llena los demás; los céntimos son exactos', () => {
+    const r = repartirDevolucion('56.00', clases, { b: '10.10' });
+    expect(r?.lineas.map((l) => l.importe)).toEqual(['20.00', '10.10', '20.00']);
+    expect(r).toMatchObject({ repartido: '50.10', sobrante: null, error: 'no_cuadra' });
+    const cuadra = repartirDevolucion('50.10', clases, { b: '10.10' });
+    expect(cuadra?.lineas.map((l) => l.importe)).toEqual(['20.00', '10.10', '20.00']);
+    expect(repartoValido(cuadra)).toBe(true);
+  });
+
+  it('marca las líneas que no valen: a mano por encima de lo pendiente, mal escritas o sin nada que repartir', () => {
+    const r = repartirDevolucion('30.00', clases, { a: '25.00', b: null });
+    // 30,00 − 25,00 a mano = 5,00 para la tercera; la segunda está mal escrita.
+    expect(r?.lineas.map((l) => [l.importe, l.error])).toEqual([['25.00', 'supera'], [null, 'importe'], ['5.00', null]]);
+    expect(repartoValido(r)).toBe(false);
+    expect(repartirDevolucion('20.00', clases)?.lineas.map((l) => l.error)).toEqual([null, 'vacia', 'vacia']);
+  });
+
+  it('sin total válido o sin gastos no hay reparto', () => {
+    expect(repartirDevolucion(null, clases)).toBeNull();
+    expect(repartirDevolucion('10.00', [])).toBeNull();
   });
 });

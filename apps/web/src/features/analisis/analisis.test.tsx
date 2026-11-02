@@ -406,6 +406,29 @@ describe('Detalle del análisis', () => {
     expect(within(cifras).queryByText('+1.353,14 €')).not.toBeInTheDocument();
   });
 
+  it('devoluciones desplazadas: la pieza solo aparece si no es 0 (sección 5)', async () => {
+    // Sin el campo (snapshots anteriores) vale 0 y no se muestra.
+    servir();
+    const { unmount } = montarDetalle();
+    const cifras0 = await screen.findByRole('region', { name: 'Cifras del mes' });
+    expect(within(cifras0).queryByText(/devoluciones desplazadas/)).not.toBeInTheDocument();
+    expect(screen.getByTestId('piezas-variacion')).not.toHaveTextContent('desplazadas');
+    unmount();
+
+    const variacion = { ...DATOS.variacion, devoluciones_desplazadas: '-20.00', variacion: '347.16', base: 'partida' };
+    servir({ detalle: { ...FILA, datos: { ...DATOS, variacion }, contenido: CONTENIDO } });
+    montarDetalle();
+    const cifras = await screen.findByRole('region', { name: 'Cifras del mes' });
+    expect(within(cifras).getByText(
+      'Balance 339,72 € + devoluciones desplazadas -20,00 € + revalorización 27,44 € + ajustes 0,00 €.',
+    )).toBeInTheDocument();
+    expect(screen.getByTestId('piezas-variacion')).toHaveTextContent(
+      'Este mes: balance +339,72 € + devoluciones desplazadas -20,00 € + revalorización +27,44 € + ajustes 0,00 € = variación patrimonial +347,16 €.',
+    );
+    expect(within(screen.getByTestId('explicacion-variacion')).getByText(/Las devoluciones desplazadas cuadran esa diferencia/))
+      .toBeInTheDocument();
+  });
+
   it('recomendación con acción: «Crear límite» abre la hoja prellenada y crea el objetivo', async () => {
     servir();
     montarDetalle();

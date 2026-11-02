@@ -57,6 +57,7 @@ export function CifrasMes({ datos }: { datos: DatosAnalisis }) {
   const euros = (v: string) => formatearEuros(v, locale);
   const conSigno = (v: string) => formatearEuros(v, locale, { signo: 'siempre' });
   const saldos = aCentimos(variacion.saldos_iniciales) !== 0n;
+  const desplazadas = aCentimos(variacion.devoluciones_desplazadas) !== 0n;
   const ahorro = lecturaAhorro(resumen.ingresos, resumen.ahorro_pct);
 
   return (
@@ -84,8 +85,10 @@ export function CifrasMes({ datos }: { datos: DatosAnalisis }) {
         clase={tonoDe(variacion.variacion)}
         nota={saldos ? t('cifras.variacionSaldos', { saldos: euros(variacion.saldos_iniciales) }) : undefined}
       >
-        {t('cifras.variacionDetalle', {
+        {/* La pieza de devoluciones desplazadas solo se muestra si no es 0 (sección 5). */}
+        {t(desplazadas ? 'cifras.variacionDetalleDesplazadas' : 'cifras.variacionDetalle', {
           balance: euros(variacion.balance),
+          desplazadas: euros(variacion.devoluciones_desplazadas),
           revalorizacion: euros(variacion.revalorizacion),
           ajustes: euros(variacion.ajustes),
         })}

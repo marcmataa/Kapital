@@ -1,7 +1,8 @@
 import { api, aErrorApi, type ErrorApi } from '@/app/api';
 import { supabase } from '@/shared/lib/supabase';
 import type { Filtros } from '../lib/filtros';
-import { esUuid, type SentidoAjuste, type TipoMovimiento } from '../lib/tipos';
+import { esUuid, type MetodoPago, type SentidoAjuste, type TipoMovimiento } from '../lib/tipos';
+import { clasificarErrorMovimiento } from './errores';
 
 /*
  * Cálculos de la lista y del formulario hechos en SQL (migración 20261024000001_movimientos_ux).
@@ -66,7 +67,14 @@ export interface ResumenFiltro {
 }
 
 /** Por qué se propone un gasto (código de buscar_gastos_devolvibles; la UI lo traduce). */
-export const MOTIVOS_CANDIDATO = ['importe_exacto', 'concepto_parecido', 'importe_parecido', 'fecha_cercana', 'reciente'] as const;
+export const MOTIVOS_CANDIDATO = [
+  'importe_exacto',
+  'concepto_parecido',
+  'palabras_en_comun',
+  'importe_parecido',
+  'fecha_cercana',
+  'reciente',
+] as const;
 export type MotivoCandidato = (typeof MOTIVOS_CANDIDATO)[number];
 
 export interface GastoDevolvible {
@@ -140,6 +148,24 @@ export interface NuevoAjuste {
   nota: string;
   /** Concepto en el idioma de la interfaz (lo genera la app). */
   concepto: string;
+}
+
+/**
+ * Devolución nueva que puede cubrir varios gastos (registrar_devoluciones, migración
+ * 20261103000001): una devolución por gasto y, si sobra, un ingreso. Importes 'd.dd' (texto).
+ */
+export interface NuevasDevoluciones {
+  fecha: string;
+  cuenta: string;
+  concepto: string;
+  metodo: MetodoPago | null;
+  notas: string | null;
+  /** En el orden elegido. */
+  repartos: { gasto: string; importe: string }[];
+  /** Lo que se guarda como ingreso (null si no sobra nada). */
+  sobrante: string | null;
+  /** Categoría de ingreso del sobrante (null = Otros ingresos, la elige la base). */
+  categoriaSobrante: string | null;
 }
 
 export const sqlApi = api.injectEndpoints({
@@ -251,6 +277,31 @@ export const sqlApi = api.injectEndpoints({
       providesTags: ['Movimientos'],
     }),
 
+    /**
+     * Guarda a la vez (todo o nada) las devoluciones de una devolución nueva y el ingreso del
+     * sobrante. La base vuelve a validar cada gasto, cada importe y que todo cuadre.
+     */
+    movimientosRegistrarDevoluciones: b.mutation<string[], NuevasDevoluciones>({
+      queryFn: (d) =>
+        capturar(async () => {
+          const { data, error } = await supabase
+            .rpc('registrar_devoluciones', {
+              p_fecha: d.fecha,
+              p_cuenta: d.cuenta,
+              p_concepto: d.concepto,
+              p_metodo: d.metodo,
+              p_notas: d.notas,
+              p_repartos: d.repartos,
+              p_sobrante: d.sobrante,
+              p_categoria_sobrante: d.categoriaSobrante,
+            })
+            .select('id');
+          if (error) return { error: clasificarErrorMovimiento(error) };
+          return { data: ((data ?? []) as { id: string }[]).map((f) => f.id) };
+        }),
+      invalidatesTags: ['Movimientos', 'Cuentas', 'Resumen', 'Objetivos'],
+    }),
+
     /** Diferencia entre el saldo real y el de la app (la calcula la base). */
     movimientosCalcularAjuste: b.query<CalculoAjuste | null, { cuenta: string; saldoReal: string }>({
       queryFn: ({ cuenta, saldoReal }) =>
@@ -290,6 +341,7 @@ export const {
   useMovimientosCategoriasUsadasQuery,
   useMovimientosGastosDevolviblesQuery,
   useMovimientosPendientesRevisionQuery,
+  useMovimientosRegistrarDevolucionesMutation,
   useMovimientosCalcularAjusteQuery,
   useMovimientosCrearAjusteMutation,
 } = sqlApi;

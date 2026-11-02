@@ -204,6 +204,7 @@ describe('construirMensajes', () => {
     'metodo',
     'patrimonio_inicial',
     'patrimonio_final',
+    'devoluciones_desplazadas',
     'revalorizacion',
     'saldos_iniciales',
     'tipo',
@@ -242,6 +243,18 @@ describe('construirMensajes', () => {
     expect(todo).not.toContain('Mercadona');
     expect(todo).not.toContain('nota privada');
     expect(todo).not.toContain('example.com');
+  });
+
+  it('devoluciones desplazadas: se pasan formateadas y valen 0 en snapshots anteriores que no las traen', () => {
+    const variacionDe = (d: Record<string, unknown>) => {
+      const [, user] = construirMensajes(d);
+      return (datosDelPrompt(user?.content ?? '') as { variacion: Record<string, string> }).variacion;
+    };
+    const sin = datosBase();
+    expect(variacionDe(sin)['devoluciones_desplazadas']).toMatch(/^0,00\s€$/);
+    const con = datosBase();
+    con['variacion'] = { ...(con['variacion'] as Record<string, unknown>), devoluciones_desplazadas: '-20.00' };
+    expect(variacionDe(con)['devoluciones_desplazadas']).toMatch(/^-20,00\s€$/);
   });
 
   it('formatea importes en euros según el idioma', () => {

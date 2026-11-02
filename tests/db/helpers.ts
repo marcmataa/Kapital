@@ -34,6 +34,10 @@ export const MIGRACION_DEVOLUCIONES_VINCULADAS = leer('supabase/migrations/20261
 export const ROLLBACK_DEVOLUCIONES_VINCULADAS = leer('supabase/rollback/20261102000001_devoluciones_vinculadas.down.sql');
 export const MIGRACION_DEVOLUCIONES_REVISION = leer('supabase/migrations/20261102000002_devoluciones_revision.sql');
 export const ROLLBACK_DEVOLUCIONES_REVISION = leer('supabase/rollback/20261102000002_devoluciones_revision.down.sql');
+export const MIGRACION_DEVOLUCIONES_IMPUTADAS = leer('supabase/migrations/20261103000000_devoluciones_imputadas.sql');
+export const ROLLBACK_DEVOLUCIONES_IMPUTADAS = leer('supabase/rollback/20261103000000_devoluciones_imputadas.down.sql');
+export const MIGRACION_DEVOLUCIONES_VARIOS_GASTOS = leer('supabase/migrations/20261103000001_devoluciones_varios_gastos.sql');
+export const ROLLBACK_DEVOLUCIONES_VARIOS_GASTOS = leer('supabase/rollback/20261103000001_devoluciones_varios_gastos.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
 export const MIGRACIONES = [
   MIGRACION,
@@ -50,9 +54,13 @@ export const MIGRACIONES = [
   MIGRACION_ELIMINAR_CATEGORIAS,
   MIGRACION_DEVOLUCIONES_VINCULADAS,
   MIGRACION_DEVOLUCIONES_REVISION,
+  MIGRACION_DEVOLUCIONES_IMPUTADAS,
+  MIGRACION_DEVOLUCIONES_VARIOS_GASTOS,
 ];
 /** Todos los rollbacks, en orden inverso. */
 export const ROLLBACKS = [
+  ROLLBACK_DEVOLUCIONES_VARIOS_GASTOS,
+  ROLLBACK_DEVOLUCIONES_IMPUTADAS,
   ROLLBACK_DEVOLUCIONES_REVISION,
   ROLLBACK_DEVOLUCIONES_VINCULADAS,
   ROLLBACK_ELIMINAR_CATEGORIAS,
