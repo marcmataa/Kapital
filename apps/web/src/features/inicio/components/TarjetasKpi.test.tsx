@@ -239,8 +239,23 @@ describe('TarjetasKpi · balance del mes (sección 3)', () => {
     );
     const balance = tarjeta('Balance');
     expect(within(balance).getByText(/^-900,00\s€$/)).toHaveClass('text-negativo');
-    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro —');
+    expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro: — · Sin ingresos este mes');
     expect(within(balance).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+  });
+
+  it('ahorro fuera de −100 %…100 % (cambio del 02/11/2026): texto en vez de porcentaje', () => {
+    renderConApp(
+      <TarjetasKpi
+        hoy="2026-11-02"
+        patrimonioHoy="1000.00"
+        patrimonioAnterior={null}
+        resumenActual={{ ingresos: '2.71', gastos_netos: '61.94', balance: '-59.23', ahorro_pct: '-2185.6088560885608856' }}
+        resumenAnterior={null}
+      />,
+    );
+    const ahorro = within(tarjeta('Balance')).getByTestId('kpi-ahorro');
+    expect(ahorro).toHaveTextContent('Aún no hay ingresos suficientes este mes para calcular el ahorro.');
+    expect(ahorro).not.toHaveTextContent('%');
   });
 
   it('balance negativo: el ahorro también sale negativo (−15,0 %)', () => {

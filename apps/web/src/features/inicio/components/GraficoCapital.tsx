@@ -132,6 +132,8 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
     if (valorAnt === undefined) {
       return { titulo, valor: formatearEuros(valor, locale), comparacion: t('grafico.lectura.sinAnterior') };
     }
+    // El día de referencia ya lleva su comparación en la tarjeta de patrimonio: no se repite.
+    if (fecha === referencia) return { titulo, valor: formatearEuros(valor, locale), comparacion: '' };
     const diferencia = formatearEuros(restarImportes(valor, valorAnt), locale, { signo: 'siempre' });
     // Una sola comparación, en palabras: la diferencia frente al mismo día del mes anterior (d',
     // sección 7), que ya se ve en la línea discontinua. % solo si patrimonio(d') > 0.

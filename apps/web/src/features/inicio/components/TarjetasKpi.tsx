@@ -7,6 +7,7 @@ import {
   variacionImporte as diferenciaBalance,
   variacionPorcentual,
 } from '@/shared/lib/dinero';
+import { lecturaAhorro } from '@/shared/lib/ahorro';
 import { enlaceMovimientos } from '@/shared/lib/enlaces';
 import { finDeMes, formatearFecha, inicioDeMes, mismoDiaMesAnterior } from '@/shared/lib/fechas';
 import { AyudaGrafico, type Tendencia, type VariacionStat } from '@/shared/ui';
@@ -63,9 +64,12 @@ export function TarjetasKpi({
   cuentas,
 }: Props) {
   const t = useT('inicio');
+  const tc = useT('common');
   const { locale } = useIdioma();
   const enCurso = mesMostrado === undefined || inicioDeMes(mesMostrado) === inicioDeMes(hoy);
   const fecha = enCurso ? hoy : finDeMes(mesMostrado);
+  // Tasa de ahorro solo entre −100 % y 100 % (reglas §3, cambio del 02/11/2026).
+  const ahorro = lecturaAhorro(resumenActual.ingresos, resumenActual.ahorro_pct);
   const dPrima = mismoDiaMesAnterior(fecha);
   // Tramo de las cifras del mes: del día 1 a la fecha de referencia (hoy o el último día).
   const periodo = { desde: inicioDeMes(fecha), hasta: fecha };
@@ -171,7 +175,11 @@ export function TarjetasKpi({
           {...(balance ? { variacion: balance } : { pie: sinAnterior })}
         >
           <p data-testid="kpi-ahorro" className="mt-1 text-[13px] text-apagado">
-            {t('kpi.ahorro', { porcentaje: formatearPorcentaje(resumenActual.ahorro_pct, locale) })}
+            {ahorro.tipo === 'porcentaje'
+              ? t('kpi.ahorro', { porcentaje: formatearPorcentaje(ahorro.porcentaje, locale) })
+              : ahorro.tipo === 'sinIngresos'
+                ? t('kpi.ahorroSinIngresos', { motivo: tc('ahorro.sinIngresos') })
+                : tc(enCurso ? 'ahorro.fueraDeRango' : 'ahorro.fueraDeRangoCerrado')}
           </p>
         </KpiMes>
       </div>

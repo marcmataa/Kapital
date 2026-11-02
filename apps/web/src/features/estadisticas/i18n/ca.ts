@@ -91,7 +91,6 @@ export default {
   'balanceMeses.tituloDesde': 'Balanç mensual · des {mes}',
   'balanceMeses.leyenda.provisional': 'Ratllat: mes en curs, provisional',
   'balanceMeses.leyenda.referencia': '{mes} al dia {dia}',
-  'balanceMeses.referencia': '{mes} al dia {dia}: {importe}',
   'cabecera.titulo': 'Balanç · {tramo}',
   'cabecera.provisional': 'Fins avui · provisional',
   'cabecera.tasaAhorro': 'Taxa d’estalvi: {porcentaje} dels teus ingressos',

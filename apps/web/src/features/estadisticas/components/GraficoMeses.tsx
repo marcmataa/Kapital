@@ -80,7 +80,7 @@ export function GraficoMeses({ meses, hoy, campo = 'gastos_netos', referencia, p
     m.mes !== mesActual
       ? []
       : [
-          ...(ref ? [t('balanceMeses.referencia', { mes: nombreRef, dia: String(ref.dia), importe: formatearEuros(ref.importe, locale) })] : []),
+          // El mes anterior al mismo día ya se compara en la tarjeta de arriba: aquí solo la marca.
           ...(proy !== null ? [t('meses.proyeccion', { importe: formatearEuros(proy, locale) })] : []),
         ];
 

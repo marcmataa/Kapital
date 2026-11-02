@@ -25,6 +25,7 @@ export default {
   'kpi.verMovimientos': 'See the transactions',
   'kpi.balance': 'Balance',
   'kpi.ahorro': 'Savings rate {porcentaje}',
+  'kpi.ahorroSinIngresos': 'Savings rate: — · {motivo}',
 
   'grafico.titulo': 'How your wealth is evolving',
   'grafico.hoy': '{fecha} (today)',

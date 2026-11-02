@@ -24,6 +24,7 @@ export default {
   'kpi.verMovimientos': 'Ver los movimientos',
   'kpi.balance': 'Balance',
   'kpi.ahorro': 'Tasa de ahorro {porcentaje}',
+  'kpi.ahorroSinIngresos': 'Tasa de ahorro: — · {motivo}',
 
   'grafico.titulo': 'Evolución de tu capital',
   'grafico.hoy': '{fecha} (hoy)',

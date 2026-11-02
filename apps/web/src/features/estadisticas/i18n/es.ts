@@ -90,7 +90,6 @@ export default {
   'balanceMeses.tituloDesde': 'Balance mensual · desde {mes}',
   'balanceMeses.leyenda.provisional': 'Rayado: mes en curso, provisional',
   'balanceMeses.leyenda.referencia': '{mes} al día {dia}',
-  'balanceMeses.referencia': '{mes} al día {dia}: {importe}',
   'cabecera.titulo': 'Balance · {tramo}',
   'cabecera.provisional': 'Hasta hoy · provisional',
   'cabecera.tasaAhorro': 'Tasa de ahorro: {porcentaje} de tus ingresos',

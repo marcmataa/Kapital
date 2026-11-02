@@ -25,6 +25,7 @@ export default {
   'kpi.verMovimientos': 'Veure els moviments',
   'kpi.balance': 'Balanç',
   'kpi.ahorro': 'Taxa d’estalvi {porcentaje}',
+  'kpi.ahorroSinIngresos': 'Taxa d’estalvi: — · {motivo}',
 
   'grafico.titulo': 'Evolució del teu capital',
   'grafico.hoy': '{fecha} (avui)',

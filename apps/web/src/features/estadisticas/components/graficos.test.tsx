@@ -250,7 +250,8 @@ describe('GraficoBalanceMeses', () => {
     expect(screen.getByRole('heading', { name: 'Balance mensual · desde agosto' })).toBeInTheDocument();
     const marca = screen.getByTestId('marca-referencia');
     expect(marca).toHaveAttribute('data-balance', '120.00');
-    expect(normal(screen.getByTestId('lectura-balance').textContent)).toContain('Septiembre al día 19: +120,00 €');
+    // La comparación ya está en la cabecera: la lectura solo lleva la marca, sin repetir el importe.
+    expect(normal(screen.getByTestId('lectura-balance').textContent)).not.toContain('al día 19');
     expect(screen.getByText('Rayado: mes en curso, provisional')).toBeInTheDocument();
   });
 

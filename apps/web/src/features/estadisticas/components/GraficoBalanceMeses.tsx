@@ -61,14 +61,6 @@ export function GraficoBalanceMeses({ meses, hoy, referencia }: Props) {
   const elegido = meses[indice];
   const hayEnCurso = meses.some((m) => m.mes === mesActual);
   const ref = hayEnCurso ? referencia : undefined;
-  const textoRef =
-    ref === undefined
-      ? null
-      : t('balanceMeses.referencia', {
-          mes: capitalizar(nombreMes(ref.mes, locale)),
-          dia: String(ref.dia),
-          importe: formatearEuros(ref.importe, locale, { signo: 'siempre' }),
-        });
 
   // Con el cero siempre dentro: los meses en negativo quedan por debajo. La referencia, también dentro.
   const escala = escalaDeImportes([...meses.map((m) => m.balance), ...(ref ? [ref.importe] : [])]);
@@ -87,7 +79,6 @@ export function GraficoBalanceMeses({ meses, hoy, referencia }: Props) {
       t('balanceMeses.ingresos', { importe: formatearEuros(m.ingresos, locale) }),
       t('balanceMeses.gastos', { importe: formatearEuros(m.gastos_netos, locale) }),
       textoAhorro(m),
-      ...(m.mes === mesActual && textoRef !== null ? [textoRef] : []),
     ];
     return { titulo, valor, detalle };
   };

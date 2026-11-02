@@ -310,7 +310,8 @@ describe('Estadísticas: gastos', () => {
     // Mes en curso: lo que llevas, el mes anterior al mismo día y la proyección (comparativa y ritmo, SQL).
     const lecturaMeses = await screen.findByTestId('lectura-meses');
     expect(lecturaMeses).toHaveTextContent('Octubre de 2026 · hasta hoy (provisional) · 80,00 €');
-    expect(lecturaMeses).toHaveTextContent('Septiembre al día 19: 1.038,47 € · Proyección a fin de mes: 1.906,14 €');
+    expect(lecturaMeses).toHaveTextContent('Proyección a fin de mes: 1.906,14 €');
+    expect(lecturaMeses).not.toHaveTextContent('al día 19');
     expect(screen.getByTestId('marca-referencia')).toHaveAttribute('data-importe', '1038.47');
     expect(screen.getByTestId('proyeccion-mes')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Gasto neto mensual · desde septiembre' })).toBeInTheDocument();

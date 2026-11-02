@@ -91,7 +91,6 @@ export default {
   'balanceMeses.tituloDesde': 'Monthly balance · since {mes}',
   'balanceMeses.leyenda.provisional': 'Striped: current month, provisional',
   'balanceMeses.leyenda.referencia': '{mes} up to day {dia}',
-  'balanceMeses.referencia': '{mes} up to day {dia}: {importe}',
   'cabecera.titulo': 'Balance · {tramo}',
   'cabecera.provisional': 'So far · provisional',
   'cabecera.tasaAhorro': 'Savings rate: {porcentaje} of your income',
