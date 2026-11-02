@@ -83,10 +83,26 @@ vi.mock('@/features/onboarding/components/SelectorBanco', () => ({
   ),
 }));
 vi.mock('@/features/inicio/components/FormObjetivo', () => ({
-  FormObjetivo: (p: { plano?: boolean; ayudaCategoria?: (id: string) => ReactNode }) => (
+  // El formulario (alta y edición, con sus validaciones) tiene sus tests en Inicio.
+  FormObjetivo: (p: {
+    plano?: boolean;
+    objetivo?: { id: string; importe: string };
+    onHecho: () => void;
+    onCancelar: () => void;
+    ayudaCategoria?: (id: string) => ReactNode;
+  }) => (
     <div>
-      <p>Formulario de objetivo{p.plano ? ' (plano)' : ''}</p>
+      <p>
+        Formulario de objetivo{p.plano ? ' (plano)' : ''}
+        {p.objetivo ? ` editando ${p.objetivo.id} (${p.objetivo.importe})` : ''}
+      </p>
       {p.ayudaCategoria?.('c1')}
+      <button type="button" onClick={p.onCancelar}>
+        Cancelar
+      </button>
+      <button type="button" onClick={p.onHecho}>
+        Guardado
+      </button>
     </div>
   ),
 }));
@@ -568,30 +584,29 @@ describe('Categorías por defecto traducidas', () => {
 /* ------------------------------------------------------------------ Objetivos */
 
 describe('Objetivos', () => {
-  it('resume los objetivos y edita el importe sin parseFloat', async () => {
+  it('resume los objetivos y edita todos sus campos con el formulario compartido con Inicio', async () => {
     renderPagina();
     expect(await screen.findByText('Ahorro 500,00 €/mes')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Editar objetivos →' }));
     const hoja = screen.getByRole('dialog', { name: 'Objetivos' });
-    await userEvent.click(within(hoja).getByRole('button', { name: 'Cambiar importe de Ahorro mensual' }));
-    const campo = within(hoja).getByLabelText('Importe');
-    await userEvent.clear(campo);
-    await userEvent.type(campo, '650,5');
-    await userEvent.click(within(hoja).getByRole('button', { name: 'Guardar' }));
-    await waitFor(() => expect(escrituras('objetivos')).toHaveLength(1));
-    expect(escrituras('objetivos')[0]).toMatchObject({ valores: { importe: '650.50' }, filtros: [['id', 'o1']] });
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Editar Ahorro mensual' }));
+    // El mismo FormObjetivo del alta, con el objetivo (importe como texto, sin parseFloat).
+    expect(within(hoja).getByText('Formulario de objetivo (plano) editando o1 (500.00)')).toBeInTheDocument();
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Guardado' }));
+    expect(await screen.findByRole('dialog', { name: 'Objetivos' })).toBe(hoja);
+    expect(within(hoja).getByRole('button', { name: 'Editar Ahorro mensual' })).toBeInTheDocument();
   });
 
   it('modal plano: sin «Volver a la lista» y con el título de cada vista', async () => {
     renderPagina();
     await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
     const hoja = screen.getByRole('dialog', { name: 'Objetivos' });
-    await userEvent.click(within(hoja).getByRole('button', { name: 'Cambiar importe de Ahorro mensual' }));
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Editar Ahorro mensual' }));
     expect(screen.getByRole('dialog', { name: 'Ahorro mensual' })).toBe(hoja);
     expect(within(hoja).queryByText('Volver a la lista')).not.toBeInTheDocument();
     await userEvent.click(within(hoja).getByRole('button', { name: 'Cancelar' }));
-    await userEvent.click(within(hoja).getByRole('button', { name: 'Quitar Ahorro mensual' }));
-    expect(screen.getByRole('dialog', { name: 'Quitar objetivo' })).toBe(hoja);
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Eliminar Ahorro mensual' }));
+    expect(screen.getByRole('dialog', { name: 'Eliminar objetivo' })).toBe(hoja);
     await userEvent.click(within(hoja).getByRole('button', { name: 'Cancelar' }));
     await userEvent.click(within(hoja).getByRole('button', { name: '+ Añadir objetivo' }));
     expect(screen.getByRole('dialog', { name: 'Nuevo objetivo' })).toBe(hoja);
@@ -620,12 +635,12 @@ describe('Objetivos', () => {
     ).toBeInTheDocument();
   });
 
-  it('«Quitar» desactiva el objetivo', async () => {
+  it('«Eliminar» desactiva el objetivo', async () => {
     renderPagina();
     await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
     const hoja = screen.getByRole('dialog', { name: 'Objetivos' });
-    await userEvent.click(within(hoja).getByRole('button', { name: 'Quitar Ahorro mensual' }));
-    await userEvent.click(within(hoja).getByRole('button', { name: 'Sí, quitar' }));
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Eliminar Ahorro mensual' }));
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Sí, eliminar' }));
     await waitFor(() => expect(escrituras('objetivos')).toHaveLength(1));
     expect(escrituras('objetivos')[0]).toMatchObject({ valores: { activo: false }, filtros: [['id', 'o1']] });
   });

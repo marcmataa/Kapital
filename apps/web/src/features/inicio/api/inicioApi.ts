@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { api, aErrorApi, ejecutar, type ErrorApi } from '@/app/api';
+import { aNumeric } from '@/shared/api/catalogos';
 import type { Idioma } from '@/shared/i18n';
 import { supabase } from '@/shared/lib/supabase';
 import type { Database } from '@db/database.types';
@@ -48,6 +49,14 @@ export interface IngresoCategoria {
   nombre: string;
   color: string;
   ingreso: string;
+}
+
+/** Objetivo con todos los campos que se eligen al crearlo (importe como string). */
+export interface ObjetivoEditado {
+  id: string;
+  tipo: Enums['tipo_objetivo'];
+  categoria_id: string | null;
+  importe: string;
 }
 
 /** Fila de `progreso_objetivos`: lo que lleva cada objetivo en el mes en curso (SQL). */
@@ -295,6 +304,17 @@ export const inicioApi = api.injectEndpoints({
       },
       providesTags: (_r, _e, mes) => [{ type: 'Analisis', id: mes }, 'Analisis'],
     }),
+
+    /**
+     * Cambia todos los campos de un objetivo (tipo, categoría e importe), los mismos que al crearlo.
+     * El importe viaja como string (`aNumeric`). 23505 si choca con otro activo del mismo tipo o
+     * de la misma categoría. RLS: solo se tocan los objetivos del usuario.
+     */
+    actualizarObjetivo: b.mutation<null, ObjetivoEditado>({
+      queryFn: ({ id, tipo, categoria_id, importe }) =>
+        ejecutar(supabase.from('objetivos').update({ tipo, categoria_id, importe: aNumeric(importe) }).eq('id', id)),
+      invalidatesTags: ['Objetivos'],
+    }),
   }),
 });
 
@@ -309,4 +329,5 @@ export const {
   useInicioUltimosMovimientosQuery,
   useInicioUltimoAnalisisQuery,
   useInicioAnalisisMesQuery,
+  useActualizarObjetivoMutation,
 } = inicioApi;

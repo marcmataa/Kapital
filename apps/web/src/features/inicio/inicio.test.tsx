@@ -13,6 +13,8 @@ interface Llamada {
   args?: Record<string, unknown>;
   select?: string;
   insert?: Record<string, unknown>;
+  update?: Record<string, unknown>;
+  filtros?: [string, unknown][];
 }
 type Respuesta = { data: unknown; error: unknown };
 
@@ -33,7 +35,14 @@ vi.mock('@/shared/lib/supabase', () => {
         llamada.insert = fila;
         return q;
       },
-      eq: () => q,
+      update: (fila: Record<string, unknown>) => {
+        llamada.update = fila;
+        return q;
+      },
+      eq: (columna: string, valor: unknown) => {
+        (llamada.filtros ??= []).push([columna, valor]);
+        return q;
+      },
       order: () => q,
       limit: () => q,
       maybeSingle: () => q,
@@ -67,6 +76,8 @@ interface Escenario {
   objetivos?: unknown[];
   movimientos?: unknown[];
   insertError?: unknown;
+  /** Error de las escrituras update en objetivos (editar o eliminar). */
+  updateError?: unknown;
   /** fecha_inicial de la cuenta más antigua (primer día con datos). */
   inicioDatos?: string;
   /** Filas de `cuentas` y de `v_saldos` (valor de hoy) para el desglose por cuenta. */
@@ -89,6 +100,7 @@ function escenario({
   objetivos = [],
   movimientos = [],
   insertError = null,
+  updateError = null,
   inicioDatos = '2026-01-01',
   cuentas,
   saldos = [],
@@ -119,6 +131,7 @@ function escenario({
       case 'categorias':
         return ok(categorias);
       case 'objetivos':
+        if (l.update) return { data: null, error: updateError };
         return l.insert ? { data: null, error: insertError } : ok(objetivos);
       case 'movimientos':
         return ok(movimientos);
@@ -215,9 +228,21 @@ describe('PaginaInicio · datos', () => {
     if (!tarjeta) throw new Error('sin tarjeta');
     // Hoy = 2.018,00 €; 19 sept = 2.018,00 € → +0,0 %.
     expect(within(tarjeta).getByText(/2\.018,00/)).toBeInTheDocument();
-    const ingresos = screen.getByRole('heading', { name: 'Ingresos · 1–19 oct' }).closest('article');
+    const ingresos = screen.getByRole('heading', { name: 'Ingresos' }).closest('article');
     if (!ingresos) throw new Error('sin tarjeta');
     expect(within(ingresos).getByText('Sin datos del mes anterior')).toBeInTheDocument();
+  });
+
+  it('el periodo comparado se dice UNA vez; ninguna cifra repite «vs …» ni el tramo 1–19', async () => {
+    escenario({ inicioDatos: '2026-09-01' });
+    pintar();
+    expect(await screen.findByTestId('nota-comparacion')).toHaveTextContent(
+      'Hasta hoy, comparado con el mismo punto del mes pasado.',
+    );
+    const resumen = await screen.findByRole('region', { name: 'Resumen del mes' });
+    await within(resumen).findByText('+6,9 %');
+    expect(resumen.textContent).not.toMatch(/\bvs\b|1–19|al día/);
+    expect(screen.getAllByText(/mismo punto del mes pasado/)).toHaveLength(1);
   });
 });
 
@@ -226,8 +251,8 @@ describe('PaginaInicio · periodo anterior parcial (sección 8)', () => {
     vi.setSystemTime(new Date('2026-10-27T10:00:00Z'));
     escenario({ inicioDatos: '2026-09-25' });
     pintar();
-    const gastos = (await screen.findByRole('heading', { name: 'Gastos netos · 1–27 oct' })).closest('article');
-    const ingresos = screen.getByRole('heading', { name: 'Ingresos · 1–27 oct' }).closest('article');
+    const gastos = (await screen.findByRole('heading', { name: 'Gastos netos' })).closest('article');
+    const ingresos = screen.getByRole('heading', { name: 'Ingresos' }).closest('article');
     if (!gastos || !ingresos) throw new Error('sin tarjeta');
     expect(within(gastos).getByText('Sin datos del mes anterior')).toBeInTheDocument();
     expect(within(ingresos).getByText('Sin datos del mes anterior')).toBeInTheDocument();
@@ -241,7 +266,7 @@ describe('PaginaInicio · periodo anterior parcial (sección 8)', () => {
   it('datos desde el día 1 del mes anterior: sí hay % de gastos', async () => {
     escenario({ inicioDatos: '2026-09-01' });
     pintar();
-    const gastos = (await screen.findByRole('heading', { name: 'Gastos netos · 1–19 oct' })).closest('article');
+    const gastos = (await screen.findByRole('heading', { name: 'Gastos netos' })).closest('article');
     if (!gastos) throw new Error('sin tarjeta');
     // 900,00 → 961,68: +6,9 %.
     expect(await within(gastos).findByText('+6,9 %')).toBeInTheDocument();
@@ -429,14 +454,17 @@ describe('PaginaInicio · selector de mes', () => {
     if (!patrimonio) throw new Error('sin tarjeta');
     // 30 sept = 2.029,00 €; d′ = 30 ago (sección 7) = 2.029,00 €.
     expect(within(patrimonio).getByText(/2\.029,00/)).toBeInTheDocument();
-    expect(within(patrimonio).getByText('vs 30/08/2026')).toBeInTheDocument();
-    const ingresos = screen.getByRole('heading', { name: 'Ingresos · 1–30 sept' }).closest('article');
-    const gastos = screen.getByRole('heading', { name: 'Gastos netos · 1–30 sept' }).closest('article');
+    expect(patrimonio.textContent).not.toMatch(/vs/);
+    const ingresos = screen.getByRole('heading', { name: 'Ingresos' }).closest('article');
+    const gastos = screen.getByRole('heading', { name: 'Gastos netos' }).closest('article');
     if (!ingresos || !gastos) throw new Error('sin tarjeta');
     // 1.400,00 → 1.508,00: +7,7 %; 1.000,00 → 1.168,28: +16,8 %, contra agosto completo.
     expect(within(ingresos).getByText('+7,7 %')).toBeInTheDocument();
     expect(within(gastos).getByText('+16,8 %')).toBeInTheDocument();
-    expect(within(ingresos).getByText('vs 1–31 ago')).toBeInTheDocument();
+    expect(ingresos.textContent).not.toMatch(/vs|1–31 ago/);
+    // El periodo comparado se dice UNA vez, bajo el saludo.
+    expect(screen.getByTestId('nota-comparacion')).toHaveTextContent('Comparado con el mes pasado completo.');
+    expect(screen.getAllByText(/Comparado con/)).toHaveLength(1);
 
     expect(screen.getByTestId('mes-seleccionado')).toHaveTextContent(/^Septiembre de 2026$/);
     expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeEnabled();
@@ -463,7 +491,7 @@ describe('PaginaInicio · selector de mes', () => {
   it('en el mes de la primera cuenta «anterior» está desactivado y no hay comparación', async () => {
     escenario({ inicioDatos: '2026-01-01' });
     pintarEn('/?mes=2026-01');
-    const ingresos = (await screen.findByRole('heading', { name: 'Ingresos · 1–31 ene' })).closest('article');
+    const ingresos = (await screen.findByRole('heading', { name: 'Ingresos' })).closest('article');
     if (!ingresos) throw new Error('sin tarjeta');
     expect(within(ingresos).getByText('Sin datos del mes anterior')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Mes anterior' })).toBeDisabled();
@@ -601,16 +629,27 @@ const PROGRESO_LIMITE = {
   exceso: '15.00', restante: null, dias_restantes: 13, ahorro_diario_necesario: null,
 };
 
-describe('PaginaInicio · orden de los bloques (auditoría, sección 6)', () => {
-  it('objetivos justo tras el resumen; categorías después; últimos movimientos al final', async () => {
+describe('PaginaInicio · orden de los bloques', () => {
+  it('saludo y mes → patrimonio → evolución del capital → objetivos → categorías → movimientos → análisis', async () => {
     escenario({ progreso: [PROGRESO_AHORRO] });
     pintar();
     const objetivos = await screen.findByRole('heading', { name: 'Objetivos · octubre' });
-    const categorias = screen.getByRole('heading', { name: 'Gastos por categoría' });
-    const movimientos = screen.getByRole('heading', { name: 'Últimos movimientos' });
+    const bloques = [
+      screen.getByRole('heading', { level: 1 }),
+      screen.getByTestId('mes-seleccionado'),
+      await screen.findByRole('heading', { name: 'Patrimonio a 19/10/2026' }),
+      await screen.findByRole('heading', { name: 'Evolución de tu capital' }),
+      objetivos,
+      screen.getByRole('heading', { name: 'Gastos por categoría' }),
+      screen.getByRole('heading', { name: 'Últimos movimientos' }),
+      await screen.findByText('Tu primer análisis con IA llegará el día 1 del mes que viene.'),
+    ];
     const antes = (a: Element, b: Element) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
-    expect(antes(objetivos, categorias)).toBe(true);
-    expect(antes(categorias, movimientos)).toBe(true);
+    for (let i = 1; i < bloques.length; i++) {
+      const [a, b] = [bloques[i - 1], bloques[i]];
+      if (!a || !b) throw new Error('falta un bloque');
+      expect(antes(a, b)).toBe(true);
+    }
   });
 });
 
@@ -781,10 +820,129 @@ describe('FormObjetivo', () => {
   });
 });
 
+describe('TarjetaObjetivos · editar y eliminar', () => {
+  const OBJETIVOS = [
+    { id: 'o1', tipo: 'ahorro_mensual', categoria_id: null, importe: '500.00' },
+    { id: 'o2', tipo: 'limite_categoria', categoria_id: 'ocio', importe: '200.00' },
+  ];
+  const conObjetivos = (o: Partial<Escenario> = {}) =>
+    escenario({ progreso: [PROGRESO_AHORRO, PROGRESO_LIMITE], objetivos: OBJETIVOS, ...o });
+  const escrituras = () => sb.llamadas.filter((l) => l.origen === 'objetivos' && l.update);
+  const pedidasProgreso = () => sb.llamadas.filter((l) => l.origen === 'rpc:progreso_objetivos').length;
+
+  it('cada objetivo tiene botones reales de editar y eliminar con su nombre', async () => {
+    conObjetivos();
+    pintar();
+    expect(await screen.findByRole('button', { name: /^Editar el objetivo «Ahorrar 500,00\s€ al mes»$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Eliminar el objetivo «Ahorrar 500,00\s€ al mes»$/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Editar el objetivo «Ocio por debajo de 200,00\s€»$/ })).toHaveClass('area-tactil');
+    expect(screen.getByRole('button', { name: /^Eliminar el objetivo «Ocio por debajo de 200,00\s€»$/ })).toHaveAttribute(
+      'type',
+      'button',
+    );
+  });
+
+  it('editar cambia todos los campos con el formulario del alta y refresca sin recargar', async () => {
+    conObjetivos();
+    pintar();
+    await userEvent.click(await screen.findByRole('button', { name: /^Editar el objetivo «Ocio por debajo/ }));
+    const hoja = screen.getByRole('dialog', { name: 'Editar objetivo' });
+    const form = within(hoja).getByRole('form', { name: 'Editar objetivo' });
+    // Precargado con sus valores; su propia categoría sigue disponible.
+    expect(within(form).getByRole('radio', { name: 'Límite de categoría' })).toBeChecked();
+    const select = await within(form).findByLabelText('Categoría');
+    expect(select).toHaveValue('ocio');
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Elige una categoría',
+      'Ocio',
+      'Transporte',
+    ]);
+    const importe = within(form).getByLabelText('Límite al mes');
+    expect(importe).toHaveValue('200,00');
+
+    const antes = pedidasProgreso();
+    await userEvent.selectOptions(select, 'trans');
+    await userEvent.clear(importe);
+    await userEvent.type(importe, '250,5');
+    await userEvent.click(within(form).getByRole('button', { name: 'Guardar' }));
+
+    await waitFor(() => expect(escrituras()).toHaveLength(1));
+    expect(escrituras()[0]).toMatchObject({
+      update: { tipo: 'limite_categoria', categoria_id: 'trans', importe: '250.50' },
+      filtros: [['id', 'o2']],
+    });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    // La etiqueta 'Objetivos' vuelve a pedir el progreso: la tarjeta se actualiza sola.
+    await waitFor(() => expect(pedidasProgreso()).toBeGreaterThan(antes));
+  });
+
+  it('editar valida igual que el alta: importe obligatorio y categoría obligatoria', async () => {
+    conObjetivos();
+    pintar();
+    await userEvent.click(await screen.findByRole('button', { name: /^Editar el objetivo «Ahorrar/ }));
+    const hoja = screen.getByRole('dialog', { name: 'Editar objetivo' });
+    expect(within(hoja).getByRole('radio', { name: 'Ahorro mensual' })).toBeChecked();
+    // Pasar el ahorro a límite: Ocio ya tiene uno, así que solo queda Transporte, y hay que elegirla.
+    await userEvent.click(within(hoja).getByRole('radio', { name: 'Límite de categoría' }));
+    const select = await within(hoja).findByLabelText('Categoría');
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Elige una categoría', 'Transporte']);
+    await userEvent.clear(within(hoja).getByLabelText('Límite al mes'));
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Guardar' }));
+    expect(await within(hoja).findByText('Elige una categoría.')).toBeInTheDocument();
+    expect(escrituras()).toHaveLength(0);
+  });
+
+  it('si choca con otro objetivo activo (23505) lo explica y no cierra', async () => {
+    conObjetivos({ updateError: { code: '23505', message: 'duplicate key value violates unique constraint' } });
+    pintar();
+    await userEvent.click(await screen.findByRole('button', { name: /^Editar el objetivo «Ocio por debajo/ }));
+    const hoja = screen.getByRole('dialog', { name: 'Editar objetivo' });
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Guardar' }));
+    expect(await within(hoja).findByRole('alert')).toHaveTextContent('Esa categoría ya tiene un límite activo.');
+    expect(screen.getByRole('dialog', { name: 'Editar objetivo' })).toBeInTheDocument();
+  });
+
+  it('eliminar pide confirmación nombrando el objetivo; cancelar no toca nada', async () => {
+    conObjetivos();
+    pintar();
+    await userEvent.click(await screen.findByRole('button', { name: /^Eliminar el objetivo «Ahorrar/ }));
+    const hoja = screen.getByRole('dialog', { name: 'Eliminar objetivo' });
+    expect(hoja).toHaveAttribute('aria-modal', 'true');
+    expect(hoja.textContent?.replace(/\s+/g, ' ')).toContain('¿Eliminar el objetivo «Ahorrar 500,00 € al mes»?');
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(escrituras()).toHaveLength(0);
+  });
+
+  it('confirmar elimina (desactiva) ese objetivo y la tarjeta se refresca', async () => {
+    conObjetivos();
+    pintar();
+    await userEvent.click(await screen.findByRole('button', { name: /^Eliminar el objetivo «Ahorrar/ }));
+    const antes = pedidasProgreso();
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Sí, eliminar' }));
+    await waitFor(() => expect(escrituras()).toHaveLength(1));
+    expect(escrituras()[0]).toMatchObject({ update: { activo: false }, filtros: [['id', 'o1']] });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(pedidasProgreso()).toBeGreaterThan(antes));
+  });
+
+  it('si falla al eliminar lo dice dentro del diálogo, que sigue abierto', async () => {
+    conObjetivos({ updateError: { code: '42501', message: 'permission denied' } });
+    pintar();
+    await userEvent.click(await screen.findByRole('button', { name: /^Eliminar el objetivo «Ocio/ }));
+    const hoja = screen.getByRole('dialog', { name: 'Eliminar objetivo' });
+    await userEvent.click(within(hoja).getByRole('button', { name: 'Sí, eliminar' }));
+    expect(await within(hoja).findByRole('alert')).toHaveTextContent(
+      'No se ha podido eliminar el objetivo. Inténtalo de nuevo.',
+    );
+    expect(screen.getByRole('dialog', { name: 'Eliminar objetivo' })).toBeInTheDocument();
+  });
+});
+
 describe('PaginaInicio · balance del mes, top 3 y enlaces', () => {
   it('cuarta cifra: balance de 1..hoy con su ahorro (SQL)', async () => {
     pintar();
-    const balance = (await screen.findByRole('heading', { name: 'Balance · 1–19 oct' })).closest('article');
+    const balance = (await screen.findByRole('heading', { name: 'Balance' })).closest('article');
     if (!balance) throw new Error('sin tarjeta');
     expect(within(balance).getByText(/^\+342,00\s€$/)).toBeInTheDocument();
     expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro 10,0 %');
@@ -792,7 +950,7 @@ describe('PaginaInicio · balance del mes, top 3 y enlaces', () => {
 
   it('mes cerrado: balance del mes completo con el ahorro de la sección 3 (22,5 %)', async () => {
     pintarEn('/?mes=2026-09');
-    const balance = (await screen.findByRole('heading', { name: 'Balance · 1–30 sept' })).closest('article');
+    const balance = (await screen.findByRole('heading', { name: 'Balance' })).closest('article');
     if (!balance) throw new Error('sin tarjeta');
     expect(within(balance).getByText(/^\+339,72\s€$/)).toBeInTheDocument();
     expect(within(balance).getByTestId('kpi-ahorro')).toHaveTextContent('Tasa de ahorro 22,5 %');
