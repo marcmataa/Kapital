@@ -2,7 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { Pencil, Trash2 } from 'lucide-react';
 import { FormObjetivo } from '@/features/inicio/components/FormObjetivo';
-import { useDesactivarObjetivoMutation, type Categoria, type Objetivo } from '@/shared/api/catalogos';
+import { useEliminarObjetivoMutation, type Categoria, type Objetivo } from '@/shared/api/catalogos';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useIdioma, useT } from '@/shared/i18n';
 import { formatearEuros } from '@/shared/lib/dinero';
@@ -31,7 +31,7 @@ const CLASE_BOTONES = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end';
 
 /**
  * Objetivos activos: editar (todos los campos, con el mismo formulario que el alta y que Inicio),
- * eliminar (se desactiva, igual que desde Inicio) y añadir.
+ * eliminar (se borra de la base, igual que desde Inicio) y añadir.
  * Modal plano: cada vista ocupa el modal entero con su propio título y vuelve a la lista al
  * cancelar o guardar (sin «Volver a la lista» ni tarjeta dentro de la tarjeta).
  */
@@ -41,13 +41,13 @@ export function SheetObjetivos({ objetivos, categorias, onCerrar }: Props) {
   const nombreCategoria = useNombreCategoria();
   const [vista, setVista] = useState<Vista>({ modo: 'lista' });
   const [error, setError] = useState<string | null>(null);
-  const [desactivar, estadoQuitar] = useDesactivarObjetivoMutation();
+  const [eliminar, estadoQuitar] = useEliminarObjetivoMutation();
   const aLista = () => setVista({ modo: 'lista' });
 
   const quitar = async (o: Objetivo) => {
     setError(null);
     try {
-      await desactivar(o.id).unwrap();
+      await eliminar(o.id).unwrap();
       toast.success(t('objetivos.quitado'));
       aLista();
     } catch (e) {

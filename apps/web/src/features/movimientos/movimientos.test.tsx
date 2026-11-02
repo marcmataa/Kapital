@@ -20,6 +20,7 @@ const { default: PaginaMovimientos } = await import('./pages/PaginaMovimientos')
 const { default: PaginaNuevoMovimiento } = await import('./pages/PaginaNuevoMovimiento');
 const { default: PaginaDetalleMovimiento } = await import('./pages/PaginaDetalleMovimiento');
 const { default: PaginaEditarMovimiento } = await import('./pages/PaginaEditarMovimiento');
+const { default: PaginaRevision } = await import('./pages/PaginaRevision');
 
 function db() {
   if (!falso.mod) throw new Error('supabase falso sin iniciar');
@@ -61,6 +62,7 @@ function renderRuta(ruta: string) {
       <Routes>
         <Route path="/movimientos" element={<PaginaMovimientos />} />
         <Route path="/movimientos/nuevo" element={<PaginaNuevoMovimiento />} />
+        <Route path="/movimientos/revision" element={<PaginaRevision />} />
         <Route path="/movimientos/:id" element={<PaginaDetalleMovimiento />} />
         <Route path="/movimientos/:id/editar" element={<PaginaEditarMovimiento />} />
       </Routes>
@@ -1069,5 +1071,71 @@ describe('Devolución: gasto original obligatorio', () => {
     ).toBeInTheDocument();
     expect(within(dialogo).queryByRole('button', { name: 'Borrar' })).not.toBeInTheDocument();
     expect(llamadasMovimientos('delete')).toHaveLength(0);
+  });
+});
+
+describe('Devoluciones pendientes de revisión (sección 3)', () => {
+  const PENDIENTES = [
+    {
+      id: ID.mov1,
+      fecha: '2026-09-25',
+      concepto: 'Devolución Amazon',
+      importe: '9.91',
+      categoria_id: ID.ocio,
+      cuenta_id: CUENTAS[0]?.id,
+      motivo: 'sin_vincular',
+      gasto_id: null,
+      gasto_fecha: null,
+      gasto_concepto: null,
+    },
+    {
+      id: ID.mov2,
+      fecha: '2026-10-09',
+      concepto: 'Bizum cena',
+      importe: '10.00',
+      categoria_id: ID.ocio,
+      cuenta_id: CUENTAS[0]?.id,
+      motivo: 'fecha_anterior',
+      gasto_id: ID.mov3,
+      gasto_fecha: '2026-10-10',
+      gasto_concepto: 'Cena',
+    },
+  ];
+  const conPendientes = (filas: unknown[]) =>
+    responderCon(LISTA, (l) => (l.tabla === 'rpc:devoluciones_pendientes_revision' ? { data: filas, error: null } : undefined));
+
+  it('la lista avisa de cuántas hay y lleva a revisarlas', async () => {
+    conPendientes(PENDIENTES);
+    renderRuta('/movimientos');
+    expect(await screen.findByText('Tienes 2 devoluciones por revisar: elige el gasto original de cada una.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: 'Revisar' }));
+    await waitFor(() => expect(ubicacion()).toBe('/movimientos/revision'));
+  });
+
+  it('sin pendientes no hay aviso', async () => {
+    conPendientes([]);
+    renderRuta('/movimientos');
+    expect(await screen.findByText('Cena con amigos')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Revisar' })).not.toBeInTheDocument();
+  });
+
+  it('cada devolución dice por qué está pendiente y se corrige en su formulario, sin vincular nada sola', async () => {
+    conPendientes(PENDIENTES);
+    renderRuta('/movimientos/revision');
+    const lista = await screen.findByRole('list', { name: 'Devoluciones por revisar' });
+    const filas = within(lista).getAllByRole('listitem');
+    expect(filas).toHaveLength(2);
+    expect(filas[0]).toHaveTextContent('Sin gasto original');
+    expect(filas[1]).toHaveTextContent('vinculada a «Cena»');
+    expect(filas[1]).toHaveTextContent('Su fecha es anterior a la compra');
+    expect(llamadasMovimientos('update')).toHaveLength(0);
+    await userEvent.click(within(filas[0] as HTMLElement).getByRole('link', { name: 'Corregir la devolución «Devolución Amazon»' }));
+    await waitFor(() => expect(ubicacion()).toBe(`/movimientos/${ID.mov1}/editar`));
+  });
+
+  it('sin pendientes lo dice', async () => {
+    conPendientes([]);
+    renderRuta('/movimientos/revision');
+    expect(await screen.findByText('No hay devoluciones por revisar')).toBeInTheDocument();
   });
 });

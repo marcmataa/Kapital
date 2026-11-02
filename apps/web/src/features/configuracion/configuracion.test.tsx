@@ -11,7 +11,7 @@ import { renderConApp, sesionFalsa } from '@/test/render';
 
 interface Llamada {
   tabla: string;
-  op: 'select' | 'update' | 'insert' | '';
+  op: 'select' | 'update' | 'insert' | 'delete' | '';
   columnas?: string;
   valores?: unknown;
   filtros: [string, unknown][];
@@ -44,6 +44,10 @@ vi.mock('@/shared/lib/supabase', () => {
       update(v: unknown) {
         reg.op = 'update';
         reg.valores = v;
+        return b;
+      },
+      delete() {
+        reg.op = 'delete';
         return b;
       },
       insert(v: unknown) {
@@ -635,14 +639,14 @@ describe('Objetivos', () => {
     ).toBeInTheDocument();
   });
 
-  it('«Eliminar» desactiva el objetivo', async () => {
+  it('«Eliminar» borra el objetivo', async () => {
     renderPagina();
     await userEvent.click(await screen.findByRole('button', { name: 'Editar objetivos →' }));
     const hoja = screen.getByRole('dialog', { name: 'Objetivos' });
     await userEvent.click(within(hoja).getByRole('button', { name: 'Eliminar Ahorro mensual' }));
     await userEvent.click(within(hoja).getByRole('button', { name: 'Sí, eliminar' }));
     await waitFor(() => expect(escrituras('objetivos')).toHaveLength(1));
-    expect(escrituras('objetivos')[0]).toMatchObject({ valores: { activo: false }, filtros: [['id', 'o1']] });
+    expect(escrituras('objetivos')[0]).toMatchObject({ op: 'delete', filtros: [['id', 'o1']] });
   });
 });
 

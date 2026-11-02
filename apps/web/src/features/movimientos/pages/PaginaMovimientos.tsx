@@ -10,6 +10,7 @@ import { formatearFecha } from '@/shared/lib/fechas';
 import { Button, EmptyState, Sheet, Spinner, clasesBoton } from '@/shared/ui';
 import { useMovimientosListarInfiniteQuery, useMovimientosObtenerQuery } from '../api/movimientosApi';
 import { useMovimientosSubtotalesDiaQuery, useMovimientosTotalesTipoQuery } from '../api/sqlApi';
+import { AvisoRevision } from '../components/AvisoRevision';
 import { ChipsTipo } from '../components/ChipsTipo';
 import { DetalleMovimiento } from '../components/DetalleMovimiento';
 import { FiltrosActivos } from '../components/FiltrosActivos';
@@ -307,6 +308,8 @@ export default function PaginaMovimientos() {
           />
         </div>
       </div>
+
+      <AvisoRevision />
 
       <FiltrosActivos filtros={filtros} catalogos={catalogos} onQuitar={(cambios) => actualizar(cambios)} />
 

@@ -32,6 +32,8 @@ export const MIGRACION_ELIMINAR_CATEGORIAS = leer('supabase/migrations/202611020
 export const ROLLBACK_ELIMINAR_CATEGORIAS = leer('supabase/rollback/20261102000000_eliminar_categorias.down.sql');
 export const MIGRACION_DEVOLUCIONES_VINCULADAS = leer('supabase/migrations/20261102000001_devoluciones_vinculadas.sql');
 export const ROLLBACK_DEVOLUCIONES_VINCULADAS = leer('supabase/rollback/20261102000001_devoluciones_vinculadas.down.sql');
+export const MIGRACION_DEVOLUCIONES_REVISION = leer('supabase/migrations/20261102000002_devoluciones_revision.sql');
+export const ROLLBACK_DEVOLUCIONES_REVISION = leer('supabase/rollback/20261102000002_devoluciones_revision.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
 export const MIGRACIONES = [
   MIGRACION,
@@ -47,9 +49,11 @@ export const MIGRACIONES = [
   MIGRACION_COLORES_CATEGORIAS,
   MIGRACION_ELIMINAR_CATEGORIAS,
   MIGRACION_DEVOLUCIONES_VINCULADAS,
+  MIGRACION_DEVOLUCIONES_REVISION,
 ];
 /** Todos los rollbacks, en orden inverso. */
 export const ROLLBACKS = [
+  ROLLBACK_DEVOLUCIONES_REVISION,
   ROLLBACK_DEVOLUCIONES_VINCULADAS,
   ROLLBACK_ELIMINAR_CATEGORIAS,
   ROLLBACK_COLORES_CATEGORIAS,

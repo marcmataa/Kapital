@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { AlertTriangle, ArrowRight, Check, Pencil, Trash2, X, type LucideIcon } from 'lucide-react';
-import { useDesactivarObjetivoMutation, useListarCategoriasQuery } from '@/shared/api/catalogos';
+import { useEliminarObjetivoMutation, useListarCategoriasQuery } from '@/shared/api/catalogos';
 import { useIdioma, useT } from '@/shared/i18n';
 import { nombreCategoria as nombreVisible } from '@/shared/lib/categorias';
 import { cx } from '@/shared/lib/cx';
@@ -59,7 +59,7 @@ function estadoDe(o: ProgresoObjetivo): Estado {
  * - Límite de categoría: gasto neto de la categoría frente al límite; pasarse es «Te has pasado X».
  * Cada objetivo lleva su estado con icono, texto y color (nunca solo el color), y dos botones:
  * editar (todos los campos, en una hoja con el mismo formulario del alta) y eliminar (pide
- * confirmación nombrando el objetivo). Eliminar lo desactiva, igual que en Configuración: deja de
+ * confirmación nombrando el objetivo). Eliminar lo borra de la base, igual que en Configuración: deja de
  * contar en Inicio y en el análisis. Al guardar, la etiqueta 'Objetivos' refresca la lista sola.
  */
 export function TarjetaObjetivos({ hoy }: Props) {
@@ -72,7 +72,7 @@ export function TarjetaObjetivos({ hoy }: Props) {
   const [editando, setEditando] = useState<ProgresoObjetivo | null>(null);
   const [eliminando, setEliminando] = useState<ProgresoObjetivo | null>(null);
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
-  const [desactivar, estadoEliminar] = useDesactivarObjetivoMutation();
+  const [eliminarObjetivo, estadoEliminar] = useEliminarObjetivoMutation();
   const euros = (v: string) => formatearEuros(v, locale);
 
   const nombreCategoria = (id: string | null) => {
@@ -114,7 +114,7 @@ export function TarjetaObjetivos({ hoy }: Props) {
   const eliminar = async (o: ProgresoObjetivo) => {
     setErrorEliminar(null);
     try {
-      await desactivar(o.objetivo_id).unwrap();
+      await eliminarObjetivo(o.objetivo_id).unwrap();
       toast.success(t('objetivos.eliminado'));
       setEliminando(null);
     } catch (e) {

@@ -14,6 +14,7 @@ interface Llamada {
   select?: string;
   insert?: Record<string, unknown>;
   update?: Record<string, unknown>;
+  delete?: boolean;
   filtros?: [string, unknown][];
 }
 type Respuesta = { data: unknown; error: unknown };
@@ -37,6 +38,10 @@ vi.mock('@/shared/lib/supabase', () => {
       },
       update: (fila: Record<string, unknown>) => {
         llamada.update = fila;
+        return q;
+      },
+      delete: () => {
+        llamada.delete = true;
         return q;
       },
       eq: (columna: string, valor: unknown) => {
@@ -131,7 +136,7 @@ function escenario({
       case 'categorias':
         return ok(categorias);
       case 'objetivos':
-        if (l.update) return { data: null, error: updateError };
+        if (l.update || l.delete) return { data: null, error: updateError };
         return l.insert ? { data: null, error: insertError } : ok(objetivos);
       case 'movimientos':
         return ok(movimientos);
@@ -827,7 +832,7 @@ describe('TarjetaObjetivos · editar y eliminar', () => {
   ];
   const conObjetivos = (o: Partial<Escenario> = {}) =>
     escenario({ progreso: [PROGRESO_AHORRO, PROGRESO_LIMITE], objetivos: OBJETIVOS, ...o });
-  const escrituras = () => sb.llamadas.filter((l) => l.origen === 'objetivos' && l.update);
+  const escrituras = () => sb.llamadas.filter((l) => l.origen === 'objetivos' && (l.update || l.delete));
   const pedidasProgreso = () => sb.llamadas.filter((l) => l.origen === 'rpc:progreso_objetivos').length;
 
   it('cada objetivo tiene botones reales de editar y eliminar con su nombre', async () => {
@@ -914,14 +919,14 @@ describe('TarjetaObjetivos · editar y eliminar', () => {
     expect(escrituras()).toHaveLength(0);
   });
 
-  it('confirmar elimina (desactiva) ese objetivo y la tarjeta se refresca', async () => {
+  it('confirmar borra ese objetivo y la tarjeta se refresca', async () => {
     conObjetivos();
     pintar();
     await userEvent.click(await screen.findByRole('button', { name: /^Eliminar el objetivo «Ahorrar/ }));
     const antes = pedidasProgreso();
     await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Sí, eliminar' }));
     await waitFor(() => expect(escrituras()).toHaveLength(1));
-    expect(escrituras()[0]).toMatchObject({ update: { activo: false }, filtros: [['id', 'o1']] });
+    expect(escrituras()[0]).toMatchObject({ delete: true, filtros: [['id', 'o1']] });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(pedidasProgreso()).toBeGreaterThan(antes));
   });

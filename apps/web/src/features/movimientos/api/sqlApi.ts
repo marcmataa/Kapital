@@ -99,6 +99,25 @@ export interface ConsultaGastosDevolvibles {
   limite: number;
 }
 
+/** Por qué hay que revisar una devolución (código de devoluciones_pendientes_revision). */
+export const MOTIVOS_REVISION = ['sin_vincular', 'fecha_anterior', 'otra_categoria'] as const;
+export type MotivoRevision = (typeof MOTIVOS_REVISION)[number];
+
+export interface DevolucionPendiente {
+  id: string;
+  fecha: string;
+  concepto: string;
+  /** 'd.dd' */
+  importe: string;
+  categoria_id: string;
+  cuenta_id: string;
+  motivo: MotivoRevision;
+  /** Gasto vinculado (null si está sin vincular). */
+  gasto_id: string | null;
+  gasto_fecha: string | null;
+  gasto_concepto: string | null;
+}
+
 function aGastoDevolvible(fila: GastoDevolvible): GastoDevolvible {
   return {
     ...fila,
@@ -209,6 +228,29 @@ export const sqlApi = api.injectEndpoints({
       providesTags: ['Movimientos'],
     }),
 
+    /**
+     * Devoluciones pendientes de revisión (devoluciones_pendientes_revision, migración
+     * 20261102000002; reglas, sección 3). Solo lectura: se corrigen editando cada una.
+     */
+    movimientosPendientesRevision: b.query<DevolucionPendiente[], void>({
+      queryFn: () =>
+        capturar(async () => {
+          const r = await filas<DevolucionPendiente>(
+            supabase
+              .rpc('devoluciones_pendientes_revision')
+              .select('id, fecha, concepto, importe::text, categoria_id, cuenta_id, motivo, gasto_id, gasto_fecha, gasto_concepto'),
+          );
+          if ('error' in r) return r;
+          return {
+            data: r.data.map((f) => ({
+              ...f,
+              motivo: (MOTIVOS_REVISION as readonly string[]).includes(f.motivo) ? f.motivo : 'sin_vincular',
+            })),
+          };
+        }),
+      providesTags: ['Movimientos'],
+    }),
+
     /** Diferencia entre el saldo real y el de la app (la calcula la base). */
     movimientosCalcularAjuste: b.query<CalculoAjuste | null, { cuenta: string; saldoReal: string }>({
       queryFn: ({ cuenta, saldoReal }) =>
@@ -247,6 +289,7 @@ export const {
   useMovimientosSugerirCategoriaQuery,
   useMovimientosCategoriasUsadasQuery,
   useMovimientosGastosDevolviblesQuery,
+  useMovimientosPendientesRevisionQuery,
   useMovimientosCalcularAjusteQuery,
   useMovimientosCrearAjusteMutation,
 } = sqlApi;

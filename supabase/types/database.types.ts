@@ -284,6 +284,11 @@ isOneToOne: false
               "categoria_id": string,"comercio": string | null,"concepto": string,"cuenta_id": string,"fecha": string,"id": string,"importe": number,"motivo": string,"pendiente": number,"puntuacion": number
             }[]
                            },
+"devoluciones_pendientes_revision":
+{ Args: never; Returns: {
+              "categoria_id": string,"concepto": string,"cuenta_id": string,"fecha": string,"gasto_concepto": string | null,"gasto_fecha": string | null,"gasto_id": string | null,"id": string,"importe": number,"motivo": string
+            }[]
+                           },
 "gasto_por_categoria":
 { Args: { "p_desde": string,"p_hasta": string }; Returns: {
               "categoria_id": string,"color": string,"gasto": number,"icono": string,"nombre": string
