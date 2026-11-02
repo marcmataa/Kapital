@@ -273,7 +273,7 @@ describe('traduccion_categoria', () => {
   it('usa exactamente los mismos nombres que la web en es, en y ca', async () => {
     for (const idioma of ['es', 'en', 'ca'] as const) {
       const web = textosWeb(idioma);
-      expect(Object.keys(web)).toHaveLength(15);
+      expect(Object.keys(web)).toHaveLength(11);
       for (const [clave, texto] of Object.entries(web)) {
         const { t } = await una<{ t: string }>(db, `select traduccion_categoria($1, $2) as t`, [clave, idioma]);
         expect(t, `${idioma}.${clave}`).toBe(texto);

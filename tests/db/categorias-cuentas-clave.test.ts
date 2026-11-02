@@ -7,8 +7,8 @@ import type { PGlite } from '@electric-sql/pglite';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
-  CATEGORIAS_POR_DEFECTO, MIGRACIONES, MIGRACION_CATEGORIAS_CUENTAS_CLAVE, ROLLBACK_CATEGORIAS_CUENTAS_CLAVE,
-  actuarComo, conRol, crearCuenta, crearDb, crearUsuario, todas, una,
+  CATEGORIAS_POR_DEFECTO, CATEGORIAS_POR_DEFECTO_ANTERIORES, MIGRACIONES, MIGRACION_CATEGORIAS_CUENTAS_CLAVE,
+  MIGRACION_ELIMINAR_CATEGORIAS, ROLLBACK_CATEGORIAS_CUENTAS_CLAVE, actuarComo, conRol, crearCuenta, crearDb, crearUsuario, todas, una,
 } from './helpers.js';
 
 let db: PGlite;
@@ -132,11 +132,12 @@ describe('backfill de la cuenta de efectivo', () => {
 });
 
 describe('usuarios nuevos', () => {
-  it('completar_onboarding crea las 15 categorías por defecto y el efectivo con clave', async () => {
+  // 15 hasta 20261102000000_eliminar_categorias.sql; desde entonces, 11.
+  it('completar_onboarding crea las categorías por defecto y el efectivo con clave', async () => {
     await comoUsuario(`select completar_onboarding('ca', $1::jsonb, '0')`,
       [JSON.stringify([{ entidad: 'bbva', nombre: '', color: null, saldo: '10' }])]);
     expect((await categorias(db, u)).map(({ nombre, clave }) => ({ nombre, clave }))).toEqual(CATEGORIAS_POR_DEFECTO);
-    expect(CATEGORIAS_POR_DEFECTO).toHaveLength(15);
+    expect(CATEGORIAS_POR_DEFECTO).toHaveLength(11);
     expect(await cuentas(db, u)).toEqual([{ nombre: 'BBVA', clave: null }, { nombre: 'Efectivo', clave: 'efectivo' }]);
   });
 
@@ -259,7 +260,8 @@ describe('permisos', () => {
 
 describe('rollback', () => {
   it('quita la clave de cuentas y las funciones, conserva las categorías nuevas sin clave y se puede volver a aplicar', async () => {
-    const limpia = await crearDb();
+    // Antes de 20261102000000_eliminar_categorias.sql, que quita 4 de las categorías que añade esta.
+    const limpia = await crearDb({ hasta: MIGRACIONES.indexOf(MIGRACION_ELIMINAR_CATEGORIAS) });
     try {
       const { id, token } = await prepararUsuario(limpia);
       await limpia.exec(ROLLBACK_CATEGORIAS_CUENTAS_CLAVE);
@@ -288,7 +290,8 @@ describe('rollback', () => {
       await limpia.exec(MIGRACION_CATEGORIAS_CUENTAS_CLAVE);
       // Sin duplicados: el primero ya tenía las 15 (por nombre); el segundo recibe las 7 nuevas.
       expect(await categorias(limpia, id)).toHaveLength(15);
-      expect((await categorias(limpia, nuevo)).map(({ nombre, clave }) => ({ nombre, clave }))).toEqual(CATEGORIAS_POR_DEFECTO);
+      expect((await categorias(limpia, nuevo)).map(({ nombre, clave }) => ({ nombre, clave })))
+        .toEqual(CATEGORIAS_POR_DEFECTO_ANTERIORES);
       expect((await cuentas(limpia, id)).find((c) => c.nombre === 'Efectivo')?.clave).toBe('efectivo');
     } finally {
       await limpia.close();

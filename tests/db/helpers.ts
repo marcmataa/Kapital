@@ -28,6 +28,8 @@ export const MIGRACION_INICIO_ESTADISTICAS = leer('supabase/migrations/202610240
 export const ROLLBACK_INICIO_ESTADISTICAS = leer('supabase/rollback/20261024000003_inicio_estadisticas.down.sql');
 export const MIGRACION_COLORES_CATEGORIAS = leer('supabase/migrations/20261027000000_colores_categorias.sql');
 export const ROLLBACK_COLORES_CATEGORIAS = leer('supabase/rollback/20261027000000_colores_categorias.down.sql');
+export const MIGRACION_ELIMINAR_CATEGORIAS = leer('supabase/migrations/20261102000000_eliminar_categorias.sql');
+export const ROLLBACK_ELIMINAR_CATEGORIAS = leer('supabase/rollback/20261102000000_eliminar_categorias.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
 export const MIGRACIONES = [
   MIGRACION,
@@ -41,9 +43,11 @@ export const MIGRACIONES = [
   MIGRACION_ANALISIS_CONFIG,
   MIGRACION_INICIO_ESTADISTICAS,
   MIGRACION_COLORES_CATEGORIAS,
+  MIGRACION_ELIMINAR_CATEGORIAS,
 ];
 /** Todos los rollbacks, en orden inverso. */
 export const ROLLBACKS = [
+  ROLLBACK_ELIMINAR_CATEGORIAS,
   ROLLBACK_COLORES_CATEGORIAS,
   ROLLBACK_INICIO_ESTADISTICAS,
   ROLLBACK_ANALISIS_CONFIG,
@@ -59,6 +63,27 @@ export const ROLLBACKS = [
 
 /** Categorías por defecto de un usuario nuevo (onboarding / preparar_usuario), por `orden`. */
 export const CATEGORIAS_POR_DEFECTO = [
+  { nombre: 'Restaurantes', clave: 'restaurantes' },
+  { nombre: 'Ocio', clave: 'ocio' },
+  { nombre: 'Transporte', clave: 'transporte' },
+  { nombre: 'Suscripciones', clave: 'suscripciones' },
+  { nombre: 'Supermercado', clave: 'supermercado' },
+  { nombre: 'Deporte', clave: 'deporte' },
+  { nombre: 'Ropa', clave: 'ropa' },
+  { nombre: 'Otros gastos', clave: 'otros_gastos' },
+  { nombre: 'Nómina', clave: 'nomina' },
+  { nombre: 'Otros ingresos', clave: 'otros_ingresos' },
+  { nombre: 'Rendimientos', clave: 'rendimientos' },
+];
+
+/** Claves de las categorías que elimina 20261102000000_eliminar_categorias.sql. */
+export const CLAVES_ELIMINADAS = ['hogar', 'salud', 'cuidado_personal', 'regalos'];
+
+/**
+ * Categorías por defecto entre 20261024000000_categorias_y_cuentas_clave.sql y
+ * 20261102000000_eliminar_categorias.sql, para los tests de esas migraciones.
+ */
+export const CATEGORIAS_POR_DEFECTO_ANTERIORES = [
   { nombre: 'Restaurantes', clave: 'restaurantes' },
   { nombre: 'Ocio', clave: 'ocio' },
   { nombre: 'Transporte', clave: 'transporte' },
