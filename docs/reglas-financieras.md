@@ -49,7 +49,7 @@ Ahorro (%)   = Balance / Σ Ingresos × 100
 - **No entra:** traspasos internos, ajustes y cambios de valor de las inversiones.
 - **Mes:** del día 1 a las 00:00 al último día a las 23:59:59, hora de Madrid, por la fecha del movimiento (en una devolución, por la fecha de su compra).
 - **Ahorro sin ingresos:** si los ingresos del mes son 0 €, el porcentaje no se calcula y se muestra «—».
-- **Balance negativo:** se muestra en rojo con signo menos; el ahorro también sale negativo (por ejemplo, −15,0 %).
+- **Balance negativo:** se muestra en rojo con signo menos; el ahorro también sale negativo (por ejemplo, −15,0 %). *(Cambio del 02/11/2026: la tasa de ahorro solo se muestra si hay ingresos mayores que 0 y el porcentaje está entre −100 % y 100 %, ambos incluidos. Fuera de ese rango, en lugar del porcentaje se muestra un texto como «Aún no hay ingresos suficientes este mes para calcular el ahorro». Sin ingresos se sigue mostrando «—», con una explicación. Un ahorro de −2.345,0 % no se puede interpretar.)*
 - **Mes en curso:** el balance es provisional hasta que acaba el mes y se marca como «hasta hoy».
 - **Mes cerrado:** también puede cambiar después, si llega una devolución de una compra de ese mes. Se muestra siempre con los datos de hoy.
 
@@ -292,6 +292,7 @@ Datos de partida para las pruebas de inversión: Trade Republic vale 1.472,56 �
 - [ ] Valor con valoración: Trade Republic vale 1.600,00 € el 15/10 y sigue en 1.600,00 € el 20/10 si no hay más movimientos ni valoraciones.
 - [ ] Revalorización: del 30/09 al 15/10 es +27,44 € (127,44 € de subida menos 100 € aportados), y no aparece en el balance.
 - [ ] Mes sin ingresos: el ahorro muestra «—» y no un error ni infinito.
+- [ ] Ahorro fuera de rango (02/11/2026): con 100,00 € de ingresos y 350,00 € de gastos netos el balance es −250,00 € y el ahorro sería −250,0 %; no se muestra el porcentaje, sino el texto «Aún no hay ingresos suficientes este mes para calcular el ahorro». Con −100,0 % o 100,0 % exactos sí se muestra.
 - [ ] Fin de mes: el 31/10 se compara con el 30/09; el 29/03/2027 se compara con el 28/02/2027.
 - [ ] Día sin movimientos: el patrimonio del día es igual al del día anterior y la línea no baja a cero.
 - [ ] Hoy: el punto de hoy aparece como provisional y no se dibujan días futuros.

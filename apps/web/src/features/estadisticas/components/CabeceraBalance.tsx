@@ -1,7 +1,7 @@
 import { Card } from '@/shared/ui';
 import { LOCALE_DE, useIdioma, useT } from '@/shared/i18n';
+import { lecturaAhorro } from '@/shared/lib/ahorro';
 import { formatearEuros, formatearPorcentaje } from '@/shared/lib/dinero';
-import { partesDe } from '@/shared/lib/fechas';
 import { cx } from '@/shared/lib/cx';
 import { formatearTramo, signo } from '../lib/formato';
 import type { PeriodosComparacion } from '../lib/periodos';
@@ -12,29 +12,25 @@ interface Props {
   /** Balance del tramo y del mismo tramo del mes anterior (comparativa_estadisticas, SQL). */
   balance: string;
   balanceAnterior: string | null;
+  /** Ingresos del tramo (SQL): sin ingresos no hay tasa de ahorro. */
+  ingresos: string;
   /** Tasa de ahorro del tramo (resumen_periodo, SQL): balance / ingresos × 100; null sin ingresos. */
   ahorroPct: string | null;
 }
 
 /**
  * Cabecera de la pestaña Balance (sección 3): el balance del periodo, cuánto ha cambiado en euros
- * frente al mismo tramo del mes anterior (sección 8, cambio del 27/10/2026: el % solo si las dos
- * bases son > 0) y la tasa de ahorro, en una línea aparte para no confundirla con la variación.
+ * frente al periodo comparado (sección 8, cambio del 27/10/2026: el % solo si las dos bases son
+ * > 0; el periodo lo dice una vez la pantalla) y la tasa de ahorro, en una línea aparte para no
+ * confundirla con la variación. La tasa solo se muestra entre −100 % y 100 % (`lecturaAhorro`).
  */
-export function CabeceraBalance({ periodos, balance, balanceAnterior, ahorroPct }: Props) {
+export function CabeceraBalance({ periodos, balance, balanceAnterior, ingresos, ahorroPct }: Props) {
   const t = useT('estadisticas');
+  const tc = useT('common');
   const { idioma } = useIdioma();
   const locale = LOCALE_DE[idioma];
   const s = signo(balance);
-  const vs =
-    balanceAnterior === null
-      ? undefined
-      : periodos.enCurso && periodos.anterior !== null
-        ? t('cabecera.vs.alDia', {
-            anterior: formatearEuros(balanceAnterior, locale, { signo: 'siempre' }),
-            dia: String(partesDe(periodos.anterior.hasta).dia),
-          })
-        : t('comparativa.vs', { anterior: formatearEuros(balanceAnterior, locale, { signo: 'siempre' }) });
+  const ahorro = lecturaAhorro(ingresos, ahorroPct);
 
   return (
     <Card as="section" aria-labelledby="cabecera-balance" data-testid="cabecera-balance">
@@ -49,11 +45,21 @@ export function CabeceraBalance({ periodos, balance, balanceAnterior, ahorroPct 
         >
           {formatearEuros(balance, locale, { signo: 'siempre' })}
         </p>
-        <LineaVariacion actual={balance} anterior={balanceAnterior} subirEsBueno diferencia {...(vs !== undefined && { contexto: vs })} />
+        <LineaVariacion
+          actual={balance}
+          anterior={balanceAnterior}
+          subirEsBueno
+          diferencia
+          {...(balanceAnterior !== null && {
+            contexto: t('comparativa.frente', { importe: formatearEuros(balanceAnterior, locale, { signo: 'siempre' }) }),
+          })}
+        />
         <p data-testid="tasa-ahorro" className="cifras text-[13px] text-apagado sm:text-sm">
-          {ahorroPct === null
-            ? t('cabecera.tasaAhorroSinIngresos')
-            : t('cabecera.tasaAhorro', { porcentaje: formatearPorcentaje(ahorroPct, locale) })}
+          {ahorro.tipo === 'porcentaje'
+            ? t('cabecera.tasaAhorro', { porcentaje: formatearPorcentaje(ahorro.porcentaje, locale) })
+            : ahorro.tipo === 'sinIngresos'
+              ? t('cabecera.tasaAhorroSinIngresos', { motivo: tc('ahorro.sinIngresos') })
+              : tc(periodos.enCurso ? 'ahorro.fueraDeRango' : 'ahorro.fueraDeRangoCerrado')}
         </p>
       </div>
     </Card>

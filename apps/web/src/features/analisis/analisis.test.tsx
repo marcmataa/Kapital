@@ -180,32 +180,17 @@ describe('Entrada a Análisis', () => {
 });
 
 describe('Detalle del análisis', () => {
-  it('reparto con el color de HOY de cada categoría, no el guardado en el snapshot (F07)', async () => {
+  it('categorías con el color de HOY de cada categoría, no el guardado en el snapshot (F07)', async () => {
     // El snapshot guarda Restaurantes en #ff8a3d; hoy, en el catálogo, es #c2885a.
     servir({ categorias: [{ ...CATEGORIAS[0], color: '#c2885a' }, CATEGORIAS[1]] });
     montarDetalle();
     await screen.findByRole('region', { name: 'Cifras del mes' });
-    await waitFor(() => expect(screen.getAllByTestId('tramo-categoria')[0]).toHaveStyle({ backgroundColor: '#c2885a' }));
+    await waitFor(() => expect(screen.getAllByTestId('barra-categoria-resultado')[0]).toHaveStyle({ backgroundColor: '#c2885a' }));
     // Sin color en el catálogo, el del snapshot.
-    expect(screen.getAllByTestId('tramo-categoria')[1]).toHaveStyle({ backgroundColor: '#9b6bff' });
+    expect(screen.getAllByTestId('barra-categoria-resultado')[1]).toHaveStyle({ backgroundColor: '#9b6bff' });
   });
 
-  it('la barra agrupa en «Resto» lo mismo que la cascada de la pantalla (F07)', async () => {
-    const cascada = [
-      { tipo: 'ingresos', nombre: null, clave: null, color: null, importe: '1508.00', inicio: '0.00', fin: '1508.00' },
-      { tipo: 'categoria', nombre: 'Restaurantes', clave: 'restaurantes', color: '#ff8a3d', importe: '-1158.28', inicio: '1508.00', fin: '349.72' },
-      { tipo: 'otras', nombre: null, clave: null, color: null, importe: '-10.00', inicio: '349.72', fin: '339.72' },
-      { tipo: 'balance', nombre: null, clave: null, color: null, importe: '339.72', inicio: '0.00', fin: '339.72' },
-    ];
-    servir({ detalle: { ...FILA, datos: { ...DATOS, cascada }, contenido: CONTENIDO } });
-    montarDetalle();
-    // Ocio no está suelto en la cascada: tampoco en la barra (la negativa, Otros gastos, se lista aparte).
-    expect(await screen.findByText('Resto (1 categoría)')).toBeInTheDocument();
-    expect(screen.getByTestId('contenido-resto')).toHaveTextContent('Ocio');
-    expect(within(screen.getByRole('table', { name: 'De tus ingresos a tu balance' })).getByText('Resto')).toBeInTheDocument();
-  });
-
-  it('tres tarjetas separadas, cascada, reparto, texto de la IA como texto plano y nota', async () => {
+  it('de tus ingresos a tu balance: el mismo componente que Estadísticas, con conclusión y explicación', async () => {
     servir();
     montarDetalle();
     const cifras = await screen.findByRole('region', { name: 'Cifras del mes' });
@@ -215,24 +200,40 @@ describe('Detalle del análisis', () => {
     expect(within(cifras).getByText('+367,16 €')).toBeInTheDocument();
     expect(within(cifras).getByText('Balance 339,72 € + revalorización 27,44 € + ajustes 0,00 €.')).toBeInTheDocument();
 
-    // Reparto de Inicio: la categoría negativa no entra en la barra (2 arcos), pero se lista.
-    expect(screen.getAllByTestId('tramo-categoria')).toHaveLength(2);
-    expect(screen.getAllByText('Otros gastos').length).toBeGreaterThan(1);
-
-    // Cascada: Ingresos → categorías → Balance, con los importes de SQL.
-    const tabla = screen.getByRole('table', { name: 'De tus ingresos a tu balance' });
-    const filas = within(tabla).getAllByRole('row').slice(1);
-    expect(filas.map((f) => within(f).getByRole('rowheader').textContent)).toEqual([
+    const resultado = screen.getByTestId('resultado-mes');
+    expect(within(resultado).getByRole('heading', { name: 'De tus ingresos a tu balance' })).toBeInTheDocument();
+    // Mes cerrado (sección 11): de dónde sale el balance, en una frase.
+    expect(within(resultado).getByTestId('frase-resultado')).toHaveTextContent(
+      'En septiembre de 2026 ingresaste 1.508,00 € y gastaste 1.168,28 €: te quedaron 339,72 €.',
+    );
+    // Categorías de mayor a menor, con importe y % sobre lo gastado; la negativa aparte, sin %.
+    const filas = within(resultado).getAllByTestId('fila-categoria-resultado');
+    expect(filas.map((f) => f.textContent?.replace(/\s+/g, ' ').trim())).toEqual([
+      'Restaurantes1.158,28 €96,7 % de tus gastos',
+      'Ocio40,00 €3,3 % de tus gastos',
+    ]);
+    expect(within(within(resultado).getByRole('list', { name: 'Categorías en negativo' })).getByText('-30,00 €')).toBeInTheDocument();
+    // Conclusión con reglas fijas, solo con los datos del mes.
+    expect(within(resultado).getByTestId('conclusion-mes')).toHaveTextContent(
+      'Te quedó el 22,5 % de lo que ingresaste. Tu mayor gasto fue Restaurantes: el 96,7 % de lo que gastaste.',
+    );
+    // Balance frente a variación patrimonial, con las piezas del mes (secciones 3 y 5).
+    const explicacion = within(resultado).getByTestId('explicacion-variacion');
+    expect(within(explicacion).getByText('¿Por qué no coincide con lo que cambió tu patrimonio?')).toBeInTheDocument();
+    expect(within(explicacion).getByTestId('piezas-variacion')).toHaveTextContent(
+      'Este mes: balance +339,72 € + revalorización +27,44 € + ajustes 0,00 € = variación patrimonial +367,16 €.',
+    );
+    // La cascada de barras flotantes ya no está; la tabla accesible tiene las mismas cifras.
+    expect(screen.queryByTestId('barra-cascada')).not.toBeInTheDocument();
+    const tabla = within(resultado).getByRole('table', { name: 'De tus ingresos a tu balance' });
+    expect(within(tabla).getAllByRole('rowheader').map((c) => c.textContent)).toEqual([
       'Ingresos',
+      'Gastos',
+      'Balance',
       'Restaurantes',
       'Ocio',
       'Otros gastos',
-      'Balance',
     ]);
-    expect(filas[1]).toHaveTextContent('-1.158,28 €');
-    expect(filas[1]).toHaveTextContent('349,72 €');
-    expect(filas[4]).toHaveTextContent('+339,72 €');
-    expect(screen.getAllByTestId('barra-cascada')).toHaveLength(5);
 
     // Texto de la IA, sin interpretar HTML.
     expect(screen.getByText(/Septiembre cerró con un balance positivo\. <script>/)).toBeInTheDocument();
@@ -362,12 +363,25 @@ describe('Detalle del análisis', () => {
     expect(screen.queryByRole('button', { name: /Crear límite/ })).not.toBeInTheDocument();
   });
 
-  it('snapshot sin cascada: el gráfico dice que no hay datos, sin romper', async () => {
+  it('ahorro fuera de ±100 %: un texto en lugar del porcentaje (cambio del 02/11/2026)', async () => {
+    // Inventado: 100,00 € de ingresos y 350,00 € de gastos netos → −250 %.
+    const resumen = { ...RESUMEN, ingresos: '100.00', gastos: '350.00', devoluciones: '0.00', gastos_netos: '350.00', balance: '-250.00', ahorro_pct: '-250.0000' };
+    servir({ detalle: { ...FILA, datos: { ...DATOS, resumen }, contenido: CONTENIDO } });
+    montarDetalle();
+    const cifras = await screen.findByRole('region', { name: 'Cifras del mes' });
+    expect(within(cifras).getByText('Los ingresos del mes no fueron suficientes para calcular el ahorro.')).toBeInTheDocument();
+    expect(within(cifras).queryByText(/%/)).not.toBeInTheDocument();
+    // La conclusión no cita la tasa: dice que gastaste más de lo que ingresaste.
+    expect(screen.getByTestId('conclusion-mes')).toHaveTextContent('Gastaste más de lo que ingresaste: 250,00 € de diferencia.');
+    expect(screen.getByTestId('frase-resultado')).toHaveTextContent('te faltaron 250,00 €');
+  });
+
+  it('snapshot antiguo sin cascada: se muestra igual, sin romper', async () => {
     const sinCascada: Record<string, unknown> = { ...DATOS };
     delete sinCascada.cascada;
     servir({ detalle: { ...FILA, datos: sinCascada, contenido: CONTENIDO } });
     montarDetalle();
-    expect(await screen.findByText('No hay datos para este gráfico.')).toBeInTheDocument();
+    expect(await screen.findByTestId('frase-resultado')).toHaveTextContent('te quedaron 339,72 €');
   });
 
   it('cuentas nuevas en el mes: su saldo inicial es patrimonio de partida, no ganancia', async () => {

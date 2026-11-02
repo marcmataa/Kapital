@@ -1,4 +1,7 @@
-import { aCentimos, compararImportes, desdeCentimos } from '@/shared/lib/dinero';
+import { aCentimos, compararImportes, desdeCentimos, porcentajeDe } from '@/shared/lib/dinero';
+
+// Compartido con el resultado del mes (shared/ui/graficos/ResultadoMes): vive en shared/lib/dinero.
+export { porcentajeDe } from '@/shared/lib/dinero';
 import { componerFecha, diasDelMes, inicioDeMes, partesDe } from '@/shared/lib/fechas';
 
 /*
@@ -118,73 +121,6 @@ export function emparejar(
   return filas.sort(orden === 'variacion' && hayAnterior ? porVariacion : porImporte);
 }
 
-/** Paso de la cascada «por qué cambia el balance» (de mes anterior a este mes). */
-export interface PasoVariacion {
-  id: string;
-  /** inicio/fin: balance de cada periodo (barra de total); el resto, lo que suma o resta al balance. */
-  tipo: 'inicio' | 'ingresos' | 'categoria' | 'resto' | 'fin';
-  nombre?: string;
-  /** Categorías agrupadas en «Resto». */
-  agrupadas?: number;
-  /** Efecto en el balance (pasos) o balance (totales), con signo. */
-  importe: string;
-  /** Acumulados exactos antes y después del paso. */
-  inicio: string;
-  fin: string;
-}
-
-/** Categorías con cambio que se muestran una a una; el resto va en un paso «Resto (N categorías)». */
-export const MAX_CATEGORIAS_CASCADA = 6;
-
-/**
- * Cascada de la variación del balance (sección 3: Balance = Ingresos − Gastos netos):
- *   Balance anterior + Δ ingresos − Σ Δ gasto neto de cada categoría = Balance actual.
- * Una categoría en la que gastas más resta al balance (paso negativo); una en la que gastas menos,
- * suma. Los totales (balance de cada periodo y de ingresos) vienen de SQL (comparativa); el
- * reparto por categoría, de gasto_por_categoria. Solo se resta en céntimos bigint.
- *
- * Devuelve null si no hay periodo anterior o si la suma de los pasos no da exactamente el balance
- * de SQL (nunca se dibuja una explicación que no cuadra).
- */
-export function pasosVariacionBalance(
-  totales: { ingresos: string; ingresosAnterior: string | null; balance: string; balanceAnterior: string | null },
-  gastos: readonly { id: string; nombre: string; importe: string }[],
-  gastosAnterior: readonly { id: string; nombre: string; importe: string }[],
-): PasoVariacion[] | null {
-  if (totales.balanceAnterior === null || totales.ingresosAnterior === null) return null;
-  const efectos: { id: string; tipo: 'ingresos' | 'categoria'; nombre?: string; efecto: bigint }[] = [];
-  const dIngresos = aCentimos(totales.ingresos) - aCentimos(totales.ingresosAnterior);
-  if (dIngresos !== 0n) efectos.push({ id: 'ingresos', tipo: 'ingresos', efecto: dIngresos });
-
-  const categorias = emparejar(
-    gastos.map((g) => ({ id: g.id, nombre: g.nombre, importe: g.importe })),
-    gastosAnterior.map((g) => ({ id: g.id, nombre: g.nombre, importe: g.importe })),
-    true,
-    'variacion',
-  )
-    .map((f) => ({ id: f.id, nombre: f.nombre, efecto: -(diferenciaFila(f) ?? 0n) }))
-    .filter((f) => f.efecto !== 0n);
-  const sueltas = categorias.length > MAX_CATEGORIAS_CASCADA + 1 ? categorias.slice(0, MAX_CATEGORIAS_CASCADA) : categorias;
-  const agrupadas = categorias.slice(sueltas.length);
-  for (const c of sueltas) efectos.push({ id: c.id, tipo: 'categoria', nombre: c.nombre, efecto: c.efecto });
-
-  const pasos: PasoVariacion[] = [];
-  const balanceAnterior = aCentimos(totales.balanceAnterior);
-  pasos.push({ id: 'inicio', tipo: 'inicio', importe: totales.balanceAnterior, inicio: '0.00', fin: totales.balanceAnterior });
-  let acumulado = balanceAnterior;
-  const anadir = (id: string, tipo: PasoVariacion['tipo'], efecto: bigint, extra: Partial<PasoVariacion> = {}) => {
-    pasos.push({ id, tipo, importe: desdeCentimos(efecto), inicio: desdeCentimos(acumulado), fin: desdeCentimos(acumulado + efecto), ...extra });
-    acumulado += efecto;
-  };
-  for (const e of efectos) anadir(e.id, e.tipo, e.efecto, e.nombre !== undefined ? { nombre: e.nombre } : {});
-  if (agrupadas.length > 0) {
-    anadir('resto', 'resto', agrupadas.reduce((s, c) => s + c.efecto, 0n), { agrupadas: agrupadas.length });
-  }
-  if (acumulado !== aCentimos(totales.balance)) return null;
-  pasos.push({ id: 'fin', tipo: 'fin', importe: totales.balance, inicio: '0.00', fin: totales.balance });
-  return pasos;
-}
-
 /**
  * Posición (0–1) de `valor` entre `min` y `max` (céntimos) para dibujar ejes con negativos.
  * Solo coordenadas, nunca dinero.
@@ -228,21 +164,6 @@ export function repartirIngresos(filas: readonly FilaIngresoCategoria[]): Ingres
       importe: desdeCentimos(x.c),
       porcentaje: porcentajeDe(x.c, total),
     }));
-}
-
-/**
- * parte / total × 100 con 4 decimales exactos (mitades alejándose de cero), listo para
- * `formatearPorcentaje`. null si el total es 0 o negativo (no hay base sobre la que repartir).
- */
-export function porcentajeDe(parte: bigint, total: bigint): string | null {
-  if (total <= 0n) return null;
-  const numerador = parte * 1_000_000n;
-  let cociente = numerador / total;
-  const resto = numerador % total;
-  if (2n * (resto < 0n ? -resto : resto) >= total) cociente += numerador < 0n ? -1n : 1n;
-  const negativo = cociente < 0n;
-  const abs = negativo ? -cociente : cociente;
-  return `${negativo ? '-' : ''}${(abs / 10_000n).toString()}.${(abs % 10_000n).toString().padStart(4, '0')}`;
 }
 
 /**
