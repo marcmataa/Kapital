@@ -8,11 +8,10 @@ import { formatearFechaHora, formatearMes, inicioDeMes, sumarMeses } from '@/sha
 import { Button, Card, EmptyState, Spinner } from '@/shared/ui';
 import { useAnalisisListarQuery, useAnalisisObtenerQuery, type AnalisisDetalle } from '../api/analisisApi';
 import { BotonGenerar } from '../components/BotonGenerar';
-import { CategoriasMes } from '../components/CategoriasMes';
 import { ChipsMeses } from '../components/ChipsMeses';
 import { CifrasMes } from '../components/CifrasMes';
 import { ComentarioIA } from '../components/ComentarioIA';
-import { GraficoCascada } from '../components/GraficoCascada';
+import { ResultadoAnalisis } from '../components/ResultadoAnalisis';
 import { useAhora } from '../hooks/useAhora';
 import { useLocale } from '../hooks/useLocale';
 import { useSondeoAnalisis } from '../hooks/useSondeoAnalisis';
@@ -218,10 +217,7 @@ function AnalisisListo({
         </div>
       )}
       <CifrasMes datos={datos} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <GraficoCascada pasos={datos.cascada} />
-        <CategoriasMes datos={datos} />
-      </div>
+      <ResultadoAnalisis datos={datos} />
       <ComentarioIA
         contenido={contenido}
         pie={

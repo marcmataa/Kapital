@@ -3,8 +3,6 @@ import {
   diferenciaFila,
   emparejar,
   fraccionEntre,
-  MAX_CATEGORIAS_CASCADA,
-  pasosVariacionBalance,
   porcentajeDe,
   repartirIngresos,
   serieDiaria,
@@ -231,52 +229,3 @@ describe('emparejar · orden por variación (columna Δ)', () => {
   });
 });
 
-describe('pasosVariacionBalance (cascada: balance anterior → balance actual)', () => {
-  // Inventado: anterior 1.000 − (300 + 200) = 500; actual 800 − (350 + 100 + 50,25) = 299,75.
-  const totales = { ingresos: '800.00', ingresosAnterior: '1000.00', balance: '299.75', balanceAnterior: '500.00' };
-  const gastos = [
-    { id: 'a', nombre: 'A', importe: '350.00' },
-    { id: 'b', nombre: 'B', importe: '100.00' },
-    { id: 'c', nombre: 'C', importe: '50.25' },
-  ];
-  const gastosAnterior = [
-    { id: 'a', nombre: 'A', importe: '300.00' },
-    { id: 'b', nombre: 'B', importe: '200.00' },
-  ];
-
-  it('gastar más resta y gastar menos suma; la suma de los pasos da el balance exacto', () => {
-    const pasos = pasosVariacionBalance(totales, gastos, gastosAnterior);
-    expect(pasos?.map((p) => [p.tipo, p.nombre ?? null, p.importe, p.inicio, p.fin])).toEqual([
-      ['inicio', null, '500.00', '0.00', '500.00'],
-      ['ingresos', null, '-200.00', '500.00', '300.00'],
-      ['categoria', 'B', '100.00', '300.00', '400.00'],
-      ['categoria', 'C', '-50.25', '400.00', '349.75'],
-      ['categoria', 'A', '-50.00', '349.75', '299.75'],
-      ['fin', null, '299.75', '0.00', '299.75'],
-    ]);
-  });
-
-  it('cambio de signo del balance: el último paso cruza el cero', () => {
-    const pasos = pasosVariacionBalance({ ...totales, ingresos: '400.00', balance: '-100.25' }, gastos, gastosAnterior);
-    expect(pasos?.at(-2)?.fin).toBe('-100.25');
-    expect(pasos?.at(-1)).toMatchObject({ tipo: 'fin', importe: '-100.25' });
-  });
-
-  it('sin cambios en ingresos ni categorías: solo los dos balances', () => {
-    const pasos = pasosVariacionBalance({ ...totales, ingresos: '1000.00', balance: '500.00' }, gastosAnterior, gastosAnterior);
-    expect(pasos?.map((p) => p.tipo)).toEqual(['inicio', 'fin']);
-  });
-
-  it(`más de ${MAX_CATEGORIAS_CASCADA + 1} categorías con cambio: las de menos peso van en «Resto»`, () => {
-    const muchas = Array.from({ length: 8 }, (_, i) => ({ id: `k${i}`, nombre: `K${i}`, importe: `${(i + 1) * 10}.00` }));
-    // Anterior sin gasto: cada categoría resta lo que gastó; total 10 + 20 + … + 80 = 360.
-    const pasos = pasosVariacionBalance({ ...totales, ingresos: '1000.00', balance: '140.00' }, muchas, []);
-    expect(pasos?.filter((p) => p.tipo === 'categoria')).toHaveLength(MAX_CATEGORIAS_CASCADA);
-    expect(pasos?.find((p) => p.tipo === 'resto')).toMatchObject({ importe: '-30.00', agrupadas: 2 });
-  });
-
-  it('sin periodo anterior o si los pasos no cuadran con el balance de SQL → null', () => {
-    expect(pasosVariacionBalance({ ...totales, balanceAnterior: null }, gastos, [])).toBeNull();
-    expect(pasosVariacionBalance({ ...totales, balance: '299.74' }, gastos, gastosAnterior)).toBeNull();
-  });
-});

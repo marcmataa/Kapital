@@ -16,7 +16,7 @@ interface Props {
   categorias: readonly GastoCategoria[];
   /** El mismo tramo del mes anterior; null = no existe (sección 8). */
   anteriores: readonly GastoCategoria[] | null;
-  /** «vs mes anterior al día 19» / «vs septiembre completo». */
+  /** «Categorías de octubre» (el periodo comparado lo dice la pantalla una vez). */
   titulo: string;
   /** Tramo de las cifras: cada categoría enlaza a sus movimientos de ese tramo (F08). */
   periodo: Rango;

@@ -210,3 +210,18 @@ export function normalizarCifrasTexto(texto: string, locale: string): string {
   if (separadorDecimal(locale) !== ',') return texto;
   return texto.replace(/(\d)\.(\d{1,2})(?!\d)(\s?[%€])/g, '$1,$2$3');
 }
+
+/**
+ * parte / total × 100 con 4 decimales exactos (mitades alejándose de cero), listo para
+ * `formatearPorcentaje`. null si el total es 0 o negativo (no hay base sobre la que repartir).
+ */
+export function porcentajeDe(parte: bigint, total: bigint): string | null {
+  if (total <= 0n) return null;
+  const numerador = parte * 1_000_000n;
+  let cociente = numerador / total;
+  const resto = numerador % total;
+  if (2n * (resto < 0n ? -resto : resto) >= total) cociente += numerador < 0n ? -1n : 1n;
+  const negativo = cociente < 0n;
+  const abs = negativo ? -cociente : cociente;
+  return `${negativo ? '-' : ''}${(abs / 10_000n).toString()}.${(abs % 10_000n).toString().padStart(4, '0')}`;
+}
