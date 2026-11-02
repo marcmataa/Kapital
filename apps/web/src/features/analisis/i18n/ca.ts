@@ -28,6 +28,8 @@ export default {
   'cifras.ahorroDetalle': 'Balanç / ingressos',
   'cifras.variacion': 'Variació patrimonial',
   'cifras.variacionDetalle': 'Balanç {balance} + revaloració {revalorizacion} + ajustos {ajustes}.',
+  'cifras.variacionDetalleDesplazadas':
+    'Balanç {balance} + devolucions desplaçades {desplazadas} + revaloració {revalorizacion} + ajustos {ajustes}.',
   'cifras.variacionSaldos': 'Patrimoni de partida amb {saldos} de saldos inicials de comptes nous (no són guany).',
   'ia.titulo': 'El que diu la teva anàlisi',
   'ia.nota': 'Text generat per IA a partir dels teus totals. Les xifres surten de la teva base.',
@@ -69,4 +71,8 @@ export default {
   'variacion.saldosIniciales': 'El saldo amb què dones d’alta un compte nou són diners que ja tenies: no és guany i no entra a la variació.',
   'variacion.piezas': 'Aquest mes: balanç {balance} + revaloració {revalorizacion} + ajustos {ajustes} = variació patrimonial {variacion}.',
   'variacion.saldosDelMes': 'A més, aquest mes vas donar d’alta comptes amb {saldos} de saldo inicial, que no compten com a guany.',
+  'variacion.piezasDesplazadas':
+    'Aquest mes: balanç {balance} + devolucions desplaçades {desplazadas} + revaloració {revalorizacion} + ajustos {ajustes} = variació patrimonial {variacion}.',
+  'variacion.desplazadasDelMes':
+    'Una devolució resta de la despesa al mes de la compra, però els diners entren al teu compte el dia que arriben. Les devolucions desplaçades quadren aquesta diferència quan la compra i el reemborsament cauen en mesos diferents: no són ingressos ni despeses.',
 } satisfies Traduccion<typeof es>;

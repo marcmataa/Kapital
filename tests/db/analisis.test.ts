@@ -109,7 +109,7 @@ describe('datos_analisis', () => {
 
     // Sección 5: ΔPatrimonio = balance 339,72 + revalorización 27,44 = 367,16; el traspaso suma cero.
     expect(d.variacion).toEqual({
-      patrimonio_inicial: '3502.56', patrimonio_final: '3869.72', balance: '339.72',
+      patrimonio_inicial: '3502.56', patrimonio_final: '3869.72', balance: '339.72', devoluciones_desplazadas: '0.00',
       revalorizacion: '27.44', ajustes: '0.00', saldos_iniciales: '0.00', variacion: '367.16', base: 'partida',
     });
 

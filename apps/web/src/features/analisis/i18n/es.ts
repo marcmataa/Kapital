@@ -27,6 +27,8 @@ export default {
   'cifras.ahorroDetalle': 'Balance / ingresos',
   'cifras.variacion': 'Variación patrimonial',
   'cifras.variacionDetalle': 'Balance {balance} + revalorización {revalorizacion} + ajustes {ajustes}.',
+  'cifras.variacionDetalleDesplazadas':
+    'Balance {balance} + devoluciones desplazadas {desplazadas} + revalorización {revalorizacion} + ajustes {ajustes}.',
   'cifras.variacionSaldos': 'Patrimonio de partida con {saldos} de saldos iniciales de cuentas nuevas (no son ganancia).',
   'ia.titulo': 'Lo que dice tu análisis',
   'ia.nota': 'Texto generado por IA a partir de tus totales. Las cifras salen de tu base.',
@@ -68,4 +70,8 @@ export default {
   'variacion.saldosIniciales': 'El saldo con el que das de alta una cuenta nueva es dinero que ya tenías: no es ganancia y no entra en la variación.',
   'variacion.piezas': 'Este mes: balance {balance} + revalorización {revalorizacion} + ajustes {ajustes} = variación patrimonial {variacion}.',
   'variacion.saldosDelMes': 'Además, este mes diste de alta cuentas con {saldos} de saldo inicial, que no cuentan como ganancia.',
+  'variacion.piezasDesplazadas':
+    'Este mes: balance {balance} + devoluciones desplazadas {desplazadas} + revalorización {revalorizacion} + ajustes {ajustes} = variación patrimonial {variacion}.',
+  'variacion.desplazadasDelMes':
+    'Una devolución resta del gasto en el mes de su compra, pero el dinero entra en tu cuenta el día que llega. Las devoluciones desplazadas cuadran esa diferencia cuando la compra y el reembolso caen en meses distintos: no son ingresos ni gastos.',
 } as const satisfies Mensajes;

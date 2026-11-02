@@ -99,8 +99,8 @@ describe('variación patrimonial desde la fecha de partida (secciones 4 y 5)', (
     expect(d.resumen_mes_anterior).toBeNull();
     expect(d.comparativa_categorias).toEqual([]);
     expect(d.variacion).toEqual({
-      patrimonio_inicial: '1013.42', patrimonio_final: '1353.14', balance: '339.72', revalorizacion: '0.00',
-      ajustes: '0.00', saldos_iniciales: '1013.42', variacion: '339.72', base: 'partida',
+      patrimonio_inicial: '1013.42', patrimonio_final: '1353.14', balance: '339.72', devoluciones_desplazadas: '0.00',
+      revalorizacion: '0.00', ajustes: '0.00', saldos_iniciales: '1013.42', variacion: '339.72', base: 'partida',
     });
   });
 

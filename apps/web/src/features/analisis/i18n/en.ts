@@ -28,6 +28,8 @@ export default {
   'cifras.ahorroDetalle': 'Balance / income',
   'cifras.variacion': 'Net worth change',
   'cifras.variacionDetalle': 'Balance {balance} + revaluation {revalorizacion} + adjustments {ajustes}.',
+  'cifras.variacionDetalleDesplazadas':
+    'Balance {balance} + shifted refunds {desplazadas} + revaluation {revalorizacion} + adjustments {ajustes}.',
   'cifras.variacionSaldos': 'Starting net worth includes {saldos} of opening balances of new accounts (not a gain).',
   'ia.titulo': 'What your analysis says',
   'ia.nota': 'AI-generated text based on your totals. The figures come from your database.',
@@ -69,4 +71,8 @@ export default {
   'variacion.saldosIniciales': 'The balance you open a new account with is money you already had: it isn\'t a gain and isn\'t part of the change.',
   'variacion.piezas': 'This month: balance {balance} + revaluation {revalorizacion} + adjustments {ajustes} = net worth change {variacion}.',
   'variacion.saldosDelMes': 'Also, this month you added accounts with {saldos} of opening balances, which don\'t count as a gain.',
+  'variacion.piezasDesplazadas':
+    'This month: balance {balance} + shifted refunds {desplazadas} + revaluation {revalorizacion} + adjustments {ajustes} = net worth change {variacion}.',
+  'variacion.desplazadasDelMes':
+    'A refund reduces spending in the month of its purchase, but the money reaches your account on the day it arrives. Shifted refunds reconcile that difference when the purchase and the refund fall in different months: they are neither income nor spending.',
 } satisfies Traduccion<typeof es>;
