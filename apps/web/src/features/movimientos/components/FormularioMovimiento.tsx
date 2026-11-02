@@ -7,17 +7,21 @@ import type { Categoria, Cuenta } from '@/shared/api/catalogos';
 import { useNombreCuenta } from '@/shared/hooks/useNombreCuenta';
 import { useIdioma, useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
-import { formatearEuros } from '@/shared/lib/dinero';
+import { aCentimos, desdeCentimos, formatearEuros } from '@/shared/lib/dinero';
 import { sumarDias } from '@/shared/lib/fechas';
 import { Field, Input, MoneyInput, SegmentedControl, Select, clasesControl, importeParaEditar } from '@/shared/ui';
-import { useMovimientosActualizarMutation, useMovimientosCrearMutation } from '../api/movimientosApi';
+import {
+  useMovimientosActualizarMutation,
+  useMovimientosCrearMutation,
+  useMovimientosDevolucionesDeQuery,
+  useMovimientosObtenerQuery,
+} from '../api/movimientosApi';
 import {
   useMovimientosCategoriasUsadasQuery,
-  useMovimientosGastosDevolviblesQuery,
   useMovimientosSugerirCategoriaQuery,
+  type GastoDevolvible,
 } from '../api/sqlApi';
 import { claveErrorMovimiento } from '../api/errores';
-import { diaCorto } from '../lib/presentacion';
 import { METODOS, type MetodoPago, type Movimiento, type TipoMovimiento } from '../lib/tipos';
 import {
   CONCEPTO_MAXIMO,
@@ -25,15 +29,16 @@ import {
   crearEsquemaMovimiento,
   cuentaPorDefecto,
   cuentaUsable,
+  eligeCategoria,
   ordenarPorUso,
   tipoCategoria,
-  usaCategoria,
   usaMetodo,
   type PayloadMovimiento,
   type ValoresMovimiento,
 } from '../schemas/movimiento';
 import { AjusteSaldoReal, PieFormulario } from './AjusteSaldoReal';
 import { SelectorCategoria, SelectorTipo } from './SelectoresFormulario';
+import { SelectorGastoOriginal } from './SelectorGastoOriginal';
 
 interface Props {
   inicial: ValoresMovimiento;
@@ -57,10 +62,36 @@ const MENSAJE_TIPO: Partial<Record<TipoMovimiento, 'form.avisoTraspaso' | 'form.
 const ESPERA_SUGERENCIA_MS = 400;
 
 /**
+ * Gasto vinculado a la devolución que se edita, con lo pendiente SIN contar esa devolución
+ * (pendiente = importe − devuelto + importe actual de la devolución). Céntimos enteros.
+ */
+function gastoDeLaDevolucion(
+  gasto: Movimiento | null | undefined,
+  devuelto: string | undefined,
+  original: Movimiento | undefined,
+): GastoDevolvible | null {
+  if (gasto == null || devuelto === undefined || original === undefined || gasto.tipo !== 'gasto') return null;
+  const propio = original.devolucion_de === gasto.id ? aCentimos(original.importe) : 0n;
+  return {
+    id: gasto.id,
+    fecha: gasto.fecha,
+    concepto: gasto.concepto,
+    comercio: gasto.comercio,
+    importe: gasto.importe,
+    pendiente: desdeCentimos(aCentimos(gasto.importe) - aCentimos(devuelto) + propio),
+    categoria_id: gasto.categoria_id ?? '',
+    cuenta_id: gasto.cuenta_id,
+    puntuacion: 0,
+    motivo: 'reciente',
+  };
+}
+
+/**
  * Formulario de movimiento. Orden: Importe → Concepto → Categoría → Cuenta → Método → Fecha →
- * Notas (en una devolución, antes de todo, el «Gasto original»). Valida al salir de cada campo o
- * al enviar, nunca antes de escribir. Un ajuste NUEVO se hace por saldo real (AjusteSaldoReal);
- * al editar un ajuste existente se corrige su importe y sentido.
+ * Notas. En una devolución, el «Gasto original» (obligatorio) va justo después del concepto y no
+ * hay selector de categoría: se hereda del gasto. Valida al salir de cada campo o al enviar,
+ * nunca antes de escribir. Un ajuste NUEVO se hace por saldo real (AjusteSaldoReal); al editar
+ * un ajuste existente se corrige su importe y sentido.
  */
 export function FormularioMovimiento({
   inicial,
@@ -110,19 +141,28 @@ export function FormularioMovimiento({
   });
 
   // Al crear, el importe recibe el foco (el teclado decimal sale directamente en el móvil).
-  // En una devolución se empieza por el gasto original.
   useEffect(() => {
-    if (original === undefined && inicial.tipo !== 'devolucion' && inicial.tipo !== 'ajuste') setFocus('importe');
+    if (original === undefined && inicial.tipo !== 'ajuste') setFocus('importe');
   }, [original, inicial.tipo, setFocus]);
 
-  const [tipo, categoriaId, cuentaId, destinoId, devolucionDe, concepto, fecha] = useWatch({
+  const [tipo, categoriaId, cuentaId, destinoId, devolucionDe, concepto, fecha, importeTexto] = useWatch({
     control,
-    name: ['tipo', 'categoria_id', 'cuenta_id', 'cuenta_destino_id', 'devolucion_de', 'concepto', 'fecha'],
+    name: ['tipo', 'categoria_id', 'cuenta_id', 'cuenta_destino_id', 'devolucion_de', 'concepto', 'fecha', 'importe'],
   });
 
-  const gastosQ = useMovimientosGastosDevolviblesQuery({ excluir: original?.id ?? null }, { skip: tipo !== 'devolucion' });
-  const gastos = useMemo(() => gastosQ.data ?? [], [gastosQ.data]);
-  const pendiente = gastos.find((g) => g.id === devolucionDe)?.pendiente ?? null;
+  // Devolución: gasto elegido. Al editar una vinculada, se parte de su gasto actual.
+  const vinculadoAntes = original?.tipo === 'devolucion' ? original.devolucion_de : null;
+  const gastoActualQ = useMovimientosObtenerQuery(vinculadoAntes ?? '', { skip: vinculadoAntes === null });
+  const devueltoActualQ = useMovimientosDevolucionesDeQuery(vinculadoAntes ?? '', { skip: vinculadoAntes === null });
+  const [gastoEscogido, setGastoEscogido] = useState<GastoDevolvible | null>(null);
+  const gastoInicial = useMemo(
+    () => gastoDeLaDevolucion(gastoActualQ.data, devueltoActualQ.data?.total, original),
+    [gastoActualQ.data, devueltoActualQ.data?.total, original],
+  );
+  const gastoElegido = gastoEscogido ?? (gastoInicial?.id === devolucionDe ? gastoInicial : null);
+  const vinculado = tipo === 'devolucion' && gastoElegido?.id === devolucionDe ? gastoElegido : null;
+  const pendiente = vinculado?.pendiente ?? null;
+  const fechaGasto = vinculado?.fecha ?? null;
 
   const esquema = useMemo(
     () =>
@@ -136,8 +176,9 @@ export function FormularioMovimiento({
         devueltoOriginal,
         tipoOriginal: original?.tipo ?? null,
         pendienteGastoOriginal: pendiente,
+        fechaGastoOriginal: fechaGasto,
       }),
-    [t, locale, hoy, cuentas, categorias, nombreCuenta, devueltoOriginal, original?.tipo, pendiente],
+    [t, locale, hoy, cuentas, categorias, nombreCuenta, devueltoOriginal, original?.tipo, pendiente, fechaGasto],
   );
   useLayoutEffect(() => {
     esquemaRef.current = esquema;
@@ -145,7 +186,7 @@ export function FormularioMovimiento({
 
   // Categorías: las más usadas primero (categorias_mas_usadas).
   const tipoCat = tipoCategoria(tipo);
-  const usadas = useMovimientosCategoriasUsadasQuery(tipoCat, { skip: !usaCategoria(tipo) });
+  const usadas = useMovimientosCategoriasUsadasQuery(tipoCat, { skip: !eligeCategoria(tipo) });
   const categoriasTipo = ordenarPorUso(
     categorias.filter((c) => c.tipo === tipoCat && (!c.archivada || c.id === inicial.categoria_id)),
     usadas.data,
@@ -159,10 +200,13 @@ export function FormularioMovimiento({
   }, [concepto]);
   const sugerenciaQ = useMovimientosSugerirCategoriaQuery(
     { concepto: conceptoPedido, tipo: tipoCat },
-    { skip: !usaCategoria(tipo) || categoriaTocada || conceptoPedido.length < 3 },
+    { skip: !eligeCategoria(tipo) || categoriaTocada || conceptoPedido.length < 3 },
   );
   const sugerida =
-    !categoriaTocada && sugerenciaQ.data != null && categoriasTipo.some((c) => c.id === sugerenciaQ.data)
+    eligeCategoria(tipo) &&
+    !categoriaTocada &&
+    sugerenciaQ.data != null &&
+    categoriasTipo.some((c) => c.id === sugerenciaQ.data)
       ? sugerenciaQ.data
       : null;
   useEffect(() => {
@@ -173,6 +217,8 @@ export function FormularioMovimiento({
 
   const abiertas = cuentas.filter(cuentaUsable);
   const tipoBloqueado = original?.tipo === 'gasto' && devueltoOriginal !== null && devueltoOriginal !== '0.00';
+  // Devolución antigua sin vínculo: solo se puede guardar vinculándola (validar_devolucion).
+  const sinVincular = tipo === 'devolucion' && original?.tipo === 'devolucion' && original.devolucion_de === null && devolucionDe === '';
   const fechasInicio = [cuentaId, tipo === 'traspaso' ? destinoId : '']
     .map((id) => cuentas.find((c) => c.id === id)?.fecha_inicial)
     .filter((f): f is string => f !== undefined)
@@ -183,25 +229,28 @@ export function FormularioMovimiento({
   const cambiarTipo = (nuevo: TipoMovimiento) => {
     setValue('tipo', nuevo);
     const cat = categorias.find((c) => c.id === categoriaId);
-    if (usaCategoria(nuevo) && cat !== undefined && cat.tipo !== tipoCategoria(nuevo)) {
+    if (eligeCategoria(nuevo) && cat !== undefined && cat.tipo !== tipoCategoria(nuevo)) {
       setValue('categoria_id', '');
       setCategoriaTocada(false);
     }
-    if (nuevo !== 'devolucion') setValue('devolucion_de', '');
+    if (nuevo !== 'devolucion') {
+      setValue('devolucion_de', '');
+      setGastoEscogido(null);
+    }
     if (nuevo === 'traspaso' && destinoId === cuentaId) setValue('cuenta_destino_id', '');
     // Método por defecto según el tipo (tarjeta en gastos; sin indicar en el resto), si no lo eligió el usuario.
     if (!metodoTocado) setValue('metodo', nuevo === 'gasto' ? 'tarjeta' : '');
   };
 
-  /** Devolución: al elegir el gasto original se rellenan categoría y cuenta, y se sugiere lo pendiente. */
-  const elegirGastoOriginal = (id: string) => {
-    setValue('devolucion_de', id);
-    const g = gastos.find((x) => x.id === id);
-    if (g === undefined) return;
-    if (categorias.some((c) => c.id === g.categoria_id && c.tipo === 'gasto')) {
-      setValue('categoria_id', g.categoria_id);
-      setCategoriaTocada(true);
-    }
+  /**
+   * Devolución: el usuario elige (o confirma una sugerencia de) su gasto original. Nunca se elige
+   * solo. Se rellena la cuenta (sigue siendo editable) y, si el importe está vacío, lo pendiente.
+   * La categoría la pone la base (la del gasto); aquí solo se muestra.
+   */
+  const elegirGastoOriginal = (g: GastoDevolvible) => {
+    setGastoEscogido(g);
+    setValue('devolucion_de', g.id, { shouldValidate: true });
+    setValue('categoria_id', g.categoria_id);
     if (cuentaUsable(cuentas.find((c) => c.id === g.cuenta_id))) {
       setValue('cuenta_id', g.cuenta_id);
       setCuentaTocada(true);
@@ -267,36 +316,14 @@ export function FormularioMovimiento({
         </p>
       )}
 
-      {tipo === 'devolucion' && (
-        <Select
-          label={t('form.gastoOriginal')}
-          opcional
-          ayuda={
-            pendiente !== null
-              ? t('form.gastoOriginalQueda', { pendiente: formatearEuros(pendiente, locale) })
-              : t('form.gastoOriginalAyuda')
-          }
-          error={errors.devolucion_de?.message}
-          {...register('devolucion_de', { onChange: (e: { target: { value: string } }) => elegirGastoOriginal(e.target.value) })}
+      {sinVincular && (
+        <p
+          role="note"
+          className="flex gap-2 rounded-xl border border-aviso-borde bg-aviso-suave px-3 py-2.5 text-sm text-aviso"
         >
-          <option value="">{t('form.gastoOriginalNinguno')}</option>
-          {original?.devolucion_de != null && !gastos.some((g) => g.id === original.devolucion_de) && (
-            <option value={original.devolucion_de}>{t('form.gastoOriginal')}</option>
-          )}
-          {gastos.map((g) => {
-            const datos = {
-              fecha: diaCorto(g.fecha, locale),
-              concepto: g.concepto,
-              importe: formatearEuros(g.importe, locale),
-              pendiente: formatearEuros(g.pendiente, locale),
-            };
-            return (
-              <option key={g.id} value={g.id}>
-                {g.pendiente === g.importe ? t('form.gastoOriginalOpcion', datos) : t('form.gastoOriginalPendiente', datos)}
-              </option>
-            );
-          })}
-        </Select>
+          <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {t('form.devolucionSinVincular')}
+        </p>
       )}
 
       {tipo === 'ajuste' && (
@@ -321,6 +348,9 @@ export function FormularioMovimiento({
             name={field.name}
             ref={field.ref}
             error={fieldState.error?.message}
+            ayuda={
+              pendiente !== null ? t('form.gastoOriginalQueda', { pendiente: formatearEuros(pendiente, locale) }) : undefined
+            }
             className="[&_input]:h-14 [&_input]:text-2xl [&_input]:font-semibold [&_input]:tabular-nums"
           />
         )}
@@ -353,7 +383,21 @@ export function FormularioMovimiento({
         {...register('concepto')}
       />
 
-      {usaCategoria(tipo) && (
+      {tipo === 'devolucion' && (
+        <SelectorGastoOriginal
+          valor={devolucionDe}
+          elegido={vinculado}
+          concepto={concepto}
+          importe={importeTexto}
+          fecha={fecha}
+          excluir={original?.id ?? null}
+          categorias={categorias}
+          error={errors.devolucion_de?.message}
+          onElegir={elegirGastoOriginal}
+        />
+      )}
+
+      {eligeCategoria(tipo) && (
         <Controller
           name="categoria_id"
           control={control}
