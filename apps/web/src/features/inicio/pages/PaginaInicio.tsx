@@ -44,12 +44,15 @@ const pendiente = (q: EstadoConsulta) => !q.isUninitialized && !q.isError && q.c
  * Si el tramo anterior empieza antes del primer día con datos, no tiene la misma longitud:
  * «Sin datos del mes anterior» (sección 8). Todos los periodos salen de `periodosComparacion`,
  * la misma función que Estadísticas; las cifras, de las RPC (nada de dinero calculado aquí).
- * - Resumen: Patrimonio · Ingresos · Gastos netos · Balance (con su ahorro, sección 3).
- * - Aviso si «Otros gastos» pasa del 20 % del gasto del mes (peso_otros_gastos).
- * - Objetivos (progreso_objetivos, siempre del mes en curso), justo debajo: piden acción.
- * - Gráfico de capital (serie diaria) y reparto por categoría (cada una abre Movimientos con ese
- *   filtro y el mes).
- * - Al final, últimos movimientos y un consejo del análisis del mes.
+ * Con qué se compara se dice UNA vez, bajo el saludo; cada cifra solo lleva su variación.
+ * Orden:
+ * 1. Saludo y selector de mes.
+ * 2. Patrimonio (con Ingresos · Gastos netos · Balance y su ahorro, sección 3).
+ * 3. «Evolución de tu capital» (serie diaria).
+ * 4. Objetivos (progreso_objetivos, siempre del mes en curso): editar y eliminar cada uno.
+ * 5. Aviso si «Otros gastos» pasa del 20 % (peso_otros_gastos) y gastos por categoría (cada una
+ *    abre Movimientos con ese filtro y el mes).
+ * 6. Últimos movimientos y 7. el consejo del análisis con IA.
  */
 export default function PaginaInicio() {
   const t = useT('inicio');
@@ -113,7 +116,10 @@ export default function PaginaInicio() {
       <CabeceraPagina
         titulo={dePila === null ? t('titulo') : t('tituloConNombre', { nombre: dePila })}
         tituloDocumento={t('titulo')}
-        descripcion={t('descripcion')}
+        // El periodo con el que se compara se dice UNA vez, aquí; las cifras solo llevan su variación.
+        descripcion={
+          <span data-testid="nota-comparacion">{t(enCurso ? 'comparacion.enCurso' : 'comparacion.cerrado')}</span>
+        }
         acciones={
           <SelectorMes
             mes={mes}
@@ -147,52 +153,52 @@ export default function PaginaInicio() {
           />
         )}
 
-        <AvisoOtrosGastos periodo={resuelto ? periodos.actual : undefined} />
-        {/* Los objetivos piden acción: justo después del resumen del mes (auditoría, sección 6). */}
+        {/* Bajo el patrimonio, cómo ha evolucionado (a todo el ancho). */}
+        <Card className="flex min-w-0 flex-col">
+          {!resuelto || pendiente(serie) || pendiente(serieAnterior) ? (
+            <Esqueleto className="h-80" />
+          ) : serie.isError || serieAnterior.isError || !datosSerie || !datosSerieAnterior ? (
+            <ErrorCarga onReintentar={reintentar(serie, serieAnterior)} />
+          ) : (
+            <GraficoCapital
+              key={`${mes}:${hoy}`}
+              hoy={hoy}
+              mes={mes}
+              actual={datosSerie}
+              anterior={datosSerieAnterior}
+              className="flex-1"
+            />
+          )}
+        </Card>
+
         <TarjetaObjetivos hoy={hoy} />
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-2">
-          <Card className="flex min-w-0 flex-col">
-            {!resuelto || pendiente(serie) || pendiente(serieAnterior) ? (
-              <Esqueleto className="h-80" />
-            ) : serie.isError || serieAnterior.isError || !datosSerie || !datosSerieAnterior ? (
-              <ErrorCarga onReintentar={reintentar(serie, serieAnterior)} />
-            ) : (
-              <GraficoCapital
-                key={`${mes}:${hoy}`}
-                hoy={hoy}
-                mes={mes}
-                actual={datosSerie}
-                anterior={datosSerieAnterior}
-                className="flex-1"
-              />
-            )}
-          </Card>
+        {/* El aviso de «Otros gastos» va justo encima del reparto que invita a corregir. */}
+        <AvisoOtrosGastos periodo={resuelto ? periodos.actual : undefined} />
 
-          <Card titulo={t('categorias.titulo')} className="flex min-w-0 flex-col gap-4">
-            {!resuelto || pendiente(categorias) || pendiente(resumen) ? (
-              <Esqueleto className="h-44" />
-            ) : categorias.isError || resumen.isError || !datosCategorias || !datosResumen ? (
-              <ErrorCarga onReintentar={reintentar(categorias, resumen)} />
-            ) : datosCategorias.some((c) => c.gasto !== '0.00') ? (
-              <RepartoCategorias
-                categorias={datosCategorias.map((c) => ({
-                  id: c.categoria_id,
-                  nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),
-                  color: c.color,
-                  gasto: c.gasto,
-                }))}
-                totalGastoNeto={datosResumen.gastos_netos}
-                enlace={enlaceCategoria}
-              />
-            ) : (
-              <EmptyState
-                titulo={enCurso ? t('categorias.vacio') : t('categorias.vacioCerrado', { mes: mesLargo(mes, locale) })}
-                className="py-6"
-              />
-            )}
-          </Card>
-        </div>
+        <Card titulo={t('categorias.titulo')} className="flex min-w-0 flex-col gap-4">
+          {!resuelto || pendiente(categorias) || pendiente(resumen) ? (
+            <Esqueleto className="h-44" />
+          ) : categorias.isError || resumen.isError || !datosCategorias || !datosResumen ? (
+            <ErrorCarga onReintentar={reintentar(categorias, resumen)} />
+          ) : datosCategorias.some((c) => c.gasto !== '0.00') ? (
+            <RepartoCategorias
+              categorias={datosCategorias.map((c) => ({
+                id: c.categoria_id,
+                nombre: nombreCategoria({ id: c.categoria_id, nombre: c.nombre }),
+                color: c.color,
+                gasto: c.gasto,
+              }))}
+              totalGastoNeto={datosResumen.gastos_netos}
+              enlace={enlaceCategoria}
+            />
+          ) : (
+            <EmptyState
+              titulo={enCurso ? t('categorias.vacio') : t('categorias.vacioCerrado', { mes: mesLargo(mes, locale) })}
+              className="py-6"
+            />
+          )}
+        </Card>
 
         {/*
           Al final, lo que se consulta de vez en cuando: los últimos movimientos y el consejo del

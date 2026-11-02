@@ -62,8 +62,8 @@ describe('GraficoCapital', () => {
     expect(control).toHaveAttribute('aria-valuenow', '15');
     const texto = normal(lectura().textContent);
     expect(texto).toContain('15 oct · 2.310,00 €');
-    expect(texto).toContain('vs 15 sept 1.950,00 € · +360,00 € (+18,5 %)');
-    expect(normal(control.getAttribute('aria-valuetext'))).toContain('vs 15 sept 1.950,00 € · +360,00 € (+18,5 %)');
+    expect(texto).toContain('+360,00 € (+18,5 %) frente a septiembre');
+    expect(normal(control.getAttribute('aria-valuetext'))).toContain('+360,00 € (+18,5 %) frente a septiembre');
   });
 
   it('el 31 oct se compara con el 30 sept (sección 11, fin de mes)', () => {
@@ -72,7 +72,7 @@ describe('GraficoCapital', () => {
     const texto = normal(lectura().textContent);
     expect(texto).toContain('31 oct · hoy (provisional) · 2.100,00 €');
     // 30 sept = 1800 + 29 × 10 = 2.090,00 €
-    expect(texto).toContain('vs 30 sept 2.090,00 € · +10,00 € (+0,5 %)');
+    expect(texto).toContain('+10,00 € (+0,5 %) frente a septiembre');
   });
 
   it('un día futuro dice «sin datos todavía» y no inventa valor', async () => {
@@ -83,7 +83,7 @@ describe('GraficoCapital', () => {
     expect(control).toHaveAttribute('aria-valuenow', '31');
     const texto = normal(lectura().textContent);
     expect(texto).toContain('31 oct · sin datos todavía');
-    expect(texto).toContain('30 sept: 2.090,00 €');
+    expect(texto).toContain('Septiembre: 2.090,00 €');
   });
 
   it('no dibuja días futuros: la línea del mes actual termina hoy; la anterior ocupa sus propios días', () => {
@@ -96,7 +96,7 @@ describe('GraficoCapital', () => {
   it('sin patrimonio positivo en d′ solo muestra la diferencia en euros', async () => {
     const anterior = serie('2026-09', Array.from({ length: 30 }, () => '0.00'));
     pintar('2026-10-19', serie('2026-10', OCT, '2026-10-19'), anterior);
-    expect(normal(lectura().textContent)).toContain('vs 19 sept 0,00 € · +2.458,32 €');
+    expect(normal(lectura().textContent)).toContain('+2.458,32 € frente a septiembre');
     expect(normal(lectura().textContent)).not.toContain('%');
   });
 
@@ -131,7 +131,7 @@ describe('GraficoCapital', () => {
     );
     // 30 sept (2.090,00 €) vs 30 ago (1.845,00 €), d′ de la sección 7.
     expect(normal(lectura().textContent)).toContain('30 sept · 2.090,00 €');
-    expect(normal(lectura().textContent)).toContain('vs 30 ago 1.845,00 € · +245,00 € (+13,3 %)');
+    expect(normal(lectura().textContent)).toContain('+245,00 € (+13,3 %) frente a agosto');
     expect(screen.getByTestId('punto-cierre')).toBeInTheDocument();
     expect(screen.queryByTestId('punto-hoy')).not.toBeInTheDocument();
     expect(screen.queryByText(/provisional|\(hoy\)/)).not.toBeInTheDocument();

@@ -108,7 +108,7 @@ export function KpiMes({
             <Flecha aria-hidden="true" className="size-3.5" />
             <span className="cifras">{variacion.texto}</span>
           </span>
-          {/* «vs 27/09», «vs 1–26 sept»: siempre, también en el móvil; un «−7,8 %» solo no se entiende. */}
+          {/* Inicio no pasa contexto: el periodo comparado se dice una sola vez, en la cabecera. */}
           {variacion.contexto !== undefined && <span className="text-apagado">{variacion.contexto}</span>}
         </p>
       ) : (

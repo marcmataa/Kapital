@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { AlertTriangle, ArrowRight, Check, X, type LucideIcon } from 'lucide-react';
-import { useListarCategoriasQuery } from '@/shared/api/catalogos';
+import toast from 'react-hot-toast';
+import { AlertTriangle, ArrowRight, Check, Pencil, Trash2, X, type LucideIcon } from 'lucide-react';
+import { useDesactivarObjetivoMutation, useListarCategoriasQuery } from '@/shared/api/catalogos';
 import { useIdioma, useT } from '@/shared/i18n';
 import { nombreCategoria as nombreVisible } from '@/shared/lib/categorias';
 import { cx } from '@/shared/lib/cx';
 import { aCentimos, formatearEuros } from '@/shared/lib/dinero';
-import { Button, Card } from '@/shared/ui';
+import { Button, Card, Sheet } from '@/shared/ui';
 import { useInicioProgresoObjetivosQuery, type ProgresoObjetivo } from '../api/inicioApi';
 import { barraAhorro, mesLargo, progresoBarra, restarImportes } from '../lib/calculos';
 import { ErrorCarga, Esqueleto } from './Estados';
@@ -13,6 +14,14 @@ import { FormObjetivo } from './FormObjetivo';
 
 interface Props {
   hoy: string;
+}
+
+/** Botón de icono de cada objetivo: área táctil de 44 px en móvil (area-tactil) y foco visible. */
+const CLASE_ICONO =
+  'area-tactil inline-flex size-8 items-center justify-center rounded-lg text-apagado transition-colors hover:bg-superficie-2 hover:text-texto focus-visible:outline-2 focus-visible:outline-acento';
+
+function esErrorRed(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && (e as { codigo?: unknown }).codigo === 'red';
 }
 
 /**
@@ -48,7 +57,10 @@ function estadoDe(o: ProgresoObjetivo): Estado {
  *   (un balance negativo se dibuja hacia la izquierda) y la marca del objetivo; si falta, cuánto,
  *   cuántos días quedan y cuánto hay que ahorrar al día.
  * - Límite de categoría: gasto neto de la categoría frente al límite; pasarse es «Te has pasado X».
- * Cada objetivo lleva su estado con icono, texto y color (nunca solo el color).
+ * Cada objetivo lleva su estado con icono, texto y color (nunca solo el color), y dos botones:
+ * editar (todos los campos, en una hoja con el mismo formulario del alta) y eliminar (pide
+ * confirmación nombrando el objetivo). Eliminar lo desactiva, igual que en Configuración: deja de
+ * contar en Inicio y en el análisis. Al guardar, la etiqueta 'Objetivos' refresca la lista sola.
  */
 export function TarjetaObjetivos({ hoy }: Props) {
   const t = useT('inicio');
@@ -57,6 +69,10 @@ export function TarjetaObjetivos({ hoy }: Props) {
   const progreso = useInicioProgresoObjetivosQuery(hoy);
   const categorias = useListarCategoriasQuery();
   const [formAbierto, setFormAbierto] = useState(false);
+  const [editando, setEditando] = useState<ProgresoObjetivo | null>(null);
+  const [eliminando, setEliminando] = useState<ProgresoObjetivo | null>(null);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+  const [desactivar, estadoEliminar] = useDesactivarObjetivoMutation();
   const euros = (v: string) => formatearEuros(v, locale);
 
   const nombreCategoria = (id: string | null) => {
@@ -89,6 +105,22 @@ export function TarjetaObjetivos({ hoy }: Props) {
   };
 
   const datos = progreso.currentData;
+
+  const pedirEliminar = (o: ProgresoObjetivo) => {
+    setErrorEliminar(null);
+    setEliminando(o);
+  };
+
+  const eliminar = async (o: ProgresoObjetivo) => {
+    setErrorEliminar(null);
+    try {
+      await desactivar(o.objetivo_id).unwrap();
+      toast.success(t('objetivos.eliminado'));
+      setEliminando(null);
+    } catch (e) {
+      setErrorEliminar(esErrorRed(e) ? tc('error.red') : t('objetivos.errorEliminar'));
+    }
+  };
 
   return (
     <Card
@@ -125,7 +157,27 @@ export function TarjetaObjetivos({ hoy }: Props) {
               return (
                 <li key={o.objetivo_id} className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
-                    <span className="text-texto">{titulo}</span>
+                    <span className="flex min-w-0 items-center gap-1">
+                      <span className="text-texto">{titulo}</span>
+                      <span className="flex shrink-0 items-center">
+                        <button
+                          type="button"
+                          className={CLASE_ICONO}
+                          aria-label={t('objetivos.editar', { objetivo: titulo })}
+                          onClick={() => setEditando(o)}
+                        >
+                          <Pencil aria-hidden="true" className="size-4" />
+                        </button>
+                        <button
+                          type="button"
+                          className={CLASE_ICONO}
+                          aria-label={t('objetivos.eliminar', { objetivo: titulo })}
+                          onClick={() => pedirEliminar(o)}
+                        >
+                          <Trash2 aria-hidden="true" className="size-4" />
+                        </button>
+                      </span>
+                    </span>
                     <span className="flex flex-wrap items-center gap-2">
                       <span
                         data-testid="estado-objetivo"
@@ -189,6 +241,52 @@ export function TarjetaObjetivos({ hoy }: Props) {
 
         {formAbierto && <FormObjetivo onHecho={() => setFormAbierto(false)} onCancelar={() => setFormAbierto(false)} />}
       </div>
+
+      <Sheet abierto={editando !== null} onCerrar={() => setEditando(null)} titulo={t('form.tituloEditar')}>
+        {editando !== null && (
+          <FormObjetivo
+            plano
+            objetivo={{
+              id: editando.objetivo_id,
+              tipo: editando.tipo,
+              categoria_id: editando.categoria_id,
+              importe: editando.importe,
+            }}
+            onHecho={() => {
+              toast.success(t('objetivos.guardado'));
+              setEditando(null);
+            }}
+            onCancelar={() => setEditando(null)}
+          />
+        )}
+      </Sheet>
+
+      <Sheet abierto={eliminando !== null} onCerrar={() => setEliminando(null)} titulo={t('objetivos.eliminarTitulo')}>
+        {eliminando !== null && (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-texto">{t('objetivos.eliminarConfirmar', { objetivo: nombre(eliminando) })}</p>
+            {errorEliminar !== null && (
+              <p role="alert" className="text-sm font-medium text-negativo">
+                {errorEliminar}
+              </p>
+            )}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variante="secundario" anchoCompleto className="sm:w-auto" onClick={() => setEliminando(null)}>
+                {tc('accion.cancelar')}
+              </Button>
+              <Button
+                variante="peligro"
+                anchoCompleto
+                className="sm:w-auto"
+                cargando={estadoEliminar.isLoading}
+                onClick={() => void eliminar(eliminando)}
+              >
+                {t('objetivos.eliminarSi')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Sheet>
     </Card>
   );
 }

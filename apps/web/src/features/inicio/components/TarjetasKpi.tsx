@@ -8,10 +8,10 @@ import {
   variacionPorcentual,
 } from '@/shared/lib/dinero';
 import { enlaceMovimientos } from '@/shared/lib/enlaces';
-import { finDeMes, formatearFecha, inicioDeMes, mismoDiaMesAnterior, partesDe, sumarMeses } from '@/shared/lib/fechas';
+import { finDeMes, formatearFecha, inicioDeMes, mismoDiaMesAnterior } from '@/shared/lib/fechas';
 import { AyudaGrafico, type Tendencia, type VariacionStat } from '@/shared/ui';
 import type { ResumenPeriodo } from '../api/inicioApi';
-import { mesCorto, restarImportes } from '../lib/calculos';
+import { restarImportes } from '../lib/calculos';
 import type { CuentaDesglose } from '../lib/desglose';
 import { DesgloseCuentas } from './DesgloseCuentas';
 import { KpiMes } from './KpiMes';
@@ -42,6 +42,8 @@ const TENDENCIA: Record<-1 | 0 | 1, Tendencia> = { [-1]: 'baja', 0: 'igual', 1: 
  * Resumen del mes: Patrimonio · Ingresos · Gastos netos · Balance.
  * - En curso: patrimonio a hoy vs d', ingresos, gastos netos y balance de 1..hoy vs 1..d'.
  * - Cerrado: patrimonio al último día vs su d', y el mes completo vs el anterior completo.
+ * Cada cifra lleva solo su variación (sin «vs …»): con qué se compara se dice UNA vez en la
+ * cabecera de Inicio («Comparado con el mismo punto del mes pasado» / «… el mes pasado completo»).
  * Móvil: UNA tarjeta, el patrimonio grande arriba (con su desglose) y debajo una lista compacta.
  * Escritorio: dos tarjetas del mismo ancho que las de debajo. A un lado el patrimonio con sus
  * cuentas (lo que tienes); al otro el mes (lo que ha pasado): Ingresos, Gastos netos y, separado
@@ -65,11 +67,8 @@ export function TarjetasKpi({
   const enCurso = mesMostrado === undefined || inicioDeMes(mesMostrado) === inicioDeMes(hoy);
   const fecha = enCurso ? hoy : finDeMes(mesMostrado);
   const dPrima = mismoDiaMesAnterior(fecha);
-  const hastaAnterior = enCurso ? dPrima : finDeMes(sumarMeses(fecha, -1));
-  const dia = partesDe(fecha).dia;
   // Tramo de las cifras del mes: del día 1 a la fecha de referencia (hoy o el último día).
   const periodo = { desde: inicioDeMes(fecha), hasta: fecha };
-  const vsTramo = t('kpi.vsTramo', { dia: partesDe(hastaAnterior).dia, mes: mesCorto(hastaAnterior, locale) });
 
   const variacionImporte = (
     actual: string,
@@ -82,7 +81,6 @@ export function TarjetasKpi({
       texto: formatearPorcentaje(pct, locale, { signo: 'siempre' }),
       tendencia: TENDENCIA[compararImportes(actual, anterior)],
       subirEsBueno,
-      contexto: vsTramo,
     };
   };
 
@@ -98,12 +96,10 @@ export function TarjetasKpi({
     variacionPatrimonio = {
       texto: pct === null ? euros : `${euros} (${pct})`,
       tendencia: TENDENCIA[compararImportes(patrimonioHoy, patrimonioAnterior)],
-      contexto: t('kpi.vsFecha', { fecha: formatearFecha(dPrima, locale, 'corta') }),
     };
   }
 
   const sinAnterior = t('kpi.sinAnterior');
-  const mes = mesCorto(fecha, locale);
   const ingresos = variacionImporte(resumenActual.ingresos, resumenAnterior?.ingresos ?? null, true);
   const gastos = variacionImporte(resumenActual.gastos_netos, resumenAnterior?.gastos_netos ?? null, false);
   // Balance (puede ser ≤ 0): la diferencia en euros y el % solo con las dos bases > 0 (sección 8,
@@ -116,11 +112,6 @@ export function TarjetasKpi({
       texto: porcentaje === null ? euros : `${euros} (${formatearPorcentaje(porcentaje, locale, { signo: 'siempre' })})`,
       tendencia: TENDENCIA[compararImportes(resumenActual.balance, resumenAnterior.balance)],
       subirEsBueno: true,
-      contexto: t('kpi.vsTramoImporte', {
-        importe: formatearEuros(resumenAnterior.balance, locale, { signo: 'siempre' }),
-        dia: partesDe(hastaAnterior).dia,
-        mes: mesCorto(hastaAnterior, locale),
-      }),
     };
   }
   const balanceNegativo = aCentimos(resumenActual.balance) < 0n;
@@ -154,7 +145,7 @@ export function TarjetasKpi({
       >
         <KpiMes
           agrupado
-          titulo={t('kpi.ingresos', { dia, mes })}
+          titulo={t('kpi.ingresos')}
           enlace={enlaceMovimientos({ tipo: 'ingreso', ...periodo })}
           etiquetaEnlace={t('kpi.verMovimientos')}
           valor={formatearEuros(resumenActual.ingresos, locale)}
@@ -162,7 +153,7 @@ export function TarjetasKpi({
         />
         <KpiMes
           agrupado
-          titulo={t('kpi.gastos', { dia, mes })}
+          titulo={t('kpi.gastos')}
           // Sin filtro de tipo: el gasto neto incluye devoluciones; el resumen de Movimientos lo da exacto.
           enlace={enlaceMovimientos(periodo)}
           etiquetaEnlace={t('kpi.verMovimientos')}
@@ -172,7 +163,7 @@ export function TarjetasKpi({
         <KpiMes
           agrupado
           resultado
-          titulo={t('kpi.balance', { dia, mes })}
+          titulo={t('kpi.balance')}
           enlace={enlaceMovimientos(periodo)}
           etiquetaEnlace={t('kpi.verMovimientos')}
           valor={formatearEuros(resumenActual.balance, locale, { signo: 'siempre' })}
