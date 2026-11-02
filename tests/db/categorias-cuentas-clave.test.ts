@@ -206,13 +206,16 @@ describe('concepto por defecto del atajo', () => {
     const { id, token } = await prepararUsuario(db);
     await actuarComo(db, null);
     expect(await atajoSinConcepto(token, 'gasto')).toBe('Gasto');
-    expect(await atajoSinConcepto(token, 'devolucion')).toBe('Devolución');
     await db.query(`update perfiles set idioma = 'en' where user_id = $1`, [id]);
     expect(await atajoSinConcepto(token, 'gasto')).toBe('Expense');
     expect(await atajoSinConcepto(token, 'ingreso')).toBe('Income');
     await db.query(`update perfiles set idioma = 'ca' where user_id = $1`, [id]);
     expect(await atajoSinConcepto(token, 'gasto')).toBe('Despesa');
-    expect(await atajoSinConcepto(token, 'devolucion')).toBe('Devolució');
+    // El atajo ya no registra devoluciones (20261102000001); el concepto por defecto sigue traducido.
+    const devolucion = await todas<{ es: string; ca: string }>(
+      db, `select concepto_por_defecto('devolucion', 'es') as es, concepto_por_defecto('devolucion', 'ca') as ca`,
+    );
+    expect(devolucion).toEqual([{ es: 'Devolución', ca: 'Devolució' }]);
   });
 
   it('el concepto o el comercio que envía el usuario no se tocan', async () => {

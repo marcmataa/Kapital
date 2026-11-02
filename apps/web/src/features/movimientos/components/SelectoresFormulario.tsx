@@ -7,7 +7,7 @@ import { cx } from '@/shared/lib/cx';
 import { TIPOS, type TipoMovimiento } from '../lib/tipos';
 
 /** Flechas ←/→ (y ↑/↓) mueven la selección en un radiogroup; solo la opción activa es tabulable. */
-function useRoving(total: number, elegir: (i: number) => void) {
+export function useRoving(total: number, elegir: (i: number) => void) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const mover = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
     const delta =

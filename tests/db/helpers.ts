@@ -28,6 +28,8 @@ export const MIGRACION_INICIO_ESTADISTICAS = leer('supabase/migrations/202610240
 export const ROLLBACK_INICIO_ESTADISTICAS = leer('supabase/rollback/20261024000003_inicio_estadisticas.down.sql');
 export const MIGRACION_COLORES_CATEGORIAS = leer('supabase/migrations/20261027000000_colores_categorias.sql');
 export const ROLLBACK_COLORES_CATEGORIAS = leer('supabase/rollback/20261027000000_colores_categorias.down.sql');
+export const MIGRACION_DEVOLUCIONES_VINCULADAS = leer('supabase/migrations/20261102000001_devoluciones_vinculadas.sql');
+export const ROLLBACK_DEVOLUCIONES_VINCULADAS = leer('supabase/rollback/20261102000001_devoluciones_vinculadas.down.sql');
 /** Todas las migraciones, en orden de aplicación. */
 export const MIGRACIONES = [
   MIGRACION,
@@ -41,9 +43,11 @@ export const MIGRACIONES = [
   MIGRACION_ANALISIS_CONFIG,
   MIGRACION_INICIO_ESTADISTICAS,
   MIGRACION_COLORES_CATEGORIAS,
+  MIGRACION_DEVOLUCIONES_VINCULADAS,
 ];
 /** Todos los rollbacks, en orden inverso. */
 export const ROLLBACKS = [
+  ROLLBACK_DEVOLUCIONES_VINCULADAS,
   ROLLBACK_COLORES_CATEGORIAS,
   ROLLBACK_INICIO_ESTADISTICAS,
   ROLLBACK_ANALISIS_CONFIG,
@@ -159,7 +163,33 @@ export interface NuevoMovimiento {
   concepto?: string;
 }
 
+/**
+ * Inserta un movimiento como superusuario. Una devolución SIN `devolucionDe` se guarda como
+ * devolución antigua (anterior a 20261102000001_devoluciones_vinculadas, que exige el vínculo
+ * en toda devolución nueva): se desactiva solo el trigger del vínculo durante el insert. Así
+ * los casos de cálculo que no dependen del vínculo siguen probando datos que existen de verdad.
+ * Para probar el rechazo, usar un insert directo.
+ */
 export async function mov(db: PGlite, userId: string, m: NuevoMovimiento): Promise<string> {
+  if (m.tipo === 'devolucion' && m.devolucionDe === undefined) return devolucionAntigua(db, userId, m);
+  return insertarMovimiento(db, userId, m);
+}
+
+/** Devolución sin vínculo como las registradas antes del 02/11/2026 (siguen existiendo y sumando). */
+export async function devolucionAntigua(db: PGlite, userId: string, m: NuevoMovimiento): Promise<string> {
+  const { rows } = await db.query(
+    `select 1 from pg_trigger where tgname = 'movimientos_devolucion' and tgrelid = 'movimientos'::regclass`,
+  );
+  if (rows.length === 0) return insertarMovimiento(db, userId, m);
+  await db.exec('alter table movimientos disable trigger movimientos_devolucion');
+  try {
+    return await insertarMovimiento(db, userId, m);
+  } finally {
+    await db.exec('alter table movimientos enable trigger movimientos_devolucion');
+  }
+}
+
+async function insertarMovimiento(db: PGlite, userId: string, m: NuevoMovimiento): Promise<string> {
   const fila = await una<{ id: string }>(
     db,
     `insert into movimientos (user_id, tipo, importe, fecha, cuenta_id, cuenta_destino_id, categoria_id,

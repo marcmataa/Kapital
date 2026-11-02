@@ -13,12 +13,21 @@ import type { ClaveDe } from '@/shared/i18n';
  * - proteger_cuenta_cerrada (23514): cuenta cerrada.
  * - checks de la tabla (23514): traspaso_con_destino, categoria_segun_tipo…; importe > 0.
  * - 23503: referencia a una cuenta/categoría/gasto que ya no existe.
+ * Migración 20261102000001_devoluciones_vinculadas.sql (23514):
+ * - validar_devolucion: devolución sin vínculo, anterior a su gasto, gasto ya devuelto del todo,
+ *   gasto con devoluciones que pasa a una fecha posterior a ellas.
+ * - proteger_gasto_con_devoluciones: un gasto con devoluciones no se borra.
  */
 export type CodigoErrorMovimiento =
   | 'cuenta_cerrada'
   | 'fecha_antes_de_cuenta'
   | 'categoria_tipo'
   | 'solo_gasto'
+  | 'devolucion_sin_vinculo'
+  | 'devolucion_antes_del_gasto'
+  | 'gasto_devuelto'
+  | 'gasto_fecha_devoluciones'
+  | 'gasto_no_se_borra'
   | 'devolucion_supera'
   | 'gasto_con_devoluciones'
   | 'traspaso_cuentas'
@@ -36,6 +45,11 @@ const REGLAS: readonly [RegExp, CodigoErrorMovimiento][] = [
   [/empieza el/i, 'fecha_antes_de_cuenta'],
   [/necesita una categor[ií]a|categoria_segun_tipo/i, 'categoria_tipo'],
   [/solo se puede devolver un gasto|devolucion_de_solo_en_devolucion/i, 'solo_gasto'],
+  [/gasto original que devuelve|vincula esta devoluci[oó]n/i, 'devolucion_sin_vinculo'],
+  [/anterior a su gasto/i, 'devolucion_antes_del_gasto'],
+  [/devuelto del todo/i, 'gasto_devuelto'],
+  [/devoluciones desde el/i, 'gasto_fecha_devoluciones'],
+  [/no se puede borrar/i, 'gasto_no_se_borra'],
   [/superan el gasto original/i, 'devolucion_supera'],
   [/devueltos/i, 'gasto_con_devoluciones'],
   [/traspaso_con_destino/i, 'traspaso_cuentas'],
@@ -62,6 +76,11 @@ const CLAVES: Record<CodigoErrorMovimiento, ClaveError> = {
   fecha_antes_de_cuenta: 'error.fechaAntesDeCuenta',
   categoria_tipo: 'error.categoriaTipo',
   solo_gasto: 'error.soloGasto',
+  devolucion_sin_vinculo: 'error.devolucionSinVinculo',
+  devolucion_antes_del_gasto: 'error.devolucionAntesDelGasto',
+  gasto_devuelto: 'error.gastoDevuelto',
+  gasto_fecha_devoluciones: 'error.gastoFechaDevoluciones',
+  gasto_no_se_borra: 'error.gastoNoSeBorra',
   devolucion_supera: 'error.devolucionSupera',
   gasto_con_devoluciones: 'error.gastoConDevoluciones',
   traspaso_cuentas: 'error.traspasoCuentas',

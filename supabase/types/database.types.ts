@@ -279,9 +279,9 @@ isOneToOne: false
               "cuenta": string,"cuenta_destino": string,"importe": number,"sentido": Database["public"]['Enums']["sentido_ajuste"],"tipo": Database["public"]['Enums']["tipo_movimiento"]
             }[]
                            },
-"gastos_devolvibles":
-{ Args: { "p_excluir"?: string | null,"p_limite"?: number }; Returns: {
-              "categoria_id": string,"concepto": string,"cuenta_id": string,"fecha": string,"id": string,"importe": number,"pendiente": number
+"buscar_gastos_devolvibles":
+{ Args: { "p_busqueda"?: string | null,"p_concepto"?: string | null,"p_excluir"?: string | null,"p_fecha"?: string | null,"p_importe"?: string | null,"p_limite"?: number }; Returns: {
+              "categoria_id": string,"comercio": string | null,"concepto": string,"cuenta_id": string,"fecha": string,"id": string,"importe": number,"motivo": string,"pendiente": number,"puntuacion": number
             }[]
                            },
 "gasto_por_categoria":

@@ -26,6 +26,11 @@ import {
  * 3. una devolución vinculada apunta a un gasto y no supera lo que queda por devolver.
  * 4. un gasto con devoluciones no baja de lo devuelto ni cambia de tipo.
  * Trigger proteger_cuenta_cerrada: no se usan cuentas cerradas.
+ * Trigger validar_devolucion (20261102000001_devoluciones_vinculadas):
+ * - toda devolución que se guarda lleva su gasto original (devolucion_de); las antiguas sin
+ *   vínculo solo se pueden editar vinculándolas;
+ * - la categoría es la del gasto original (la pone la base: la web no la envía);
+ * - la devolución no es anterior a su gasto.
  *
  * Reglas propias de la UI (no las impone la base):
  * - La fecha es el día en que ocurrió: no puede ser futura (el atajo admite como mucho mañana).
@@ -83,9 +88,14 @@ export interface ContextoEsquema {
   tipoOriginal?: TipoMovimiento | null;
   /** Devolución vinculada: lo que queda por devolver del gasto elegido. Regla 3 del trigger. */
   pendienteGastoOriginal?: string | null;
+  /** Devolución vinculada: fecha del gasto elegido ('YYYY-MM-DD'); la devolución no puede ser anterior. */
+  fechaGastoOriginal?: string | null;
 }
 
+/** Tipos con categoría. En una devolución la categoría es la de su gasto (no se elige). */
 export const usaCategoria = (tipo: TipoMovimiento) => tipo === 'gasto' || tipo === 'ingreso' || tipo === 'devolucion';
+/** Tipos en los que el usuario elige la categoría. */
+export const eligeCategoria = (tipo: TipoMovimiento) => tipo === 'gasto' || tipo === 'ingreso';
 export const usaMetodo = usaCategoria;
 export const tipoCategoria = (tipo: TipoMovimiento) => (tipo === 'ingreso' ? 'ingreso' : 'gasto');
 
@@ -121,7 +131,7 @@ export function crearEsquemaMovimiento(ctx: ContextoEsquema) {
       if (importe === null) error('importe', t('validacion.importe'));
 
       // Categoría según el tipo (check categoria_segun_tipo + regla 1 del trigger)
-      if (usaCategoria(v.tipo)) {
+      if (eligeCategoria(v.tipo)) {
         const cat = categorias.find((x) => x.id === v.categoria_id);
         if (cat === undefined) error('categoria_id', t('validacion.categoria'));
         else if (cat.tipo !== tipoCategoria(v.tipo)) error('categoria_id', t('validacion.categoriaTipo'));
@@ -160,15 +170,25 @@ export function crearEsquemaMovimiento(ctx: ContextoEsquema) {
       if (v.tipo === 'ajuste' && notas === '') error('notas', t('validacion.notaAjuste'));
       if (notas.length > NOTAS_MAXIMO) error('notas', t('validacion.notasLargas', { maximo: NOTAS_MAXIMO }));
 
-      // Devolución vinculada: no puede superar lo pendiente del gasto (regla 3)
-      if (
-        v.tipo === 'devolucion' &&
-        v.devolucion_de !== '' &&
-        importe !== null &&
-        ctx.pendienteGastoOriginal != null &&
-        aCentimos(importe) > aCentimos(ctx.pendienteGastoOriginal)
-      ) {
-        error('importe', t('validacion.devolucionSupera', { pendiente: euros(ctx.pendienteGastoOriginal) }));
+      if (v.tipo === 'devolucion') {
+        // Gasto original obligatorio (validar_devolucion)
+        if (v.devolucion_de === '') {
+          error('devolucion_de', t('validacion.gastoOriginal'));
+        } else {
+          // No puede superar lo pendiente del gasto (regla 3). Al editar, lo pendiente ya
+          // incluye el importe actual de esta devolución (la consulta la excluye).
+          if (
+            importe !== null &&
+            ctx.pendienteGastoOriginal != null &&
+            aCentimos(importe) > aCentimos(ctx.pendienteGastoOriginal)
+          ) {
+            error('importe', t('validacion.devolucionSupera', { pendiente: euros(ctx.pendienteGastoOriginal) }));
+          }
+          // No anterior a la compra
+          if (esFechaValida(v.fecha) && ctx.fechaGastoOriginal != null && v.fecha < ctx.fechaGastoOriginal) {
+            error('fecha', t('validacion.fechaAntesDelGasto', { fecha: formatearFecha(ctx.fechaGastoOriginal, locale, 'corta') }));
+          }
+        }
       }
 
       // Gasto con devoluciones: ni baja de lo devuelto ni cambia de tipo (regla 4)
@@ -200,7 +220,8 @@ export function aPayload(v: ValoresMovimiento, locale: string): PayloadMovimient
     fecha: v.fecha,
     concepto: v.concepto.trim(),
     notas: notas === '' ? null : notas,
-    categoria_id: usaCategoria(v.tipo) ? v.categoria_id : null,
+    // Devolución: la categoría la hereda de su gasto en la base (validar_devolucion).
+    categoria_id: eligeCategoria(v.tipo) ? v.categoria_id : null,
     metodo: usaMetodo(v.tipo) && v.metodo !== '' ? v.metodo : null,
     cuenta_id: v.cuenta_id,
     cuenta_destino_id: v.tipo === 'traspaso' ? v.cuenta_destino_id : null,
