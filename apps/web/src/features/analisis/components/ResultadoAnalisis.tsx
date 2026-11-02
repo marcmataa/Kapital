@@ -58,6 +58,7 @@ export function ResultadoAnalisis({ datos }: { datos: DatosAnalisis }) {
     }
   };
   const saldos = aCentimos(variacion.saldos_iniciales) !== 0n;
+  const desplazadas = aCentimos(variacion.devoluciones_desplazadas) !== 0n;
 
   return (
     <ResultadoMes
@@ -83,14 +84,17 @@ export function ResultadoAnalisis({ datos }: { datos: DatosAnalisis }) {
           <p>{t('variacion.explicacion')}</p>
           <p>{t('variacion.saldosIniciales')}</p>
           <p data-testid="piezas-variacion" className="cifras">
-            {t('variacion.piezas', {
+            {/* La pieza de devoluciones desplazadas solo se muestra si no es 0 (sección 5). */}
+            {t(desplazadas ? 'variacion.piezasDesplazadas' : 'variacion.piezas', {
               balance: conSigno(variacion.balance),
+              desplazadas: conSigno(variacion.devoluciones_desplazadas),
               revalorizacion: conSigno(variacion.revalorizacion),
               ajustes: conSigno(variacion.ajustes),
               variacion: conSigno(variacion.variacion),
             })}
           </p>
           {saldos && <p className="cifras">{t('variacion.saldosDelMes', { saldos: euros(variacion.saldos_iniciales) })}</p>}
+          {desplazadas && <p>{t('variacion.desplazadasDelMes')}</p>}
         </div>
       </details>
     </ResultadoMes>

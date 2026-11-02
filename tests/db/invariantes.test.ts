@@ -96,11 +96,13 @@ describe('devoluciones vinculadas', () => {
     await db.query(`update movimientos set importe = 70 where id = $1`, [cena]);
   });
 
-  it('una cena de 80 € pendiente de cobrar cuenta 80 € en su mes hasta que llega la devolución', async () => {
+  it('una cena de 80 € pendiente de cobrar cuenta 80 € en su mes hasta que llega la devolución y 20 € desde entonces', async () => {
     const cena = await mov(db, u, { tipo: 'gasto', importe: '80.00', fecha: '2026-09-28', cuenta: bbva, categoria: ocio });
-    await mov(db, u, { tipo: 'devolucion', importe: '60.00', fecha: '2026-10-03', cuenta: bbva, categoria: ocio, devolucionDe: cena });
     expect((await resumen(db, '2026-09-01', '2026-09-30')).gastos_netos).toBe('80.00');
-    expect((await resumen(db, '2026-10-01', '2026-10-31')).gastos_netos).toBe('-60.00');
+    // Sección 9: el Bizum llega el mes siguiente, pero resta en el mes de la cena (sección 3).
+    await mov(db, u, { tipo: 'devolucion', importe: '60.00', fecha: '2026-10-03', cuenta: bbva, categoria: ocio, devolucionDe: cena });
+    expect((await resumen(db, '2026-09-01', '2026-09-30')).gastos_netos).toBe('20.00');
+    expect((await resumen(db, '2026-10-01', '2026-10-31')).gastos_netos).toBe('0.00');
   });
 });
 
