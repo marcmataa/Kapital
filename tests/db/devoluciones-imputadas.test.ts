@@ -415,8 +415,10 @@ describe('rollback', () => {
   );
 
   it('el down restaura las definiciones y permisos anteriores exactos, quita la vista y la migración se puede volver a aplicar', async () => {
-    const anterior = await crearDb({ hasta: MIGRACIONES.length - 1 });
-    const limpia = await crearDb();
+    // Por su posición, no «la última»: después de M1 hay más migraciones.
+    const posicion = MIGRACIONES.indexOf(MIGRACION_DEVOLUCIONES_IMPUTADAS);
+    const anterior = await crearDb({ hasta: posicion });
+    const limpia = await crearDb({ hasta: posicion + 1 });
     try {
       const esperadas = await definiciones(anterior);
       await limpia.exec(ROLLBACK_DEVOLUCIONES_IMPUTADAS);
