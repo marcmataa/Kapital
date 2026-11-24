@@ -18,12 +18,12 @@ const cuenta = (c: Partial<CuentaDesglose> & Pick<CuentaDesglose, 'id'>): Cuenta
 const ids = (cs: readonly CuentaDesglose[]) => cs.map((c) => c.id);
 
 describe('cuentasDelDesglose', () => {
-  it('ordena con la principal primero y luego por `orden`, sin mutar la entrada', () => {
+  it('principal primero, luego por `orden` (creación) y el efectivo al final, sin mutar la entrada', () => {
     const cuentas = [
-      cuenta({ id: 'efectivo', tipo: 'efectivo', orden: 2 }),
-      cuenta({ id: 'broker', tipo: 'inversion', orden: 1 }),
+      cuenta({ id: 'efectivo', tipo: 'efectivo', orden: 0 }),
+      cuenta({ id: 'broker', tipo: 'inversion', orden: 3 }),
       cuenta({ id: 'principal', es_principal: true, orden: 5 }),
-      cuenta({ id: 'otro', orden: 0 }),
+      cuenta({ id: 'otro', orden: 1 }),
     ];
     expect(ids(cuentasDelDesglose(cuentas, '2026-10-19'))).toEqual(['principal', 'otro', 'broker', 'efectivo']);
     expect(ids(cuentas)).toEqual(['efectivo', 'broker', 'principal', 'otro']);

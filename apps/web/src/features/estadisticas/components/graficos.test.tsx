@@ -3,10 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { renderConApp } from '@/test/render';
 import type { Comparativa, ResumenMes } from '../api/estadisticasApi';
+import { periodosComparacion } from '@/shared/lib/periodos';
 import { serieDiaria, type FilaDia } from '../lib/agregaciones';
-import { BarrasCategorias } from './BarrasCategorias';
 import { ComparativaMes } from './ComparativaMes';
-import { DesgloseBalance } from './DesgloseBalance';
+import { IngresosPorCategoria } from './IngresosPorCategoria';
 import { GraficoBalanceMeses } from './GraficoBalanceMeses';
 import { GraficoDiario } from './GraficoDiario';
 import { GraficoMeses } from './GraficoMeses';
@@ -148,23 +148,40 @@ describe('GraficoDiario · ingresos', () => {
   });
 });
 
-describe('BarrasCategorias', () => {
+describe('IngresosPorCategoria · lectura y barras dobles', () => {
   const filas = [
-    { id: 'super', nombre: 'Supermercado', color: '#5fd3a0', importe: '300.00', porcentaje: '60.0000' },
-    { id: 'ocio', nombre: 'Ocio', color: '#9b6bff', importe: '150.00', porcentaje: '30.0000' },
-    { id: 'otros', nombre: 'Otros gastos', color: '#8f9bbd', importe: '50.00', porcentaje: '10.0000' },
+    { id: 'nomina', nombre: 'Nómina', color: '#5fd3a0', importe: '300.00', porcentaje: '60.0000' },
+    { id: 'rend', nombre: 'Rendimientos', color: '#9b6bff', importe: '150.00', porcentaje: '30.0000' },
+    { id: 'otros', nombre: 'Otros ingresos', color: '#8f9bbd', importe: '50.00', porcentaje: '10.0000' },
   ];
-  const pintar = () => renderConApp(<BarrasCategorias filas={filas} etiqueta="Ingresos por categoría" />);
+  const anteriores = [{ categoria_id: 'nomina', nombre: 'Nómina', color: '#5fd3a0', ingreso: '280.00' }];
+  const periodos = periodosComparacion('2026-11-01', '2026-11-24', '2026-01-01');
+  const pintar = () => renderConApp(<IngresosPorCategoria ingresos={filas} anteriores={anteriores} periodos={periodos} />);
+
+  it('título «Ingresos por categoría: Nov vs Oct», leyenda de meses y sin % en las filas', () => {
+    pintar();
+    expect(screen.getByText('Ingresos por categoría: Nov vs Oct')).toBeInTheDocument();
+    expect(screen.getByTestId('leyenda-meses')).toHaveTextContent('Este mes · noviembreMes anterior · octubre');
+    const lista = screen.getByTestId('superficie-barras');
+    expect(normal(lista.textContent)).not.toMatch(/%/);
+    // Nómina: 300,00 € este mes y 280,00 € el anterior; las otras no estaban: 0,00 €.
+    expect(within(lista).getAllByTestId('importe-actual').map((e) => normal(e.textContent))).toEqual(['300,00 €', '150,00 €', '50,00 €']);
+    expect(within(lista).getAllByTestId('importe-anterior').map((e) => normal(e.textContent))).toEqual([
+      'mes anterior 280,00 €',
+      'mes anterior 0,00 €',
+      'mes anterior 0,00 €',
+    ]);
+  });
 
   it('lee la primera categoría y recorre con ↓ / ↑', async () => {
     pintar();
     const lectura = () => normal(screen.getByTestId('lectura-barras').textContent);
-    expect(lectura()).toBe('Supermercado · 300,00 €60,0 % del total');
-    const control = screen.getByRole('slider', { name: 'Categoría · Ingresos por categoría' });
+    expect(lectura()).toBe('Nómina · 300,00 €60,0 % del total');
+    const control = screen.getByRole('slider', { name: 'Categoría · Ingresos por categoría: Nov vs Oct' });
     control.focus();
     await userEvent.keyboard('{ArrowDown}');
-    expect(lectura()).toBe('Ocio · 150,00 €30,0 % del total');
-    expect(normal(control.getAttribute('aria-valuetext'))).toBe('Ocio · 150,00 € · 30,0 % del total');
+    expect(lectura()).toBe('Rendimientos · 150,00 €30,0 % del total');
+    expect(normal(control.getAttribute('aria-valuetext'))).toBe('Rendimientos · 150,00 € · 30,0 % del total');
     await userEvent.keyboard('{ArrowUp}{ArrowUp}');
     expect(control).toHaveAttribute('aria-valuenow', '1');
   });
@@ -174,7 +191,7 @@ describe('BarrasCategorias', () => {
     const superficie = screen.getByTestId('superficie-barras');
     conTamano(superficie, 300, 150);
     fireEvent.pointerMove(superficie, { clientX: 100, clientY: 130 });
-    expect(normal(screen.getByTestId('lectura-barras').textContent)).toBe('Otros gastos · 50,00 €10,0 % del total');
+    expect(normal(screen.getByTestId('lectura-barras').textContent)).toBe('Otros ingresos · 50,00 €10,0 % del total');
   });
 });
 
@@ -261,107 +278,6 @@ describe('GraficoBalanceMeses', () => {
     );
     expect(screen.queryByTestId('marca-referencia')).not.toBeInTheDocument();
     expect(screen.queryByText(/Rayado/)).not.toBeInTheDocument();
-  });
-});
-
-describe('DesgloseBalance', () => {
-  const comparativa: Comparativa = {
-    gastos_netos: '1168.28',
-    gastos_netos_anterior: '1190.40',
-    variacion_gastos: '-1.8582',
-    ingresos: '1508.00',
-    ingresos_anterior: '1420.00',
-    variacion_ingresos: '6.1972',
-    balance: '339.72',
-    balance_anterior: '229.60',
-    variacion_balance: '47.9617',
-    dias: 30,
-    gasto_medio_diario: '38.9426666666666667',
-    mayor_concepto: 'Alquiler',
-    mayor_importe: '700.00',
-  };
-  const pintar = (enCurso: boolean) =>
-    renderConApp(
-      <DesgloseBalance
-        periodos={
-          enCurso
-            ? { actual: { desde: '2026-10-01', hasta: '2026-10-23' }, anterior: { desde: '2026-09-01', hasta: '2026-09-23' }, enCurso }
-            : { actual: { desde: '2026-09-01', hasta: '2026-09-30' }, anterior: { desde: '2026-08-01', hasta: '2026-08-31' }, enCurso }
-        }
-        comparativa={comparativa}
-        ingresos={[{ categoria_id: 'n', nombre: 'Nómina', color: '#5fd3a0', ingreso: '1508.00' }]}
-        ingresosAnterior={[{ categoria_id: 'n', nombre: 'Nómina', color: '#5fd3a0', ingreso: '1420.00' }]}
-        gastos={[{ categoria_id: 'o', nombre: 'Ocio', color: '#9b6bff', gasto: '1168.28' }]}
-        gastosAnterior={[{ categoria_id: 'o', nombre: 'Ocio', color: '#9b6bff', gasto: '1190.40' }]}
-        fuera={[
-          { tipo: 'traspaso', cuenta: 'BBVA', cuenta_destino: 'Trade Republic', sentido: null, importe: '100.00' },
-          { tipo: 'ajuste', cuenta: 'BBVA', cuenta_destino: null, sentido: 'resta', importe: '5.00' },
-        ]}
-        fueraAnterior={[]}
-      />,
-    );
-
-  it('mes cerrado: título del mes (sin «vs»), Δ por fila con color por significado y lo que no cuenta, aparte', () => {
-    pintar(false);
-    expect(screen.getByText('Desglose de septiembre')).toBeInTheDocument();
-    const ingresos = screen.getByRole('list', { name: 'Ingresos' });
-    const gastos = screen.getByRole('list', { name: 'Gastos netos' });
-    const fila = (lista: HTMLElement, nombre: string) => within(lista).getByText(nombre).closest('li') as HTMLElement;
-    expect(fila(ingresos, 'Ingresos')).toHaveTextContent('1.508,00 €');
-    // Ingresos suben 88,00 €: verde. Una sola categoría de ingreso repetiría el total: no sale.
-    expect(within(fila(ingresos, 'Ingresos')).getByTestId('diferencia-fila')).toHaveTextContent(/^diferencia \+88,00\s€$/);
-    expect(within(fila(ingresos, 'Ingresos')).getByTestId('diferencia-fila')).toHaveClass('text-positivo');
-    expect(within(ingresos).queryByText('Nómina')).not.toBeInTheDocument();
-    // Gastar 22,12 € menos en Ocio es bueno: verde.
-    expect(fila(gastos, 'Gastos netos')).toHaveTextContent('1.168,28 €');
-    expect(within(fila(gastos, 'Ocio')).getByTestId('diferencia-fila')).toHaveTextContent(/-22,12\s€$/);
-    expect(within(fila(gastos, 'Ocio')).getByTestId('diferencia-fila')).toHaveClass('text-positivo');
-    const balance = screen.getByTestId('fila-balance');
-    expect(within(balance).getByText('+339,72 €')).toHaveClass('text-positivo');
-    // La variación del balance está en la cabecera de la pestaña: aquí ni % ni «vs».
-    expect(balance).toHaveTextContent('= Balance');
-    expect(balance).not.toHaveTextContent(/%|vs/);
-    // Grupo B: traspasos y ajustes, fuera de cualquier total, en gris (ni bueno ni malo) y sin Δ.
-    const fuera = screen.getByTestId('fuera-del-balance');
-    expect(within(fuera).getByText('Traspaso BBVA → Trade Republic').closest('li')).toHaveTextContent('100,00 €');
-    expect(within(fuera).getByText('Ajuste BBVA (resta)').closest('li')).toHaveTextContent('-5,00 €');
-    expect(fuera.querySelector('.bg-acento')).toBeNull();
-    expect(within(fuera).queryByTestId('diferencia-fila')).not.toBeInTheDocument();
-    expect(within(gastos).queryByText(/Traspaso|Ajuste/)).not.toBeInTheDocument();
-  });
-
-  it('ordenar por diferencia: arriba la categoría que más ha cambiado', async () => {
-    renderConApp(
-      <DesgloseBalance
-        periodos={{ actual: { desde: '2026-09-01', hasta: '2026-09-30' }, anterior: { desde: '2026-08-01', hasta: '2026-08-31' }, enCurso: false }}
-        comparativa={{ ...comparativa, gastos_netos: '400.00', gastos_netos_anterior: '320.00' }}
-        ingresos={[]}
-        ingresosAnterior={[]}
-        gastos={[
-          { categoria_id: 'a', nombre: 'Alquiler', color: '#111111', gasto: '300.00' },
-          { categoria_id: 'o', nombre: 'Ocio', color: '#222222', gasto: '100.00' },
-        ]}
-        gastosAnterior={[
-          { categoria_id: 'a', nombre: 'Alquiler', color: '#111111', gasto: '300.00' },
-          { categoria_id: 'o', nombre: 'Ocio', color: '#222222', gasto: '20.00' },
-        ]}
-        fuera={[]}
-        fueraAnterior={[]}
-      />,
-    );
-    const nombres = () =>
-      within(screen.getByRole('list', { name: 'Gastos netos' }))
-        .getAllByRole('listitem')
-        .map((li) => li.querySelector('.break-words')?.textContent);
-    expect(nombres()).toEqual(['Gastos netos', 'Alquiler', 'Ocio']);
-    await userEvent.click(screen.getByRole('radio', { name: 'Diferencia' }));
-    expect(nombres()).toEqual(['Gastos netos', 'Ocio', 'Alquiler']);
-  });
-
-  it('mes en curso: el título nombra el mes, no el periodo comparado (que la pantalla dice una vez)', () => {
-    pintar(true);
-    expect(screen.getByText('Desglose de octubre')).toBeInTheDocument();
-    expect(screen.queryByText(/al día/)).not.toBeInTheDocument();
   });
 });
 

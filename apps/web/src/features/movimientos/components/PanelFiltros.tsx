@@ -140,11 +140,14 @@ export function PanelFiltros({ filtros, cuentas, categorias, onAplicar, variante
         ayuda={variante === 'hoja' ? t('filtros.cuentaAyuda') : undefined}
       >
         <option value="">{t('filtros.todas')}</option>
-        {cuentas.map((c) => (
-          <option key={c.id} value={c.id}>
-            {nombreCuenta(c)}
-          </option>
-        ))}
+        {/* Las cerradas no salen (salvo la que ya está filtrada, para no perderla al abrir el panel). */}
+        {cuentas
+          .filter((c) => c.fecha_cierre === null || c.id === filtros.cuenta)
+          .map((c) => (
+            <option key={c.id} value={c.id}>
+              {nombreCuenta(c)}
+            </option>
+          ))}
       </Select>
       <div className={cx('flex items-end gap-2', variante === 'hoja' && 'pt-2')}>
         <Button variante="secundario" onClick={restablecer} anchoCompleto={variante === 'hoja'}>

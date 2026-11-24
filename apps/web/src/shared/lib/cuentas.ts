@@ -28,3 +28,23 @@ export interface CuentaConNombre {
 export function nombreCuenta(cuenta: CuentaConNombre, t: FuncionT<'common'>): string {
   return esClaveCuenta(cuenta.clave) ? t('cuenta.efectivo') : cuenta.nombre;
 }
+
+interface CuentaOrdenable {
+  tipo: string;
+  es_principal: boolean;
+  orden: number;
+}
+
+/** Principal = 0, el resto (bancos, inversión…) = 1, efectivo = 2. */
+function grupo(c: CuentaOrdenable): number {
+  if (c.es_principal) return 0;
+  return c.tipo === 'efectivo' ? 2 : 1;
+}
+
+/**
+ * Orden de las cuentas en TODA la app: el banco principal primero, luego el resto por orden de
+ * creación (`orden` crece al añadir cada cuenta) y el efectivo siempre al final.
+ */
+export function ordenarCuentas<T extends CuentaOrdenable>(cuentas: readonly T[]): T[] {
+  return [...cuentas].sort((a, b) => grupo(a) - grupo(b) || a.orden - b.orden);
+}

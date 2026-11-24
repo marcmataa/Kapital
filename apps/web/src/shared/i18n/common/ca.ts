@@ -21,6 +21,7 @@ export default {
   'accion.cancelar': 'Cancel·la',
   'accion.cerrar': 'Tanca',
   'accion.volver': 'Torna',
+  'accion.recargar': 'Recarrega',
   'accion.reintentar': 'Torna-ho a provar',
   'accion.continuar': 'Continua',
   'accion.eliminar': 'Elimina',

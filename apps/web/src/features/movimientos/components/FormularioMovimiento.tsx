@@ -18,29 +18,27 @@ import {
   useMovimientosObtenerQuery,
 } from '../api/movimientosApi';
 import {
-  useMovimientosCategoriasUsadasQuery,
   useMovimientosRegistrarDevolucionesMutation,
   useMovimientosSugerirCategoriaQuery,
   type GastoDevolvible,
 } from '../api/sqlApi';
 import { claveErrorMovimiento } from '../api/errores';
 import { repartirDevolucion, repartoValido } from '../lib/reparto';
-import { METODOS, type MetodoPago, type Movimiento, type TipoMovimiento } from '../lib/tipos';
+import type { Movimiento, TipoMovimiento } from '../lib/tipos';
 import {
   CONCEPTO_MAXIMO,
   NOTAS_MAXIMO,
   crearEsquemaMovimiento,
-  cuentaPorDefecto,
   cuentaUsable,
   eligeCategoria,
-  ordenarPorUso,
+  metodoAutomatico,
+  metodosElegibles,
   tipoCategoria,
-  usaMetodo,
   type PayloadMovimiento,
   type ValoresMovimiento,
 } from '../schemas/movimiento';
 import { AjusteSaldoReal, PieFormulario } from './AjusteSaldoReal';
-import { SelectorCategoria, SelectorTipo } from './SelectoresFormulario';
+import { SelectorCategoria, SelectorMetodo, SelectorTipo } from './SelectoresFormulario';
 import { RepartoDevolucion } from './RepartoDevolucion';
 import { SelectorGastoOriginal } from './SelectorGastoOriginal';
 
@@ -92,8 +90,9 @@ function gastoDeLaDevolucion(
 
 /**
  * Formulario de movimiento. Orden: Importe → Concepto → Categoría → Cuenta → Método → Fecha →
- * Notas. En una devolución, el «Gasto original» (obligatorio) va justo después del concepto y no
- * hay selector de categoría: se hereda del gasto. Valida al salir de cada campo o al enviar,
+ * Notas. El método lo pone la cuenta y solo se pregunta si hay varios posibles (`metodosElegibles`).
+ * En una devolución, el «Gasto original» (obligatorio) va justo después del concepto y no hay
+ * selector de categoría: se hereda del gasto. Valida al salir de cada campo o al enviar,
  * nunca antes de escribir. Un ajuste NUEVO se hace por saldo real (AjusteSaldoReal); al editar
  * un ajuste existente se corrige su importe y sentido.
  */
@@ -115,8 +114,7 @@ export function FormularioMovimiento({
   const [actualizar] = useMovimientosActualizarMutation();
   const [registrarDevoluciones] = useMovimientosRegistrarDevolucionesMutation();
   const [errorEnvio, setErrorEnvio] = useState<string | null>(null);
-  // Si el usuario elige la cuenta (o la categoría) a mano, nada la cambia por él.
-  const [cuentaTocada, setCuentaTocada] = useState(original !== undefined);
+  // Si el usuario elige el método (o la categoría) a mano, nada lo cambia por él mientras siga valiendo.
   const [metodoTocado, setMetodoTocado] = useState(original !== undefined);
   const [categoriaTocada, setCategoriaTocada] = useState(original !== undefined);
 
@@ -151,10 +149,33 @@ export function FormularioMovimiento({
     if (original === undefined && inicial.tipo !== 'ajuste') setFocus('importe');
   }, [original, inicial.tipo, setFocus]);
 
-  const [tipo, categoriaId, cuentaId, destinoId, devolucionDe, concepto, fecha, importeTexto] = useWatch({
+  const [tipo, categoriaId, cuentaId, destinoId, devolucionDe, concepto, fecha, importeTexto, metodo] = useWatch({
     control,
-    name: ['tipo', 'categoria_id', 'cuenta_id', 'cuenta_destino_id', 'devolucion_de', 'concepto', 'fecha', 'importe'],
+    name: ['tipo', 'categoria_id', 'cuenta_id', 'cuenta_destino_id', 'devolucion_de', 'concepto', 'fecha', 'importe', 'metodo'],
   });
+
+  // Método de pago: lo decide la cuenta (efectivo → efectivo; banco → tarjeta o transferencia) y
+  // solo se cambia entre los que tienen sentido. Si el usuario eligió uno que sigue valiendo, se respeta.
+  const tipoCuenta = cuentas.find((c) => c.id === cuentaId)?.tipo;
+  const claveCategoria = categorias.find((c) => c.id === categoriaId)?.clave ?? null;
+  const contextoMetodo = useMemo(
+    () => ({ tipo, cuenta: tipoCuenta === undefined ? undefined : { tipo: tipoCuenta }, claveCategoria }),
+    [tipo, tipoCuenta, claveCategoria],
+  );
+  const metodos = metodosElegibles(contextoMetodo);
+  const contextoInicial = useRef(contextoMetodo);
+  useEffect(() => {
+    // Al editar, el método guardado se respeta hasta que cambie la cuenta, el tipo o la categoría.
+    if (original !== undefined && contextoMetodo === contextoInicial.current) return;
+    const actual = getValues('metodo');
+    if (!metodoTocado || !metodosElegibles(contextoMetodo).some((m) => m === actual)) {
+      const auto = metodoAutomatico(contextoMetodo);
+      if (actual !== auto) setValue('metodo', auto);
+    }
+  }, [contextoMetodo, metodoTocado, original, getValues, setValue]);
+  // Un método antiguo que ya no está entre los posibles (al editar) se sigue viendo elegido.
+  const opcionesMetodo =
+    metodos.length > 0 && metodo !== '' && !metodos.includes(metodo) ? [metodo, ...metodos] : metodos;
 
   // Devolución: gasto elegido. Al editar una vinculada, se parte de su gasto actual.
   const vinculadoAntes = original?.tipo === 'devolucion' ? original.devolucion_de : null;
@@ -214,13 +235,9 @@ export function FormularioMovimiento({
     esquemaRef.current = esquema;
   }, [esquema]);
 
-  // Categorías: las más usadas primero (categorias_mas_usadas).
+  // Categorías en el orden de Configuración (listarCategorias ya viene por `orden`).
   const tipoCat = tipoCategoria(tipo);
-  const usadas = useMovimientosCategoriasUsadasQuery(tipoCat, { skip: !eligeCategoria(tipo) });
-  const categoriasTipo = ordenarPorUso(
-    categorias.filter((c) => c.tipo === tipoCat && (!c.archivada || c.id === inicial.categoria_id)),
-    usadas.data,
-  );
+  const categoriasTipo = categorias.filter((c) => c.tipo === tipoCat && (!c.archivada || c.id === inicial.categoria_id));
 
   // Sugerencia de categoría por el concepto (sugerir_categoria), tras una pausa al escribir.
   const [conceptoPedido, setConceptoPedido] = useState('');
@@ -270,8 +287,6 @@ export function FormularioMovimiento({
       setManuales({});
     }
     if (nuevo === 'traspaso' && destinoId === cuentaId) setValue('cuenta_destino_id', '');
-    // Método por defecto según el tipo (tarjeta en gastos; sin indicar en el resto), si no lo eligió el usuario.
-    if (!metodoTocado) setValue('metodo', nuevo === 'gasto' ? 'tarjeta' : '');
   };
 
   /**
@@ -285,7 +300,6 @@ export function FormularioMovimiento({
     setValue('categoria_id', g.categoria_id);
     if (cuentaUsable(cuentas.find((c) => c.id === g.cuenta_id))) {
       setValue('cuenta_id', g.cuenta_id);
-      setCuentaTocada(true);
     }
     if (getValues('importe').trim() === '') setValue('importe', importeParaEditar(g.pendiente, locale));
   };
@@ -306,7 +320,6 @@ export function FormularioMovimiento({
     const primero = nueva[0];
     if (!marcado && nueva.length === 1 && primero && cuentaUsable(cuentas.find((c) => c.id === primero.cuenta_id))) {
       setValue('cuenta_id', primero.cuenta_id);
-      setCuentaTocada(true);
     }
     if (getValues('importe').trim() === '' || importeAuto) {
       const suma = nueva.reduce((s, x) => s + aCentimos(x.pendiente), 0n);
@@ -410,9 +423,6 @@ export function FormularioMovimiento({
       // Una sola línea: el detalle de cada gasto ya está en «Reparto entre los gastos».
       <span className="text-texto">{t('form.gastosElegidos', { n: seleccion.length })}</span>
     );
-  // En un traspaso se ve el saldo de cada cuenta («BBVA · 98,32 €», de v_saldos).
-  const opcionCuenta = (c: Cuenta) =>
-    tipo === 'traspaso' && c.valor !== null ? `${nombreCuenta(c)} · ${formatearEuros(c.valor, locale)}` : nombreCuenta(c);
 
   return (
     <form onSubmit={(e) => void enviar(e)} noValidate className="flex flex-col gap-4">
@@ -567,16 +577,12 @@ export function FormularioMovimiento({
       <Select
         label={etiquetaCuenta}
         error={errors.cuenta_id?.message}
-        {...register('cuenta_id', {
-          onChange: () => {
-            setCuentaTocada(true);
-          },
-        })}
+        {...register('cuenta_id')}
       >
         <option value="">{t('form.elegirCuenta')}</option>
         {abiertas.map((c) => (
           <option key={c.id} value={c.id}>
-            {opcionCuenta(c)}
+            {nombreCuenta(c)}
           </option>
         ))}
       </Select>
@@ -586,33 +592,25 @@ export function FormularioMovimiento({
           <option value="">{t('form.elegirCuenta')}</option>
           {abiertas.map((c) => (
             <option key={c.id} value={c.id} disabled={c.id === cuentaId}>
-              {opcionCuenta(c)}
+              {nombreCuenta(c)}
             </option>
           ))}
         </Select>
       )}
 
-      {usaMetodo(tipo) && (
-        <Select
-          label={t('form.metodo')}
-          opcional={tipo !== 'gasto'}
-          error={errors.metodo?.message}
-          {...register('metodo', {
-            onChange: (e: { target: { value: string } }) => {
-              setMetodoTocado(true);
-              if (!cuentaTocada) {
-                setValue('cuenta_id', cuentaPorDefecto(cuentas, e.target.value as MetodoPago | ''));
-              }
-            },
-          })}
-        >
-          <option value="">{tipo === 'gasto' ? t('validacion.metodo') : t('form.sinMetodo')}</option>
-          {METODOS.map((m) => (
-            <option key={m} value={m}>
-              {t(`metodo.${m}`)}
-            </option>
-          ))}
-        </Select>
+      {opcionesMetodo.length > 0 && (
+        <SelectorMetodo
+          etiqueta={t('form.metodo')}
+          metodos={opcionesMetodo}
+          valor={metodo}
+          onChange={(m) => {
+            setMetodoTocado(true);
+            setValue('metodo', m, { shouldValidate: true });
+          }}
+        />
+      )}
+      {errors.metodo?.message !== undefined && (
+        <p className="text-xs font-medium text-negativo">{errors.metodo.message}</p>
       )}
 
       <div className="flex flex-col gap-2">

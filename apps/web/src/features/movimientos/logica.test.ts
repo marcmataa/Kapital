@@ -8,7 +8,14 @@ import { FILTROS_VACIOS, filtrosAParams, filtrosDesdeParams, type Filtros } from
 import { claveErrorAjuste, leerSaldoReal } from './lib/ajuste';
 import { agruparPorDia, eurosRedondos, importeConSigno, signoTotalTipo, tituloDia, tonoImporte } from './lib/presentacion';
 import { repartirDevolucion, repartoValido } from './lib/reparto';
-import { aPayload, crearEsquemaMovimiento, cuentaPorDefecto, ordenarPorUso, type ValoresMovimiento } from './schemas/movimiento';
+import {
+  aPayload,
+  crearEsquemaMovimiento,
+  cuentaPorDefecto,
+  metodoAutomatico,
+  metodosElegibles,
+  type ValoresMovimiento,
+} from './schemas/movimiento';
 import { CATEGORIAS, CUENTAS, ID, movimiento } from './test/datos';
 
 const t = (clave: ClaveDe<'movimientos'>, variables?: Variables) => traducir('es', 'movimientos', clave, variables);
@@ -356,11 +363,47 @@ describe('ajuste por saldo real', () => {
   });
 });
 
-describe('categorías por uso', () => {
-  it('ordena como categorias_mas_usadas; las que falten, al final en su orden', () => {
-    const lista = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
-    expect(ordenarPorUso(lista, ['c', 'a']).map((c) => c.id)).toEqual(['c', 'a', 'b', 'd']);
-    expect(ordenarPorUso(lista, undefined).map((c) => c.id)).toEqual(['a', 'b', 'c', 'd']);
+describe('método de pago según la cuenta (24/11/2026)', () => {
+  const banco = { tipo: 'banco' as const };
+  const efectivo = { tipo: 'efectivo' as const };
+
+  it('con la cuenta de efectivo siempre es efectivo y no se pregunta', () => {
+    for (const tipo of ['gasto', 'ingreso', 'devolucion'] as const) {
+      expect(metodoAutomatico({ tipo, cuenta: efectivo, claveCategoria: null })).toBe('efectivo');
+      expect(metodosElegibles({ tipo, cuenta: efectivo, claveCategoria: null })).toEqual([]);
+    }
+  });
+
+  it('gasto con banco: tarjeta por defecto; se puede cambiar, pero no a efectivo', () => {
+    expect(metodoAutomatico({ tipo: 'gasto', cuenta: banco, claveCategoria: null })).toBe('tarjeta');
+    expect(metodosElegibles({ tipo: 'gasto', cuenta: banco, claveCategoria: null })).toEqual([
+      'tarjeta',
+      'apple_pay',
+      'bizum',
+      'domiciliacion',
+      'transferencia',
+    ]);
+  });
+
+  it('la nómina no pregunta el método: es una transferencia', () => {
+    expect(metodoAutomatico({ tipo: 'ingreso', cuenta: banco, claveCategoria: 'nomina' })).toBe('transferencia');
+    expect(metodosElegibles({ tipo: 'ingreso', cuenta: banco, claveCategoria: 'nomina' })).toEqual([]);
+  });
+
+  it('otros ingresos, rendimientos y devoluciones: transferencia, Bizum o domiciliación', () => {
+    for (const [tipo, claveCategoria] of [
+      ['ingreso', 'otros_ingresos'],
+      ['ingreso', 'rendimientos'],
+      ['devolucion', null],
+    ] as const) {
+      expect(metodoAutomatico({ tipo, cuenta: banco, claveCategoria })).toBe('transferencia');
+      expect(metodosElegibles({ tipo, cuenta: banco, claveCategoria })).toEqual(['transferencia', 'bizum', 'domiciliacion']);
+    }
+  });
+
+  it('traspasos y ajustes no tienen método', () => {
+    expect(metodoAutomatico({ tipo: 'traspaso', cuenta: banco, claveCategoria: null })).toBe('');
+    expect(metodosElegibles({ tipo: 'ajuste', cuenta: banco, claveCategoria: null })).toEqual([]);
   });
 });
 

@@ -79,15 +79,6 @@ const esquemaComparativa = z.object({
 });
 export type Comparativa = z.infer<typeof esquemaComparativa>;
 
-const esquemaFueraBalance = z.object({
-  tipo: z.enum(['traspaso', 'ajuste']),
-  cuenta: z.string(),
-  cuenta_destino: z.string().nullable(),
-  sentido: z.enum(['suma', 'resta']).nullable(),
-  importe,
-});
-export type FilaFueraBalance = z.infer<typeof esquemaFueraBalance>;
-
 const esquemaRitmo = z.object({
   devoluciones: importe,
   gasto_medio_diario: importe,
@@ -225,18 +216,6 @@ export const estadisticasApi = api.injectEndpoints({
         ),
       providesTags: ['Resumen', 'Movimientos'],
     }),
-
-    /** Traspasos y ajustes del tramo: se muestran aparte, nunca en el balance. */
-    estadisticasFueraDelBalance: b.query<FilaFueraBalance[], Rango>({
-      queryFn: (r) =>
-        validar(
-          supabase
-            .rpc('fuera_del_balance', p(r))
-            .select('tipo, cuenta, cuenta_destino, sentido, importe::text'),
-          z.array(esquemaFueraBalance),
-        ),
-      providesTags: ['Resumen', 'Movimientos', 'Cuentas'],
-    }),
   }),
 });
 
@@ -249,5 +228,4 @@ export const {
   useEstadisticasIngresosPorCategoriaQuery,
   useEstadisticasComparativaQuery,
   useEstadisticasRitmoQuery,
-  useEstadisticasFueraDelBalanceQuery,
 } = estadisticasApi;

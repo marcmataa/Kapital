@@ -1,5 +1,6 @@
 import { api, ejecutar, aErrorApi } from '@/app/api';
 import { supabase } from '@/shared/lib/supabase';
+import { ordenarCuentas } from '@/shared/lib/cuentas';
 import type { Database } from '@db/database.types';
 
 /*
@@ -56,7 +57,7 @@ export function aNumeric(importe: string): number {
 
 export const catalogosApi = api.injectEndpoints({
   endpoints: (b) => ({
-    /** Cuentas abiertas y cerradas, con su valor de hoy. Ordenadas por `orden`. */
+    /** Cuentas abiertas y cerradas, con su valor de hoy. Principal, resto por creación y efectivo al final. */
     listarCuentas: b.query<Cuenta[], void>({
       queryFn: async () => {
         try {
@@ -72,7 +73,7 @@ export const catalogosApi = api.injectEndpoints({
           if (cuentas.error) return { error: aErrorApi(cuentas.error) };
           if (saldos.error) return { error: aErrorApi(saldos.error) };
           const valores = new Map(saldos.data.map((s) => [s.id, s.valor]));
-          return { data: cuentas.data.map((c) => ({ ...c, valor: valores.get(c.id) ?? null })) };
+          return { data: ordenarCuentas(cuentas.data.map((c) => ({ ...c, valor: valores.get(c.id) ?? null }))) };
         } catch (e) {
           return { error: aErrorApi(e) };
         }

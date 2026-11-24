@@ -28,6 +28,7 @@ import {
   type Filtros,
 } from '../lib/filtros';
 import { agruparPorDia, tituloDia } from '../lib/presentacion';
+import { recordarLista } from '../lib/rutaLista';
 import { esUuid } from '../lib/tipos';
 
 const ESPERA_BUSQUEDA_MS = 300;
@@ -48,6 +49,8 @@ export default function PaginaMovimientos() {
   const sel = params.get('sel');
   const seleccionado = esUuid(sel) ? sel : null;
   const catalogos = useCatalogos();
+  // El detalle y los formularios vuelven a esta lista con sus filtros.
+  useEffect(() => recordarLista(params), [params]);
 
   const lista = useMovimientosListarInfiniteQuery(consulta);
   const movimientos = useMemo(() => lista.data?.pages.flatMap((p) => p.filas) ?? [], [lista.data]);

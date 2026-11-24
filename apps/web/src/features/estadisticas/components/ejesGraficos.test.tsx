@@ -6,7 +6,8 @@ import { serieDiaria, type FilaDia } from '../lib/agregaciones';
 import { GraficoBalanceMeses } from './GraficoBalanceMeses';
 import { GraficoDiario } from './GraficoDiario';
 import { GraficoMeses } from './GraficoMeses';
-import { FilasComparadas } from './FilasComparadas';
+import { periodosComparacion } from '@/shared/lib/periodos';
+import { GastoPorCategoria } from './GastoPorCategoria';
 import { IngresosPorCategoria } from './IngresosPorCategoria';
 
 /*
@@ -112,26 +113,38 @@ describe('GraficoBalanceMeses · una barra de balance por mes', () => {
   });
 });
 
-describe('FilasComparadas · leyenda de las barras dobles', () => {
-  it('dice cuál es este mes y cuál el anterior (raya); el nombre entero, sin cortar; sin anterior no hay leyenda', () => {
-    const fila = { id: 'o', nombre: 'Ocio con un nombre muy largo de verdad', color: '#9b6bff', actual: '30.00', anterior: '20.00' };
-    const { unmount } = renderConApp(<FilasComparadas filas={[fila]} etiqueta="Categorías" etiquetaAnterior="antes" />);
-    expect(screen.getByTestId('leyenda-comparada')).toHaveTextContent('Este mesMes anterior');
-    expect(screen.getByText(fila.nombre)).not.toHaveClass('truncate');
-    expect(screen.getByTestId('marca-anterior')).toHaveStyle({ left: '66.66%' });
-    unmount();
-    renderConApp(<FilasComparadas filas={[{ ...fila, anterior: null }]} etiqueta="Categorías" etiquetaAnterior="antes" />);
-    expect(screen.queryByTestId('leyenda-comparada')).not.toBeInTheDocument();
+describe('GastoPorCategoria · barras de este mes y del anterior', () => {
+  const ocio = { categoria_id: 'o', nombre: 'Ocio con un nombre muy largo de verdad', color: '#9b6bff', gasto: '30.00' };
+  const noviembre = periodosComparacion('2026-11-01', '2026-11-24', '2026-01-01');
+
+  it('«Categorías: Nov vs Oct», leyenda de meses, importe grande con color y el anterior pequeño; sin orden ni Δ', () => {
+    renderConApp(<GastoPorCategoria categorias={[ocio]} anteriores={[{ ...ocio, gasto: '20.00' }]} periodos={noviembre} />);
+    expect(screen.getByText('Categorías: Nov vs Oct')).toBeInTheDocument();
+    expect(screen.getByTestId('leyenda-meses')).toHaveTextContent('Este mes · noviembreMes anterior · octubre');
+    expect(screen.getByText(ocio.nombre)).not.toHaveClass('truncate');
+    expect(screen.getByTestId('importe-actual')).toHaveTextContent('30,00 €');
+    expect(screen.getByTestId('importe-actual')).toHaveStyle({ color: '#9b6bff' });
+    expect(screen.getByTestId('importe-anterior')).toHaveTextContent('20,00 €');
+    expect(screen.queryByRole('radiogroup', { name: 'Ordenar por' })).not.toBeInTheDocument();
+  });
+
+  it('sin mes anterior: ni leyenda ni línea del anterior', () => {
+    const primero = periodosComparacion('2026-01-01', '2026-01-20', '2026-01-01');
+    renderConApp(<GastoPorCategoria categorias={[ocio]} anteriores={null} periodos={primero} />);
+    expect(screen.getByText('Categorías · Enero')).toBeInTheDocument();
+    expect(screen.queryByTestId('leyenda-meses')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('importe-anterior')).not.toBeInTheDocument();
   });
 });
 
 describe('IngresosPorCategoria · ayuda', () => {
   it('con barras, la ayuda es el icono (i); sin ingresos no hay icono', () => {
     const fila = { id: 'n', nombre: 'Nómina inventada', color: '#5fd3a0', importe: '100.00', porcentaje: '100.0000' };
-    const { unmount } = renderConApp(<IngresosPorCategoria ingresos={[fila]} />);
+    const periodos = periodosComparacion('2026-11-01', '2026-11-24', '2026-01-01');
+    const { unmount } = renderConApp(<IngresosPorCategoria ingresos={[fila]} anteriores={null} periodos={periodos} />);
     expect(screen.getByRole('button', { name: 'Cómo leer el gráfico' })).toBeInTheDocument();
     unmount();
-    renderConApp(<IngresosPorCategoria ingresos={[]} />);
+    renderConApp(<IngresosPorCategoria ingresos={[]} anteriores={null} periodos={periodos} />);
     expect(screen.queryByRole('button', { name: 'Cómo leer el gráfico' })).not.toBeInTheDocument();
   });
 });

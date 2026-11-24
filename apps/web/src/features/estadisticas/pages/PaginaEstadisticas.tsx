@@ -13,7 +13,6 @@ import { SelectorMes } from '@/features/inicio/components/SelectorMes';
 import { useMesSeleccionado } from '@/features/inicio/hooks/useMesSeleccionado';
 import {
   useEstadisticasComparativaQuery,
-  useEstadisticasFueraDelBalanceQuery,
   useEstadisticasGastoPorCategoriaQuery,
   useEstadisticasGastoPorMetodoQuery,
   useEstadisticasIngresosPorCategoriaQuery,
@@ -23,8 +22,7 @@ import {
   useEstadisticasRitmoQuery,
 } from '../api/estadisticasApi';
 import { CabeceraBalance } from '../components/CabeceraBalance';
-import { ComparativaMes, LineaPeriodo, useTituloComparativa } from '../components/ComparativaMes';
-import { DesgloseBalance } from '../components/DesgloseBalance';
+import { ComparativaMes, LineaPeriodo } from '../components/ComparativaMes';
 import { EstadoConsulta } from '../components/EstadoConsulta';
 import { GastoPorCategoria } from '../components/GastoPorCategoria';
 import { GraficoBalanceMeses, type ReferenciaEnCurso } from '../components/GraficoBalanceMeses';
@@ -67,7 +65,6 @@ export default function PaginaEstadisticas() {
   const periodos = periodosComparacion(mes, hoy, inicioDatos);
   const anterior = periodos.anterior;
   const nombreCategoria = useNombreCategoriaCatalogo();
-  const tituloCategorias = useTituloComparativa(periodos, 'categorias.titulo');
 
   const verGastos = pestana === 'gastos';
   const verIngresos = pestana === 'ingresos';
@@ -81,11 +78,9 @@ export default function PaginaEstadisticas() {
   const porDia = useEstadisticasMovimientosPorDiaQuery(si(verGastos || verIngresos, periodos.actual));
   const metodos = useEstadisticasGastoPorMetodoQuery(si(verGastos, periodos.actual));
   const categorias = useEstadisticasGastoPorCategoriaQuery(si(verGastos || verBalance, periodos.actual));
-  const categoriasAnt = useEstadisticasGastoPorCategoriaQuery(si((verGastos || verBalance) && anterior !== null, anterior ?? periodos.actual));
-  const ingresos = useEstadisticasIngresosPorCategoriaQuery(si(verIngresos || verBalance, periodos.actual));
-  const ingresosAnt = useEstadisticasIngresosPorCategoriaQuery(si(verBalance && anterior !== null, anterior ?? periodos.actual));
-  const fuera = useEstadisticasFueraDelBalanceQuery(si(verBalance, periodos.actual));
-  const fueraAnt = useEstadisticasFueraDelBalanceQuery(si(verBalance && anterior !== null, anterior ?? periodos.actual));
+  const categoriasAnt = useEstadisticasGastoPorCategoriaQuery(si(verGastos && anterior !== null, anterior ?? periodos.actual));
+  const ingresos = useEstadisticasIngresosPorCategoriaQuery(si(verIngresos, periodos.actual));
+  const ingresosAnt = useEstadisticasIngresosPorCategoriaQuery(si(verIngresos && anterior !== null, anterior ?? periodos.actual));
 
   const mesesGrafico = ultimosMeses(mes, MESES_GRAFICO, inicioDatos);
   const primerMes = mesesGrafico[0];
@@ -185,8 +180,7 @@ export default function PaginaEstadisticas() {
                   <GastoPorCategoria
                     categorias={cats}
                     anteriores={anterior === null ? null : (categoriasAnt.data ?? [])}
-                    titulo={tituloCategorias}
-                    periodo={periodos.actual}
+                    periodos={periodos}
                   />
                 )}
               </EstadoConsulta>
@@ -226,10 +220,17 @@ export default function PaginaEstadisticas() {
                 </EstadoConsulta>
               </div>
               <div className="flex flex-col gap-4">
-                <EstadoConsulta datos={ingresos.data} {...estado(ingresos)}>
+                <EstadoConsulta datos={todas(ingresos.data, ingresos, ingresosAnt)} {...estado(ingresos, ingresosAnt)}>
                   {(filas) => {
                     const reparto = repartirIngresos(filas);
-                    return reparto.length > 1 ? <IngresosPorCategoria key={mes} ingresos={reparto} /> : null;
+                    return reparto.length > 1 ? (
+                      <IngresosPorCategoria
+                        key={mes}
+                        ingresos={reparto}
+                        anteriores={anterior === null ? null : (ingresosAnt.data ?? [])}
+                        periodos={periodos}
+                      />
+                    ) : null;
                   }}
                 </EstadoConsulta>
                 <EstadoConsulta datos={primerMes === undefined ? [] : datosMeses} {...estado(resumenMensual)}>
@@ -293,24 +294,6 @@ export default function PaginaEstadisticas() {
                 )}
               </EstadoConsulta>
             </div>
-            {/* 3. El detalle por categoría, con su diferencia, y lo que no cuenta en el balance. */}
-            <EstadoConsulta
-              datos={todas(comparativa.data, comparativa, ingresos, ingresosAnt, categorias, categoriasAnt, fuera, fueraAnt)}
-              {...estado(comparativa, ingresos, ingresosAnt, categorias, categoriasAnt, fuera, fueraAnt)}
-            >
-              {(c) => (
-                <DesgloseBalance
-                  periodos={periodos}
-                  comparativa={c}
-                  ingresos={ingresos.data ?? []}
-                  ingresosAnterior={ingresosAnt.data ?? []}
-                  gastos={categorias.data ?? []}
-                  gastosAnterior={categoriasAnt.data ?? []}
-                  fuera={fuera.data ?? []}
-                  fueraAnterior={fueraAnt.data ?? []}
-                />
-              )}
-            </EstadoConsulta>
             {conInteranual && (
               <EstadoConsulta datos={todas(resumenAnio.data, resumen, resumenAnio)} {...estado(resumen, resumenAnio)}>
                 {(anio) =>

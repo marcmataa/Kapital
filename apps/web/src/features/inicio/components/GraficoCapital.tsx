@@ -59,7 +59,7 @@ function porDia(serie: readonly PuntoPatrimonio[], inicioMes: string): Map<numbe
 }
 
 export interface LecturaDia {
-  /** «15 oct» o «19 oct · hoy (provisional)». */
+  /** «15 oct» o «19 oct · hoy». */
   titulo: string;
   /** Importe formateado o «sin datos todavía». */
   valor: string;
@@ -70,8 +70,8 @@ export interface LecturaDia {
 /**
  * Patrimonio diario del mes mostrado (línea continua) frente al mes anterior (discontinua, sobre
  * sus propios días). Reglas, sección 7.
- * - Mes en curso: la línea termina hoy, con punto hueco provisional.
- * - Mes cerrado: la línea llega al último día del mes, cerrado (punto lleno, sin «provisional»).
+ * - Mes en curso: la línea termina hoy, con punto hueco (hoy también lleva su diferencia).
+ * - Mes cerrado: la línea llega al último día del mes, cerrado (punto lleno, sin «hoy»).
  * - El mes anterior se dibuja entero (sus propios días), pero a partir de hoy más tenue: no es
  *   una previsión del mes en curso.
  * - Debajo de la línea, un degradado suave que se desvanece: el eje no empieza en 0 y un relleno
@@ -89,7 +89,7 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
 
   const inicioActual = inicioDeMes(mes ?? hoy);
   const enCurso = inicioActual === inicioDeMes(hoy);
-  // Fecha de referencia: hoy (provisional) o el último día del mes cerrado.
+  // Fecha de referencia: hoy o el último día del mes cerrado.
   const referencia = enCurso ? hoy : finDeMes(inicioActual);
   const refP = partesDe(referencia);
   const inicioAnterior = sumarMeses(inicioActual, -1);
@@ -132,8 +132,6 @@ export function GraficoCapital({ hoy, mes, actual, anterior, className }: Props)
     if (valorAnt === undefined) {
       return { titulo, valor: formatearEuros(valor, locale), comparacion: t('grafico.lectura.sinAnterior') };
     }
-    // El día de referencia ya lleva su comparación en la tarjeta de patrimonio: no se repite.
-    if (fecha === referencia) return { titulo, valor: formatearEuros(valor, locale), comparacion: '' };
     const diferencia = formatearEuros(restarImportes(valor, valorAnt), locale, { signo: 'siempre' });
     // Una sola comparación, en palabras: la diferencia frente al mismo día del mes anterior (d',
     // sección 7), que ya se ve en la línea discontinua. % solo si patrimonio(d') > 0.

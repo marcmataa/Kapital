@@ -1,10 +1,10 @@
-import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import { ArrowLeftRight, Receipt, Scale, Undo2, Wallet } from 'lucide-react';
 import type { Categoria } from '@/shared/api/catalogos';
 import { useNombreCategoria } from '@/shared/hooks/useNombreCategoria';
 import { useT } from '@/shared/i18n';
 import { cx } from '@/shared/lib/cx';
-import { TIPOS, type TipoMovimiento } from '../lib/tipos';
+import { TIPOS, type MetodoPago, type TipoMovimiento } from '../lib/tipos';
 
 /** Flechas ←/→ (y ↑/↓) mueven la selección en un radiogroup; solo la opción activa es tabulable. */
 export function useRoving(total: number, elegir: (i: number) => void) {
@@ -21,7 +21,7 @@ export function useRoving(total: number, elegir: (i: number) => void) {
   const registrar = (i: number) => (el: HTMLButtonElement | null) => {
     refs.current[i] = el;
   };
-  return { mover, registrar };
+  return { mover, registrar, refs };
 }
 
 const ICONO_TIPO: Record<TipoMovimiento, typeof Receipt> = {
@@ -101,17 +101,26 @@ interface PropsCategoria {
 
 const COLOR_HEX = /^#[0-9a-f]{6}$/i;
 
-/** Cuadrícula de chips de categoría con su icono (radiogroup). El orden lo decide quien la usa. */
+/**
+ * Deslizador horizontal de chips de categoría con su icono (radiogroup), en el orden de
+ * Configuración (lo decide quien la usa). La elegida (o la sugerida) se desplaza a la vista.
+ */
 export function SelectorCategoria({ etiqueta, categorias, valor, onChange, sugerida = null, error, ayuda }: PropsCategoria) {
   const t = useT('movimientos');
   const nombre = useNombreCategoria();
   const id = useId();
   const idError = `${id}-error`;
   const idAyuda = `${id}-ayuda`;
-  const { mover, registrar } = useRoving(categorias.length, (i) => {
+  const { mover, registrar, refs } = useRoving(categorias.length, (i) => {
     const c = categorias[i];
     if (c) onChange(c.id);
   });
+  const indiceElegida = categorias.findIndex((c) => c.id === valor);
+  useEffect(() => {
+    if (indiceElegida < 0) return;
+    // scrollIntoView no existe en jsdom; en el navegador, solo se mueve el deslizador.
+    refs.current[indiceElegida]?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [indiceElegida, refs]);
   // Si no hay ninguna elegida, la primera es la que recibe el foco con Tab.
   const tabulable = categorias.some((c) => c.id === valor) ? valor : categorias[0]?.id;
   const describe = [ayuda !== undefined ? idAyuda : null, error ? idError : null].filter(Boolean).join(' ');
@@ -126,7 +135,7 @@ export function SelectorCategoria({ etiqueta, categorias, valor, onChange, suger
         aria-labelledby={`${id}-etiqueta`}
         aria-describedby={describe || undefined}
         aria-invalid={error ? true : undefined}
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+        className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:scroll-px-0 sm:px-0"
       >
         {categorias.map((c, i) => {
           const activa = c.id === valor;
@@ -142,7 +151,7 @@ export function SelectorCategoria({ etiqueta, categorias, valor, onChange, suger
               onClick={() => onChange(c.id)}
               onKeyDown={(e) => mover(e, i)}
               className={cx(
-                'flex min-h-11 min-w-0 items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-sm transition-colors',
+                'flex min-h-11 max-w-[11rem] shrink-0 snap-start items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-sm whitespace-nowrap transition-colors',
                 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento',
                 activa
                   ? 'border-acento bg-acento-suave font-semibold text-texto'
@@ -182,6 +191,61 @@ export function SelectorCategoria({ etiqueta, categorias, valor, onChange, suger
           {error}
         </p>
       )}
+    </div>
+  );
+}
+
+interface PropsMetodo {
+  etiqueta: string;
+  metodos: readonly MetodoPago[];
+  valor: MetodoPago | '';
+  onChange: (metodo: MetodoPago) => void;
+}
+
+/** Fila de chips con los métodos que tienen sentido para la cuenta y el tipo (radiogroup). */
+export function SelectorMetodo({ etiqueta, metodos, valor, onChange }: PropsMetodo) {
+  const t = useT('movimientos');
+  const id = useId();
+  const { mover, registrar } = useRoving(metodos.length, (i) => {
+    const m = metodos[i];
+    if (m) onChange(m);
+  });
+  const tabulable = metodos.includes(valor as MetodoPago) ? valor : metodos[0];
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span id={`${id}-etiqueta`} className="text-sm font-medium text-texto">
+        {etiqueta}
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby={`${id}-etiqueta`}
+        className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-0.5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0"
+      >
+        {metodos.map((m, i) => {
+          const activo = m === valor;
+          return (
+            <button
+              key={m}
+              ref={registrar(i)}
+              type="button"
+              role="radio"
+              aria-checked={activo}
+              tabIndex={m === tabulable ? 0 : -1}
+              onClick={() => onChange(m)}
+              onKeyDown={(e) => mover(e, i)}
+              className={cx(
+                'shrink-0 rounded-full border px-3.5 py-1.5 text-sm whitespace-nowrap transition-colors',
+                'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-acento',
+                activo
+                  ? 'border-acento bg-acento-suave font-semibold text-texto'
+                  : 'border-borde-input text-texto hover:bg-superficie-2',
+              )}
+            >
+              {t(`metodo.${m}`)}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

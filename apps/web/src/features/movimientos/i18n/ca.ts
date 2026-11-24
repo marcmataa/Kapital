@@ -117,7 +117,6 @@ export default {
   'form.hacia': 'Cap a (un altre compte teu, diferent)',
   'form.cuentaAjuste': 'Compte a corregir',
   'form.metodo': 'Mètode de pagament',
-  'form.sinMetodo': 'Sense indicar',
   'form.gastoOriginal': 'Despesa original',
   'form.gastoOriginalAyuda': 'Tria la compra que et retornen. La devolució té sempre la seva categoria.',
   'form.gastoElegido': 'Vinculada a',

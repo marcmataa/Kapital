@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  diferenciaFila,
   emparejar,
   fraccionEntre,
   porcentajeDe,
@@ -203,7 +202,7 @@ describe('dibujo', () => {
   });
 });
 
-describe('emparejar · orden por variación (columna Δ)', () => {
+describe('emparejar · orden', () => {
   const actual = [
     { id: 'a', nombre: 'A', importe: '350.00' },
     { id: 'b', nombre: 'B', importe: '100.00' },
@@ -214,18 +213,8 @@ describe('emparejar · orden por variación (columna Δ)', () => {
     { id: 'c', nombre: 'C', importe: '80.00' },
   ];
 
-  it('por importe: de mayor a menor importe actual (por defecto)', () => {
+  it('de mayor a menor importe actual; las que solo estaban el mes anterior, al final', () => {
     expect(emparejar(actual, anterior, true).map((f) => f.id)).toEqual(['a', 'b', 'c']);
-  });
-
-  it('por variación: de mayor a menor |Δ|, con la diferencia exacta en céntimos', () => {
-    const filas = emparejar(actual, anterior, true, 'variacion');
-    expect(filas.map((f) => f.id)).toEqual(['b', 'c', 'a']);
-    expect(filas.map(diferenciaFila)).toEqual([-10000n, -8000n, 5000n]);
-  });
-
-  it('sin periodo anterior no hay diferencia', () => {
-    expect(emparejar(actual, [], false, 'variacion').map(diferenciaFila)).toEqual([null, null]);
   });
 });
 
