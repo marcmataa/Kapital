@@ -215,18 +215,6 @@ export const sqlApi = api.injectEndpoints({
       providesTags: ['Movimientos'],
     }),
 
-    /** Ids de las categorías de un tipo, las más usadas primero. */
-    movimientosCategoriasUsadas: b.query<string[], 'gasto' | 'ingreso'>({
-      queryFn: (tipo) =>
-        capturar(async () => {
-          const r = await filas<{ categoria_id: string }>(
-            supabase.rpc('categorias_mas_usadas', { p_tipo: tipo }).select('categoria_id'),
-          );
-          return 'error' in r ? r : { data: r.data.map((f) => f.categoria_id) };
-        }),
-      providesTags: ['Movimientos', 'Categorias'],
-    }),
-
     /**
      * Gastos con algo por devolver, para el «Gasto original» de una devolución
      * (buscar_gastos_devolvibles, migración 20261102000001): sugerencias, recientes y buscador.
@@ -338,7 +326,6 @@ export const {
   useMovimientosSubtotalesDiaQuery,
   useMovimientosResumenFiltroQuery,
   useMovimientosSugerirCategoriaQuery,
-  useMovimientosCategoriasUsadasQuery,
   useMovimientosGastosDevolviblesQuery,
   useMovimientosPendientesRevisionQuery,
   useMovimientosRegistrarDevolucionesMutation,

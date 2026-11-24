@@ -73,27 +73,15 @@ export interface FilaComparada {
   anterior: string | null;
 }
 
-/** Cómo se ordenan las filas comparadas: por importe actual o por lo que más ha cambiado. */
-export type OrdenFilas = 'importe' | 'variacion';
-
-/** Actual − Anterior en céntimos; null si no hay periodo anterior. */
-export function diferenciaFila(f: Pick<FilaComparada, 'actual' | 'anterior'>): bigint | null {
-  return f.anterior === null ? null : aCentimos(f.actual) - aCentimos(f.anterior);
-}
-
-const absoluto = (c: bigint) => (c < 0n ? -c : c);
-
 /**
  * Empareja por id las filas del periodo actual y del anterior (las que solo están en uno salen
- * con 0,00 € en el otro). Orden 'importe' (por defecto): de mayor a menor importe actual.
- * Orden 'variacion': de mayor a menor diferencia en valor absoluto (lo que más explica el cambio
- * arriba). `hayAnterior` = false deja `anterior` a null en todas.
+ * con 0,00 € en el otro), de mayor a menor importe actual. `hayAnterior` = false deja
+ * `anterior` a null en todas.
  */
 export function emparejar(
   actual: readonly { id: string; nombre: string; color?: string; importe: string }[],
   anterior: readonly { id: string; nombre: string; color?: string; importe: string }[],
   hayAnterior: boolean,
-  orden: OrdenFilas = 'importe',
 ): FilaComparada[] {
   const previas = new Map(anterior.map((f) => [f.id, f]));
   const filas: FilaComparada[] = actual.map((f) => ({
@@ -111,14 +99,10 @@ export function emparejar(
       }
     }
   }
-  const porImporte = (a: FilaComparada, b: FilaComparada) =>
-    compararImportes(b.actual, a.actual) || compararImportes(b.anterior ?? '0', a.anterior ?? '0') || a.nombre.localeCompare(b.nombre);
-  const porVariacion = (a: FilaComparada, b: FilaComparada) => {
-    const da = absoluto(diferenciaFila(a) ?? 0n);
-    const db = absoluto(diferenciaFila(b) ?? 0n);
-    return da === db ? porImporte(a, b) : db > da ? 1 : -1;
-  };
-  return filas.sort(orden === 'variacion' && hayAnterior ? porVariacion : porImporte);
+  return filas.sort(
+    (a, b) =>
+      compararImportes(b.actual, a.actual) || compararImportes(b.anterior ?? '0', a.anterior ?? '0') || a.nombre.localeCompare(b.nombre),
+  );
 }
 
 /**

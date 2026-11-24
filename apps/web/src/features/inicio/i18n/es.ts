@@ -32,14 +32,14 @@ export default {
   'grafico.alternativa':
     'Patrimonio diario de {mesActual} hasta hoy ({valorHoy}) comparado con {mesAnterior}. Usa el control del gráfico para recorrer cada día.',
   'grafico.ayuda':
-    'El punto hueco es hoy: provisional hasta las 23:59.',
+    'El punto hueco es hoy.',
   'grafico.vacio': 'Todavía no hay datos de patrimonio este mes.',
   'grafico.alternativaCerrado':
     'Patrimonio diario de {mesActual} hasta el {fecha} ({valorHoy}) comparado con {mesAnterior}. Usa el control del gráfico para recorrer cada día.',
   'grafico.ayudaCerrado':
     'El último punto es el cierre del mes.',
   'grafico.vacioCerrado': 'No hay datos de patrimonio de ese mes.',
-  'grafico.lectura.hoy': '{fecha} · hoy (provisional)',
+  'grafico.lectura.hoy': '{fecha} · hoy',
   'grafico.lectura.comparacion': '{diferencia} ({porcentaje}) frente a {mes}',
   'grafico.lectura.comparacionSinPorcentaje': '{diferencia} frente a {mes}',
   'grafico.lectura.sinAnterior': 'Sin datos del mes anterior',

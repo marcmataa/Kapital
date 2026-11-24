@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, RotateCw } from 'lucide-react';
 import { useT } from '@/shared/i18n';
 
 /** Pone «<titulo> · Kapital» como título de la pestaña. */
@@ -23,7 +23,26 @@ interface Props {
   tituloDocumento?: string;
 }
 
-/** Cabecera estándar de página: h1 + descripción + acciones. También fija document.title. */
+/**
+ * Recarga la página entera (datos y versión de la app). En la PWA instalada no hay barra del
+ * navegador ni «tirar para recargar», así que cada página lleva el suyo.
+ */
+export function BotonRecargar() {
+  const t = useT('common');
+  return (
+    <button
+      type="button"
+      aria-label={t('accion.recargar')}
+      title={t('accion.recargar')}
+      onClick={() => window.location.reload()}
+      className="inline-flex size-11 shrink-0 items-center justify-center rounded-2xl border border-borde bg-superficie text-apagado transition-colors hover:bg-superficie-2 hover:text-texto focus-visible:outline-2 focus-visible:outline-acento"
+    >
+      <RotateCw aria-hidden="true" className="size-4" />
+    </button>
+  );
+}
+
+/** Cabecera estándar de página: h1 + descripción + acciones (y siempre «Recargar»). También fija document.title. */
 export function CabeceraPagina({ titulo, descripcion, acciones, volverA, tituloDocumento }: Props) {
   const t = useT('common');
   useTituloDocumento(tituloDocumento ?? titulo);
@@ -45,9 +64,10 @@ export function CabeceraPagina({ titulo, descripcion, acciones, volverA, tituloD
         </div>
       </div>
       {/* Acciones (selector de mes, filtros…): junto al título si caben; si no, debajo, sin ocupar todo el ancho. */}
-      {acciones !== undefined && (
-        <div className="flex items-center gap-2 sm:justify-end">{acciones}</div>
-      )}
+      <div className="flex items-center gap-2 sm:justify-end">
+        {acciones}
+        <BotonRecargar />
+      </div>
     </header>
   );
 }

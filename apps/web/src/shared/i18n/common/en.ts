@@ -21,6 +21,7 @@ export default {
   'accion.cancelar': 'Cancel',
   'accion.cerrar': 'Close',
   'accion.volver': 'Back',
+  'accion.recargar': 'Reload',
   'accion.reintentar': 'Try again',
   'accion.continuar': 'Continue',
   'accion.eliminar': 'Delete',

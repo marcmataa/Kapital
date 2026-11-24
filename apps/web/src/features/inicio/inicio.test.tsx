@@ -568,18 +568,18 @@ describe('PaginaInicio · patrimonio por cuenta', () => {
     { id: 'c5', valor: null },
   ];
 
-  it('mes en curso: cada cuenta con su valor de hoy, principal primero y luego por orden', async () => {
+  it('mes en curso: cada cuenta con su valor de hoy, principal primero, luego por orden y el efectivo al final', async () => {
     escenario({ cuentas: CUENTAS, saldos: SALDOS });
     pintar();
     const lista = await screen.findByRole('list', { name: 'Patrimonio por cuenta' });
     expect(lista.closest('article')).toHaveTextContent('Patrimonio a 19/10/2026');
     const filas = within(lista).getAllByRole('listitem');
-    const nombres = ['Banco Uno', 'Bróker Prueba', 'Efectivo', 'Tarjeta Prueba'];
+    const nombres = ['Banco Uno', 'Bróker Prueba', 'Tarjeta Prueba', 'Efectivo'];
     expect(filas).toHaveLength(nombres.length);
     nombres.forEach((nombre, i) => expect(within(filas[i] as HTMLElement).getByText(nombre)).toBeInTheDocument());
     expect(filas[0]).toHaveTextContent(/1\.200,50\s€/);
     // El pasivo se muestra con su signo.
-    expect(within(filas[3] as HTMLElement).getByText(/^-250,40\s€$/)).toHaveClass('text-negativo');
+    expect(within(filas[2] as HTMLElement).getByText(/^-250,40\s€$/)).toHaveClass('text-negativo');
     // Ni la que aún no existe ni la cerrada.
     expect(within(lista).queryByText('Banco Futuro')).not.toBeInTheDocument();
     expect(within(lista).queryByText('Banco Cerrado')).not.toBeInTheDocument();
@@ -613,7 +613,7 @@ describe('PaginaInicio · patrimonio por cuenta', () => {
     expect(filas).toHaveLength(4);
     expect(filas[0]).toHaveTextContent('Banco Uno');
     expect(filas[0]).toHaveTextContent(/980,25\s€/);
-    expect(within(filas[3] as HTMLElement).getByText(/^-120,00\s€$/)).toHaveClass('text-negativo');
+    expect(within(filas[2] as HTMLElement).getByText(/^-120,00\s€$/)).toHaveClass('text-negativo');
     expect(within(tarjeta).queryByText(/1\.200,50/)).not.toBeInTheDocument();
     expect(within(lista).queryByText('Banco Futuro')).not.toBeInTheDocument();
     expect(within(lista).queryByText('Banco Cerrado')).not.toBeInTheDocument();

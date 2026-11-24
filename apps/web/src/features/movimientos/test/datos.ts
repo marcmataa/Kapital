@@ -56,7 +56,7 @@ function categoria(c: Pick<Categoria, 'id' | 'nombre' | 'tipo'> & Partial<Catego
 export const CATEGORIAS: Categoria[] = [
   categoria({ id: ID.ocio, nombre: 'Ocio', tipo: 'gasto', icono: '🎉' }),
   categoria({ id: ID.restaurantes, nombre: 'Restaurantes', tipo: 'gasto', color: '#ff8a3d' }),
-  categoria({ id: ID.nomina, nombre: 'Nómina', tipo: 'ingreso', color: '#5fd3a0' }),
+  categoria({ id: ID.nomina, nombre: 'Nómina', tipo: 'ingreso', color: '#5fd3a0', clave: 'nomina' }),
 ];
 
 export function movimiento(m: Partial<Movimiento> & Pick<Movimiento, 'id'>): Movimiento {

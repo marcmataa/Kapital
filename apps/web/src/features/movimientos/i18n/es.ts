@@ -123,7 +123,6 @@ export default {
   'form.hacia': 'Hacia (otra cuenta tuya, distinta)',
   'form.cuentaAjuste': 'Cuenta a corregir',
   'form.metodo': 'Método de pago',
-  'form.sinMetodo': 'Sin indicar',
   'form.gastoOriginal': 'Gasto original',
   'form.gastoOriginalAyuda': 'Elige la compra que te devuelven. La devolución tiene siempre su categoría.',
   'form.gastoElegido': 'Vinculada a',

@@ -290,11 +290,14 @@ describe('Estadísticas: gastos', () => {
       ],
     });
     montar();
-    expect(await screen.findByText('Categorías de octubre')).toBeInTheDocument();
+    expect(await screen.findByText('Categorías: Oct vs Sept')).toBeInTheDocument();
+    expect(screen.getByTestId('leyenda-meses')).toHaveTextContent('Este mes · octubreMes anterior · septiembre');
+    expect(screen.queryByRole('radiogroup', { name: 'Ordenar por' })).not.toBeInTheDocument();
     const lista = await screen.findByRole('list', { name: 'Gasto neto por categoría' });
     const ocio = within(lista).getByText('Ocio').closest('li') as HTMLElement;
     expect(normal(ocio.textContent)).toContain('40,00 €');
-    expect(normal(ocio.textContent)).toContain('antes 25,00 €');
+    expect(normal(ocio.textContent)).toContain('mes anterior 25,00 €');
+    expect(screen.queryByTestId('diferencia-fila')).not.toBeInTheDocument();
     // Cada categoría abre sus movimientos del tramo (F08).
     expect(within(ocio).getByRole('link', { name: /Ocio/ })).toHaveAttribute('href', '/movimientos?categoria=ocio&desde=2026-10-01&hasta=2026-10-19');
     expect(within(lista).queryByText('Otros gastos')).not.toBeInTheDocument();
@@ -390,7 +393,14 @@ describe('Estadísticas: ingresos', () => {
     expect(screen.queryByText('Devolución inventada')).not.toBeInTheDocument();
     expect(screen.queryByTestId('devoluciones-mes')).not.toBeInTheDocument();
     const lista = await screen.findByRole('list', { name: 'Ingresos por categoría' });
-    expect(within(lista).getByText('1.258,00 € · 83,4 %')).toBeInTheDocument();
+    // Las filas, como en gastos y sin %; el % del total sigue en la lectura de arriba.
+    expect(normal(lista.textContent)).not.toContain('%');
+    expect(within(lista).getAllByTestId('importe-actual').map((e) => normal(e.textContent))).toEqual(['1.258,00 €', '250,00 €']);
+    expect(normal(screen.getByTestId('lectura-barras').textContent)).toBe('Nómina · 1.258,00 €83,4 % del total');
+    // El mes anterior (1–19 sept) se pide para la línea fina.
+    expect(llamadas('ingresos_por_categoria')).toContainEqual(
+      expect.objectContaining({ args: { p_desde: '2026-09-01', p_hasta: '2026-09-19' } }),
+    );
     expect(columnas(llamadas('ingresos_por_categoria')[0] as Llamada)).toBe('categoria_id, nombre, color, ingreso::text');
   });
 });
@@ -402,13 +412,6 @@ describe('Estadísticas: balance', () => {
       { mes: '2026-09-01', ...SEPTIEMBRE },
       { mes: '2026-10-01', ...CEROS, gastos: '50.00', gastos_netos: '50.00', balance: '-50.00' },
     ],
-    fuera_del_balance: (a) =>
-      a.p_desde === '2026-10-01'
-        ? [
-            { tipo: 'traspaso', cuenta: 'BBVA', cuenta_destino: 'Trade Republic', sentido: null, importe: '100.00' },
-            { tipo: 'ajuste', cuenta: 'BBVA', cuenta_destino: null, sentido: 'suma', importe: '7.50' },
-          ]
-        : [],
   };
 
   it('últimos 6 meses con ahorro «—» sin ingresos; sin variación patrimonial ni «Cómo pagas»', async () => {
@@ -428,23 +431,15 @@ describe('Estadísticas: balance', () => {
     );
   });
 
-  it('desglose al día 19 con balance (sección 11) y traspasos/ajustes aparte, fuera del balance', async () => {
+  it('sin «Desglose del mes» (24/11/2026): ni la tarjeta ni sus consultas', async () => {
     servir(BALANCE);
     montar();
     await userEvent.click(await screen.findByRole('radio', { name: 'Balance' }));
-    expect(await screen.findByText('Desglose de octubre')).toBeInTheDocument();
-    const balance = await screen.findByTestId('fila-balance');
-    expect(within(balance).getByText('+339,72 €')).toHaveClass('text-positivo');
-    // La variación vive en la cabecera; la fila del desglose solo cierra la cuenta.
-    expect(normal(balance.textContent)).not.toContain('%');
-    const fuera = screen.getByTestId('fuera-del-balance');
-    expect(within(fuera).getByText('Traspaso BBVA → Trade Republic').closest('li')).toHaveTextContent('100,00 €');
-    expect(within(fuera).getByText('Ajuste BBVA (suma)').closest('li')).toHaveTextContent('+7,50 €');
-    // El balance mostrado es el de SQL: el grupo B no se le suma.
-    expect(within(balance).queryByText('+447,22 €')).not.toBeInTheDocument();
-    for (const nombre of ['fuera_del_balance', 'gasto_por_categoria', 'ingresos_por_categoria']) {
-      expect(llamadas(nombre)).toContainEqual(expect.objectContaining({ args: { p_desde: '2026-09-01', p_hasta: '2026-09-19' } }));
-    }
+    expect(await screen.findByTestId('cabecera-balance')).toBeInTheDocument();
+    expect(screen.queryByText(/^Desglose de/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('fuera-del-balance')).not.toBeInTheDocument();
+    expect(llamadas('fuera_del_balance')).toHaveLength(0);
+    expect(llamadas('ingresos_por_categoria')).toHaveLength(0);
   });
 
   it('cabecera: balance, diferencia en euros al mismo día del mes anterior y tasa de ahorro de SQL', async () => {
@@ -564,7 +559,7 @@ describe('Estadísticas: balance', () => {
     montar();
     await elegirMes('Septiembre de 2026');
     await userEvent.click(screen.getByRole('radio', { name: 'Balance' }));
-    expect(await screen.findByText('Desglose de septiembre')).toBeInTheDocument();
+    expect(await screen.findByTestId('cabecera-balance')).toBeInTheDocument();
     expect(screen.queryByText(/agosto/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/Sin datos del mes anterior/)).toHaveLength(1);
     expect(screen.getByTestId('periodo-comparado')).toHaveTextContent('Sin datos del mes anterior para comparar.');
@@ -587,10 +582,7 @@ describe('Estadísticas: balance', () => {
     montar();
     await elegirMes('Septiembre de 2026');
     await userEvent.click(screen.getByRole('radio', { name: 'Balance' }));
-    expect(await screen.findByText('Desglose de septiembre')).toBeInTheDocument();
+    expect(await screen.findByTestId('cabecera-balance')).toBeInTheDocument();
     expect(screen.getByTestId('periodo-comparado')).toHaveTextContent('Comparado con el mes pasado completo (agosto).');
-    expect(llamadas('fuera_del_balance')).toContainEqual(
-      expect.objectContaining({ args: { p_desde: '2026-08-01', p_hasta: '2026-08-31' } }),
-    );
   });
 });

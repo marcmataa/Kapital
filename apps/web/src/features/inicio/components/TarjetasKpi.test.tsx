@@ -209,7 +209,8 @@ describe('TarjetasKpi · desglose por cuenta', () => {
       />,
     );
     const lista = screen.getByRole('list', { name: 'Patrimonio por cuenta' });
-    const [efectivo, tarjetaCredito] = within(lista).getAllByRole('listitem');
+    // El efectivo va siempre al final.
+    const [tarjetaCredito, efectivo] = within(lista).getAllByRole('listitem');
     expect(efectivo).toHaveTextContent('💵');
     expect(within(efectivo as HTMLElement).getByText(/^45,00\s€$/)).toHaveClass('text-texto');
     expect(within(tarjetaCredito as HTMLElement).getByText(/^-250,40\s€$/)).toHaveClass('text-negativo');

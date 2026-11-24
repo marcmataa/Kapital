@@ -25,7 +25,7 @@ interface Props {
  * Título de una tarjeta del mes: «Resumen de octubre», «Categorías de octubre»… El periodo con el
  * que se compara se dice una sola vez por pantalla (`LineaPeriodo`), no en cada título.
  */
-export function useTituloComparativa(periodos: PeriodosComparacion, clave: 'comparativa.titulo' | 'desglose.titulo' | 'categorias.titulo') {
+export function useTituloComparativa(periodos: PeriodosComparacion, clave: 'comparativa.titulo') {
   const t = useT('estadisticas');
   const { idioma } = useIdioma();
   return t(clave, { mes: mesDesde(periodos.actual.desde, LOCALE_DE[idioma]) });

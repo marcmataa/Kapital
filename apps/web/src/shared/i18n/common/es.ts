@@ -20,6 +20,7 @@ export default {
   'accion.cancelar': 'Cancelar',
   'accion.cerrar': 'Cerrar',
   'accion.volver': 'Volver',
+  'accion.recargar': 'Recargar',
   'accion.reintentar': 'Reintentar',
   'accion.continuar': 'Continuar',
   'accion.eliminar': 'Eliminar',

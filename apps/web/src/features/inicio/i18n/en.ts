@@ -33,14 +33,14 @@ export default {
   'grafico.alternativa':
     'Daily net worth for {mesActual} up to today ({valorHoy}) compared with {mesAnterior}. Use the chart control to go through each day.',
   'grafico.ayuda':
-    'The hollow dot is today: provisional until 23:59.',
+    'The hollow dot is today.',
   'grafico.vacio': 'There is no net worth data this month yet.',
   'grafico.alternativaCerrado':
     'Daily net worth for {mesActual} up to {fecha} ({valorHoy}) compared with {mesAnterior}. Use the chart control to go through each day.',
   'grafico.ayudaCerrado':
     'The last dot is the month-end close.',
   'grafico.vacioCerrado': 'There is no net worth data for that month.',
-  'grafico.lectura.hoy': '{fecha} · today (provisional)',
+  'grafico.lectura.hoy': '{fecha} · today',
   'grafico.lectura.comparacion': '{diferencia} ({porcentaje}) compared with {mes}',
   'grafico.lectura.comparacionSinPorcentaje': '{diferencia} compared with {mes}',
   'grafico.lectura.sinAnterior': 'No data for the previous month',

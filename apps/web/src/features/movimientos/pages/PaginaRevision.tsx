@@ -8,6 +8,7 @@ import { formatearFecha } from '@/shared/lib/fechas';
 import { Button, Card, EmptyState, PantallaCarga, clasesBoton } from '@/shared/ui';
 import { useMovimientosPendientesRevisionQuery, type DevolucionPendiente } from '../api/sqlApi';
 import { useCatalogos } from '../hooks/useCatalogos';
+import { rutaLista } from '../lib/rutaLista';
 
 /**
  * Devoluciones pendientes de revisión (reglas, sección 3): las antiguas sin gasto original y las
@@ -80,7 +81,7 @@ export default function PaginaRevision() {
 
   return (
     <div className="flex flex-col gap-4">
-      <CabeceraPagina titulo={t('revision.titulo')} descripcion={t('revision.descripcion')} volverA="/movimientos" />
+      <CabeceraPagina titulo={t('revision.titulo')} descripcion={t('revision.descripcion')} volverA={rutaLista()} />
       {contenido}
     </div>
   );

@@ -577,22 +577,39 @@ describe('Formulario', () => {
     expect(llamadasMovimientos('insert')).toHaveLength(0);
   });
 
-  it('elegir efectivo como método cambia la cuenta a Efectivo', async () => {
+  it('método según la cuenta: banco → Tarjeta (se puede cambiar, sin Efectivo); efectivo → sin preguntar', async () => {
     responderCon([]);
     renderRuta('/movimientos/nuevo');
-    await userEvent.selectOptions(await screen.findByLabelText('Método de pago'), 'efectivo');
-    expect(screen.getByLabelText('Sale de')).toHaveValue(ID.efectivo);
+    const metodo = await screen.findByRole('radiogroup', { name: 'Método de pago' });
+    expect(within(metodo).getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      'Tarjeta',
+      'Apple Pay',
+      'Bizum',
+      'Domiciliación',
+      'Transferencia',
+    ]);
+    expect(within(metodo).getByRole('radio', { name: 'Tarjeta' })).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(within(metodo).getByRole('radio', { name: 'Domiciliación' }));
+    expect(within(metodo).getByRole('radio', { name: 'Domiciliación' })).toHaveAttribute('aria-checked', 'true');
+    await userEvent.selectOptions(screen.getByLabelText('Sale de'), ID.efectivo);
+    expect(screen.queryByRole('radiogroup', { name: 'Método de pago' })).not.toBeInTheDocument();
+    // Al volver a un banco, vuelve el de por defecto (Tarjeta).
+    await userEvent.selectOptions(screen.getByLabelText('Sale de'), ID.caixa);
+    expect(
+      within(await screen.findByRole('radiogroup', { name: 'Método de pago' })).getByRole('radio', { name: 'Tarjeta' }),
+    ).toHaveAttribute('aria-checked', 'true');
     // las cuentas cerradas no se ofrecen
     expect(within(screen.getByLabelText('Sale de')).queryByRole('option', { name: 'Banco Viejo' })).not.toBeInTheDocument();
   });
 
-  it('ingreso: la cuenta es la de destino («Entra en») y va en cuenta_id', async () => {
+  it('ingreso: la cuenta es la de destino («Entra en»); la nómina no pregunta el método (transferencia)', async () => {
     responderCon([], respuestaInsert);
     renderRuta('/movimientos/nuevo');
     await userEvent.click(await screen.findByRole('radio', { name: 'Ingreso' }));
     await userEvent.type(screen.getByLabelText('Importe'), '1.258,00');
     await elegirCategoria('Nómina');
     await userEvent.selectOptions(screen.getByLabelText('Entra en'), ID.ing);
+    expect(screen.queryByRole('radiogroup', { name: 'Método de pago' })).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Concepto'), 'Nómina');
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
 
@@ -603,7 +620,7 @@ describe('Formulario', () => {
       cuenta_id: ID.ing,
       cuenta_destino_id: null,
       categoria_id: ID.nomina,
-      metodo: null,
+      metodo: 'transferencia',
     });
   });
 
@@ -717,22 +734,15 @@ describe('Formulario', () => {
     expect(await screen.findByText('Introduce un importe mayor que 0.')).toBeInTheDocument();
   });
 
-  it('categorías: las más usadas primero (SQL) y sugerencia por el concepto', async () => {
-    responderCon([], (l) => {
-      if (l.tabla === 'rpc:categorias_mas_usadas') {
-        return { data: [{ categoria_id: ID.restaurantes }, { categoria_id: ID.ocio }], error: null };
-      }
-      if (l.tabla === 'rpc:sugerir_categoria') return { data: ID.ocio, error: null };
-      return undefined;
-    });
+  it('categorías: en el orden de Configuración (no por uso) y sugerencia por el concepto', async () => {
+    responderCon([], (l) => (l.tabla === 'rpc:sugerir_categoria' ? { data: ID.ocio, error: null } : undefined));
     renderRuta('/movimientos/nuevo');
     const grupo = await screen.findByRole('radiogroup', { name: 'Categoría' });
-    await waitFor(() =>
-      expect(within(grupo).getAllByRole('radio').map((r) => r.textContent)).toEqual([
-        expect.stringContaining('Restaurantes'),
-        expect.stringContaining('Ocio'),
-      ]),
-    );
+    expect(within(grupo).getAllByRole('radio').map((r) => r.textContent)).toEqual([
+      expect.stringContaining('Ocio'),
+      expect.stringContaining('Restaurantes'),
+    ]);
+    expect(db().llamadas.some((l) => l.tabla === 'rpc:categorias_mas_usadas')).toBe(false);
     await userEvent.type(screen.getByLabelText('Concepto'), 'Cine Yelmo');
     await waitFor(() => expect(within(grupo).getByRole('radio', { name: /^Ocio/ })).toHaveAttribute('aria-checked', 'true'));
     expect(within(grupo).getByRole('radio', { name: /^Ocio/ })).toHaveTextContent('Sugerida');
@@ -750,7 +760,7 @@ describe('Formulario', () => {
     expect(screen.getByRole('button', { name: 'Ayer' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('traspaso: cada cuenta muestra su saldo de hoy (v_saldos)', async () => {
+  it('traspaso: las cuentas salen sin su saldo, principal primero y efectivo al final', async () => {
     responderCon([], (l) =>
       l.tabla === 'v_saldos' ? { data: [{ id: ID.caixa, valor: '98.32' }], error: null } : undefined,
     );
@@ -758,11 +768,12 @@ describe('Formulario', () => {
     await userEvent.click(await screen.findByRole('radio', { name: 'Traspaso' }));
     const desde = screen.getByLabelText('Desde');
     await waitFor(() =>
-      expect(
-        within(desde)
-          .getAllByRole('option')
-          .map((o) => o.textContent?.replace(/\s/g, ' ')),
-      ).toContain('Banco Uno · 98,32 €'),
+      expect(within(desde).getAllByRole('option').map((o) => o.textContent)).toEqual([
+        'Elige una cuenta',
+        'Banco Uno',
+        'Banco Dos',
+        'Efectivo',
+      ]),
     );
   });
 
@@ -954,6 +965,9 @@ describe('Devolución: gasto original obligatorio', () => {
     expect(screen.getByLabelText('Importe')).toHaveValue('24,50'); // lo escrito (formateado al salir), no lo pendiente
     // La cuenta sigue siendo editable.
     await userEvent.selectOptions(screen.getByLabelText('Entra en'), ID.caixa);
+    // Métodos de una devolución con banco: transferencia (por defecto), Bizum o domiciliación.
+    const metodo = screen.getByRole('radiogroup', { name: 'Método de pago' });
+    expect(within(metodo).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Transferencia', 'Bizum', 'Domiciliación']);
 
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
     await waitFor(() => expect(llamadasRegistrar()).toHaveLength(1));
@@ -961,7 +975,7 @@ describe('Devolución: gasto original obligatorio', () => {
       p_fecha: '2026-10-20',
       p_cuenta: ID.caixa,
       p_concepto: 'Devolución Amazon',
-      p_metodo: null,
+      p_metodo: 'transferencia',
       p_notas: null,
       p_repartos: [{ gasto: ID_AMAZON, importe: '24.50' }],
       p_sobrante: null,

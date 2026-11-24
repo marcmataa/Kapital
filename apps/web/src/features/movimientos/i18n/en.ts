@@ -117,7 +117,6 @@ export default {
   'form.hacia': 'To (another of your accounts)',
   'form.cuentaAjuste': 'Account to correct',
   'form.metodo': 'Payment method',
-  'form.sinMetodo': 'Not specified',
   'form.gastoOriginal': 'Original expense',
   'form.gastoOriginalAyuda': 'Choose the purchase being refunded. The refund always takes its category.',
   'form.gastoElegido': 'Linked to',

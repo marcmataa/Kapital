@@ -184,7 +184,7 @@ Reglas del gráfico:
 - Eje horizontal: días 1 a 31. Cada línea se dibuja sobre sus propios días: la del mes anterior termina en su último día, sin estirarla.
 - Días sin movimientos: el patrimonio es el del día anterior. La línea sigue plana; nunca baja a cero ni se corta.
 - Días futuros: no se dibujan. La línea del mes actual termina en hoy, sin caer a cero.
-- Día actual: es provisional, porque aún pueden entrar movimientos. Se dibuja con un punto hueco y la etiqueta «hoy, provisional», y su diferencia se compara con el cierre completo del día equivalente.
+- Día actual: es provisional, porque aún pueden entrar movimientos. Se dibuja con un punto hueco y la etiqueta «hoy» y, como cualquier otro día, muestra su diferencia frente al cierre completo del día equivalente. *(Cambio del 24/11/2026: ya no se rotula «provisional» y la lectura de hoy incluye la diferencia.)*
 - Antes de la fecha de partida de los datos: no hay punto. La línea empieza el primer día con datos.
 - Diferencia en euros: patrimonio(d) − patrimonio(d').
 - Diferencia en porcentaje: solo si patrimonio(d') es mayor que 0; si no, se muestra solo la diferencia en euros.
@@ -300,7 +300,7 @@ Datos de partida para las pruebas de inversión: Trade Republic vale 1.472,56 �
 - [ ] Ahorro fuera de rango (02/11/2026): con 100,00 € de ingresos y 350,00 € de gastos netos el balance es −250,00 € y el ahorro sería −250,0 %; no se muestra el porcentaje, sino el texto «Aún no hay ingresos suficientes este mes para calcular el ahorro». Con −100,0 % o 100,0 % exactos sí se muestra.
 - [ ] Fin de mes: el 31/10 se compara con el 30/09; el 29/03/2027 se compara con el 28/02/2027.
 - [ ] Día sin movimientos: el patrimonio del día es igual al del día anterior y la línea no baja a cero.
-- [ ] Hoy: el punto de hoy aparece como provisional y no se dibujan días futuros.
+- [ ] Hoy: el punto de hoy aparece hueco, con la etiqueta «hoy» y su diferencia frente al día equivalente del mes anterior, y no se dibujan días futuros.
 - [ ] Fecha real: un gasto apuntado el martes 20/10 con fecha sábado 17/10 aparece el 17/10 en el gráfico, la lista y el balance.
 - [ ] Categoría en negativo (solo devoluciones antiguas sin vincular, pendientes de revisión): si en un mes Otros gastos tiene 20 € de gasto y 50 € de devoluciones sin vincular, muestra −30,00 € sin porcentaje y no entra en el gráfico circular; el resto de categorías suman 100 %.
 - [ ] Devolución en otro mes *(cifras inventadas)*: un gasto de 80,00 € en Ocio el 28/09 y una devolución vinculada de 20,00 € el 03/10 dan 60,00 € de Ocio en septiembre y no cambian octubre; los ingresos no cambian; el saldo de la cuenta sube 20,00 € el 03/10; las devoluciones desplazadas valen −20,00 € en la variación de septiembre y +20,00 € en la de octubre.

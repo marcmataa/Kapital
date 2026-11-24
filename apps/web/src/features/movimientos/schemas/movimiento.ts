@@ -35,6 +35,7 @@ import {
  * Reglas propias de la UI (no las impone la base):
  * - La fecha es el día en que ocurrió: no puede ser futura (el atajo admite como mucho mañana).
  * - El gasto pide método de pago; en ingreso y devolución es opcional; traspaso y ajuste no tienen.
+ *   El método se pone solo según la cuenta y solo se elige entre los de `metodosElegibles`.
  * - El ajuste necesita una nota que explique el descuadre (sección 9: «Ajuste por la diferencia, con nota»).
  */
 
@@ -258,15 +259,36 @@ export function cuentaPorDefecto(cuentas: readonly Cuenta[], metodo: MetodoPago 
   return (preferida ?? abiertas[0])?.id ?? '';
 }
 
-/**
- * Categorías en el orden de `categorias_mas_usadas` (ids, más usadas primero). Las que no estén
- * en esa lista (p. ej. mientras carga) conservan su orden y van al final.
+/*
+ * Método de pago (cambio del 24/11/2026). Lo decide la cuenta y solo se cambia si tiene sentido:
+ * - Cuenta de efectivo → siempre «Efectivo» y no se pregunta.
+ * - Gasto con banco → «Tarjeta» por defecto; se puede cambiar a Apple Pay, Bizum, domiciliación
+ *   o transferencia.
+ * - Ingreso con banco → «Transferencia»; la nómina no pregunta (es una transferencia).
+ * - Devolución con banco → «Transferencia»; se puede cambiar a Bizum o domiciliación.
+ * Efectivo no se ofrece con un banco: para eso se elige la cuenta de efectivo.
  */
-export function ordenarPorUso<T extends { id: string }>(categorias: readonly T[], usadas: readonly string[] | undefined): T[] {
-  if (usadas === undefined || usadas.length === 0) return [...categorias];
-  const posicion = new Map(usadas.map((id, i) => [id, i]));
-  return categorias
-    .map((c, i) => ({ c, i }))
-    .sort((a, b) => (posicion.get(a.c.id) ?? usadas.length + a.i) - (posicion.get(b.c.id) ?? usadas.length + b.i))
-    .map((x) => x.c);
+const METODOS_GASTO: readonly MetodoPago[] = ['tarjeta', 'apple_pay', 'bizum', 'domiciliacion', 'transferencia'];
+const METODOS_COBRO: readonly MetodoPago[] = ['transferencia', 'bizum', 'domiciliacion'];
+
+interface ContextoMetodo {
+  tipo: TipoMovimiento;
+  cuenta: Pick<Cuenta, 'tipo'> | undefined;
+  /** Clave de la categoría elegida ('nomina'…), o null. */
+  claveCategoria: string | null | undefined;
+}
+
+/** Método que se pone solo. '' en traspasos y ajustes (no tienen). */
+export function metodoAutomatico({ tipo, cuenta }: ContextoMetodo): MetodoPago | '' {
+  if (!usaMetodo(tipo)) return '';
+  if (cuenta?.tipo === 'efectivo') return 'efectivo';
+  return tipo === 'gasto' ? 'tarjeta' : 'transferencia';
+}
+
+/** Métodos entre los que se puede elegir; vacío = no se pregunta (vale el automático). */
+export function metodosElegibles({ tipo, cuenta, claveCategoria }: ContextoMetodo): readonly MetodoPago[] {
+  if (!usaMetodo(tipo) || cuenta?.tipo === 'efectivo') return [];
+  if (tipo === 'gasto') return METODOS_GASTO;
+  if (tipo === 'ingreso' && claveCategoria === 'nomina') return [];
+  return METODOS_COBRO;
 }

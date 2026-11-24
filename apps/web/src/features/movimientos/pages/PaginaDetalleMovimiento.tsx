@@ -5,6 +5,7 @@ import { Button, Card, EmptyState, PantallaCarga, clasesBoton } from '@/shared/u
 import { useMovimientosObtenerQuery } from '../api/movimientosApi';
 import { DetalleMovimiento } from '../components/DetalleMovimiento';
 import { useCatalogos } from '../hooks/useCatalogos';
+import { rutaLista } from '../lib/rutaLista';
 
 /** Detalle en su propia página (móvil, o enlace directo). En escritorio la lista lo muestra al lado. */
 export default function PaginaDetalleMovimiento() {
@@ -46,14 +47,14 @@ export default function PaginaDetalleMovimiento() {
       <DetalleMovimiento
         movimiento={mov.data}
         catalogos={catalogos}
-        onBorrado={() => void navigate('/movimientos', { replace: true })}
+        onBorrado={() => void navigate(rutaLista(), { replace: true })}
       />
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-xl">
-      <CabeceraPagina titulo={t('detalle.titulo')} volverA="/movimientos" />
+      <CabeceraPagina titulo={t('detalle.titulo')} volverA={rutaLista()} />
       <Card>{contenido}</Card>
     </div>
   );
